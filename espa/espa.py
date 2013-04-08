@@ -233,7 +233,6 @@ def makeBrowse(work_dir,metadata, scene_name,resolution=50,debug=False):
             status,output = commands.getstatusoutput(cmd)
             if status != 0:
                 print ("Error occurred running:%s" % cmd)
-                
                 print output
                 return status
             
@@ -513,12 +512,17 @@ if __name__ == '__main__':
                       action="store",
                       dest="scene",
                       help="The scene id to process")
-    parser.add_option("--include_sourcefile_metadata",
+    parser.add_option("--source_type",
+                      action="store",
+                      dest="source_type",
+                      default="level1",
+                      help="level1,sr,toa,th")
+    parser.add_option("--source_metadata",
                       action="store_true",
                       dest="sourcefile_metadata_flag",
                       default=False,
                       help="Include sourcefile metadata in output product")
-    parser.add_option("--include_sourcefile",
+    parser.add_option("--sourcefile",
                       action="store_true",
                       dest="sourcefile_flag",
                       default=False,
@@ -538,7 +542,7 @@ if __name__ == '__main__':
                       action="store",
                       default=50,
                       help="Resolution (in percent) of output browse image")
-    parser.add_option("--include_surface_reflectance",
+    parser.add_option("--surface_reflectance",
                       action="store_true",
                       dest="sr_flag",
                       default=False,
@@ -553,7 +557,7 @@ if __name__ == '__main__':
                       dest="toa_flag",
                       default=False,
                       help="Include Top of Atmosphere in output product")
-    parser.add_option("--band6thermal",
+    parser.add_option("--band6",
                       action="store_true",
                       dest="b6thermal_flag",
                       default=False,
@@ -676,7 +680,15 @@ if __name__ == '__main__':
         source_directory = options.source_directory
     else:
         source_directory = ("%s/%s/%s/%s/%s") % (base_source_path, sensor, path, row, year)
-    source_filename = "%s.tar.gz" % scene
+
+    if options.source_type == 'level1':
+        source_filename = "%s.tar.gz" % scene
+    elif options.source_type in ('sr','toa','th'):
+        source_filename = "%s-sr.tar.gz" % scene
+    else:
+        print ('Did not recognize source file type:%s' % options.source_type)
+        sys.exit(-1)
+        
     source_file = ("%s/%s") % (source_directory,source_filename)
     
     product_filename = ("%s-%s") % (scene,processing_level)
@@ -692,9 +704,23 @@ if __name__ == '__main__':
     
     destination_file = ("%s/%s.tar.gz") % (destination_dir,product_filename)
     randdir = str(int(random.random() * 100000))
+    stagedir = ("%s/espawork/%s/%s/stage") % (BASE_WORK_DIR,randdir,scene)
     workdir = ("%s/espawork/%s/%s/work") % (BASE_WORK_DIR,randdir,scene)
     outputdir=("%s/espawork/%s/%s/output") % (BASE_WORK_DIR,randdir,scene)
     localhostname = socket.gethostname()
+
+    #PREPARE LOCAL STAGING DIRECTORY
+    try:
+        if os.path.exists(stagedir):
+            cmd = "rm -rf %s" % stagedir
+            status,output = commands.getstatusoutput(cmd)
+            if status != 0:
+                raise Exception(output)
+        os.makedirs(stagedir, mode=0755)
+    except Exception,e:
+        print ("Error cleaning & creating stagedir:%s... exiting") % (stagedir)
+        print e
+        sys.exit(1)
 
     #PREPARE LOCAL WORK DIRECTORY
     try:
@@ -724,19 +750,19 @@ if __name__ == '__main__':
     
     #TRANSFER THE SOURCE FILE TO THE LOCAL MACHINE
     print ("Transferring %s from %s to %s") % (source_file,source_host,localhostname)  
-    cmd = ("scp -C %s:%s %s") % (source_host, source_file, outputdir)
+    cmd = ("scp -C %s:%s %s") % (source_host, source_file, stagedir)
     (status,output) = commands.getstatusoutput(cmd)
     if status != 0:
-        print ("Error transferring %s:%s to %s... exiting") % (source_host, source_file, outputdir)
+        print ("Error transferring %s:%s to %s... exiting") % (source_host, source_file, stagedir)
         print output
         sys.exit(3)
     
     #UNPACK THE SOURCE FILE
-    print ("Unpacking %s.tar.gz to %s") % (scene, workdir)
-    cmd = ("tar --directory %s -xvf %s/%s.tar.gz") % (workdir, outputdir, scene)
+    print ("Unpacking %s to %s") % (source_filename, workdir)
+    cmd = ("tar --directory %s -xvf %s/%s") % (workdir, stagedir, source_filename)
     (status,output) = commands.getstatusoutput(cmd)
     if status != 0:
-        print ("Error unpacking source file to %s/%s.tar.gz") % (outputdir,scene)
+        print ("Error unpacking source file to %s/%s") % (workdir,source_filename)
         print output
         sys.exit(4)
 
@@ -747,7 +773,15 @@ if __name__ == '__main__':
             print ("%s : %s" % (m, metadata[m]))
            
     #MAKE THE PRODUCT
-    if options.sr_browse_flag or options.sr_ndvi_flag or options.sr_flag or options.b6thermal_flag or options.toa_flag or options.cfmask_flag:
+    #ONLY RUN THIS IF THE SOURCE FILE IS A LEVEL 1
+    #SKIP IF ITS AN SR,TOA,OR TH
+    if options.source_type == 'level1' and \
+         (options.sr_browse_flag
+         or options.sr_ndvi_flag
+         or options.sr_flag
+         or options.b6thermal_flag
+         or options.toa_flag
+         or options.cfmask_flag):
         cmd = ("cd %s; do_ledaps.py --metafile %s") % (workdir, metadata['mtl_file'])
         print ("LEDAPS COMMAND:%s" % cmd)
         print ("Running LEDAPS against %s with metafile %s") % (scene,metadata['mtl_file'])
@@ -805,6 +839,14 @@ if __name__ == '__main__':
         sb.write(" *lndcal* ")
     if not options.sr_flag:
         sb.write(" *lndsr* ")
+    if not options.sr_browse_flag:
+        sb.write(" *browse* ")
+    if not options.sr_ndvi_flag:
+        sb.write(" *ndvi* ")
+    if not options.solr_flag:
+        sb.write(" *index* ")
+    if not options.cfmask_flag:
+        sb.write(" *fmask* ")
     
     sb.flush()
     
@@ -864,34 +906,17 @@ if __name__ == '__main__':
         print ("Error transferring %s.tar to %s:%s... exiting" % (product_filename, destination_host,destination_file))
         print output
         sys.exit(15)
-    
-    #print ("Changing file permissions on  %s/%s to 0644" % (outputdir,source_filename))
-    #cmd = "chmod 0644 %s/%s" % (outputdir, source_filename)
-    #status,output = commands.getstatusoutput(cmd)
-    #if status != 0:
-    #    print ("Error changing permissions on %s/%s.tar.gz to 0644... exiting" % (outputdir,source_filename))
-    #    print output
-    #    sys.exit(16)
-    
-    #DISTRIBUTE THE SOURCE FILE (THIS SHOULD GO AWAY ONCE USERS CAN SELECT WHAT THEY WANT)
-    #print ("Transferring %s to %s:%s" % (source_filename,destination_host,destination_dir))   
-    #cmd = "scp -p -C %s/%s %s:%s" % (outputdir, source_filename, destination_host,destination_dir)
-    #status,output = commands.getstatusoutput(cmd)
-    #if status != 0:
-    #    print ("Error transferring %s.tar to %s:%s... exiting" % (source_filename, destination_host,destination_dir))
-    #    print output
-    #    sys.exit(17)    
-        
+           
     
     #CLEAN UP THE LOCAL FILESYSTEM
     status,output = commands.getstatusoutput("cd /tmp")
-    print ("Cleaning local directories:%s %s" % (outputdir,workdir))
-    cmd = "rm -rf %s %s" % (outputdir,workdir)
+    print ("Cleaning local directories:%s %s %s" % (outputdir,workdir,stagedir))
+    cmd = "rm -rf %s %s %s" % (outputdir,workdir,stagedir)
     status,output = commands.getstatusoutput(cmd)
 
     if status != 0:
-        print("Error cleaning output:%s and work:%s directories... exiting" % (outputdir,workdir))
+        print("Error cleaning output:%s work:%s stage:%s directories... exiting" % (outputdir,workdir,stagedir))
         print output
-        sys.exit(18)
+        sys.exit(16)
     
     print ("ESPA Complete")
