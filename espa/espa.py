@@ -27,7 +27,6 @@ def stripZeros(value):
     
     while value.startswith('0'):
         value = value[1:len(value)]
-        
     return value
 
 #==============================================================
