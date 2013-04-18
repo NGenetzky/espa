@@ -19,7 +19,7 @@ if __name__ == '__main__':
             orderid = line['orderid']
             sceneid = line['scene']
 
-            if type(line['options']) == str:
+            if type(line['options']) == str or type(line['options']) == unicode:
                 options = json.loads(line['options'])
             else:
                 options = line['options']
@@ -44,7 +44,7 @@ if __name__ == '__main__':
             cmd = cmd + '--order %s ' % orderid
             
             if options.has_key('include_sr') and options['include_sr'] == True:
-                cmd = cmd + '--include_surface_reflectance ' 
+                cmd = cmd + '--surface_reflectance ' 
             if options.has_key('include_sr_browse') and options['include_sr_browse'] == True:
                 cmd = cmd + '--sr_browse '
                 if options.has_key('browse_resolution'):
@@ -54,13 +54,13 @@ if __name__ == '__main__':
             if options.has_key('include_solr_index') and options['include_solr_index'] == True:
                 cmd = cmd + '--solr ' 
             if options.has_key('include_sr_thermal') and options['include_sr_thermal'] == True:
-                cmd = cmd + '--band6thermal ' 
+                cmd = cmd + '--band6 ' 
             if options.has_key('include_sr_toa') and options['include_sr_toa'] == True:
                 cmd = cmd + '--toa ' 
             if options.has_key('include_sourcefile') and options['include_sourcefile'] == True:
-                cmd = cmd + '--include_sourcefile '
+                cmd = cmd + '--sourcefile '
             if options.has_key('include_source_metadata') and options['include_source_metadata'] == True:
-                cmd = cmd + '--include_sourcefile_metadata '
+                cmd = cmd + '--source_metadata '
             if options.has_key('include_cfmask') and options['include_cfmask'] == True:
                 cmd = cmd + '--cfmask '
             if options.has_key('source_host'):
