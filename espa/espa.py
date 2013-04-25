@@ -501,7 +501,127 @@ def make_cfmask(workdir):
     finally:
         pass
     return 0
+
+
+
+###############################################################
+
+###############################################################
+def package_product(product_dir, output_dir, product_filename):
+    
+    #PACKAGE THE PRODUCT FILE
+    orig_cwd = os.getcwd()
+    os.chdir(product_dir)
+    print ("Packaging completed product to %s/%s.tar.gz") % (output_dir,product_filename)
+    cmd = ("tar -cvf %s/%s.tar *") % (product_dir, product_filename)
+    status, output = commands.getstatusoutput(cmd)
+    os.chdir(orig_cwd)
+    if status != 0:
+        print ("Error packaging finished product to %s/%s.tar") % (outputdir,product_filename)
+        print output
+        return (1,)
+
+    os.chdir(output_dir)
+
+    #COMPRESS THE PRODUCT FILE
+    cmd = ("gzip %s.tar") % (product_filename)
+    status, output = commands.getstatusoutput(cmd)
+    if status != 0:
+        print ("Error compressing final product file:%s/%s.tar") % (output_dir,product_filename)
+        print output
+        return(2,)
+
+    #CHANGE FILE PERMISSIONS 
+    print ("Changing file permissions on %s.tar.gz to 0644" % (product_filename))
+    os.chmod("%s.tar.gz" % (product_filename), 0644)
         
+    #VERIFY THAT THE ARCHIVE IS GOOD
+    cmd = ("tar -tf %s.tar.gz") % (product_filename)
+    status, output = commands.getstatusoutput(cmd)
+    if status != 0:
+        print ("Packaged product is an invalid tgz...")
+        print output
+        return(3,)
+
+    #if it was good then create a checksum
+    cmd = ("cksum %s.tar.gz")% (product_filename)
+    status, output = commands.getstatusoutput(cmd)
+    if status != 0:
+        print ("Couldn't generate cksum against:%s.tar.gz" % (product_filename))
+        print output
+        return (4,)                   
+    else:
+        h = open("%s.cksum" % product_filename, 'wb+')
+        h.write(output)
+        h.flush()
+        h.close()
+        return (0, output)  
+    
+###############################################################
+
+###############################################################
+def distribute_product(product_file_full_path, destination_host, destination_file):
+
+    #MAKE DISTRIBUTION DIRECTORIES
+    print ("Creating destination directories at %s" % destination_dir)
+    cmd = "ssh %s mkdir -p %s" % (destination_host, destination_dir)
+    status,output = commands.getstatusoutput(cmd)
+    if status != 0:
+        print ("Error creating destination directory %s on %s" % (destination_dir,destination_host))
+        print output
+        return (1,)
+    
+    #DISTRIBUTE THE PRODUCT FILE
+    print ("Transferring %s to %s:%s" % (product_file_full_path,destination_host,destination_file))   
+    cmd = "scp -pC %s %s:%s" % (product_file_full_path,destination_host, destination_file)       
+    status,output = commands.getstatusoutput(cmd)
+    if status != 0:
+        print ("Error transferring %s to %s:%s..." % (product_file_full_path, destination_host,destination_file))
+        print output
+        return (2,)
+
+    #DISTRIBUTE THE CHECKSUM
+    print ("Transferring the checksum to %s:%s" % (cksum_file_full_path, destination_host, destination_file))
+    cmd = "scp -pC %s %s:%s" % (cksum_file_full_path, destination_host, destination_file)       
+    status,output = commands.getstatusoutput(cmd)
+    if status != 0:
+        print ("Error transferring %s to %s:%s..." % (cksum_file_full_path, destination_host,destination_file))
+        print output
+        return (3,)
+                    
+    #CHECK DISTRIBUTED PRODUCT CHECKSUM
+    cmd = "ssh %s cksum %s/%s.tar.gz" % (destination_host, destination_dir, product_file)
+    status,output = commands.getstatusoutput(cmd)
+    if status != 0:
+        #problem getting checksum
+        print ("Error generating remote checksum for %s:%s on %s... " % (product_file, destination_host, destination_dir))
+        print output
+        return (4,)
+    else:
+        return (0,output)
+
+
+def do_distribution(outputdir, product_filename, destination_host, destination_file):
+    attempt = 0
+    pstatus = None
+    local_chksum = None
+    while (attempt < 3 and pstatus != 0):
+        pstatus,local_chksum = package_product(outputdir, product_filename)
+        if pstatus == 0:
+            break
+         attempt = attempt + 1
+
+    attempt = 0
+    dstatus = None
+    remote_chksum = None
+    while (attempt < 3 and dstatus != 0):
+        dstatus,remote_chksum = distribute_product(os.path.join(outputdir, product_filename), destination_host, destination_file)
+        if dstatus == 0:
+            break
+        attempt = attempt + 1
+
+    return (local_chksum, remote_chksum)
+            
 #==============================================================
 #Runs the script
 #==============================================================
@@ -689,7 +809,9 @@ if __name__ == '__main__':
         sys.exit(-1)
         
     source_file = ("%s/%s") % (source_directory,source_filename)
-    
+
+    #MODIFY THIS TO MATCH THE NEW NAMING FORMAT
+    #scene minus station and version-monthdayyearminutesecond
     product_filename = ("%s-%s") % (scene,processing_level)
 
     destination_dir = None
@@ -868,53 +990,72 @@ if __name__ == '__main__':
         print output
         sys.exit(10)
 
+
+    #PACKAGE THE PRODUCT    
+    attempt = 0
+    success = False
+    while (attempt < 3):
+        local,remote = do_distribution()
+        if local.split()[0] == remote.split()[0]:
+            print ("Distribution complete for %s:%s" % (destination_host, destination_file))
+            success = True
+            break
+        else:
+            print ("Checksums do not match for %s:%s... retrying" % (destination_host, destination_file))
+            attempt = attempt + 1
+
+    if not success:
+        print ("Packaging and distribution for %s:%s failed after 3 attempts" % (destination_host,destination_file))
     
+        
+    
+        
     #PACKAGE THE PRODUCT FILE
-    print ("Packaging completed product to %s/%s.tar.gz") % (outputdir,product_filename)
-    cmd = ("tar -cvf %s/%s.tar *") % (outputdir, product_filename)
-    status,output = commands.getstatusoutput(cmd)
-    os.chdir(orig_cwd)
-    if status != 0:
-        print ("Error packaging finished product to %s/%s.tar") % (outputdir,product_filename)
-        print output
-        sys.exit(11)
+    #print ("Packaging completed product to %s/%s.tar.gz") % (outputdir,product_filename)
+    #cmd = ("tar -cvf %s/%s.tar *") % (outputdir, product_filename)
+    #status,output = commands.getstatusoutput(cmd)
+    #os.chdir(orig_cwd)
+    #if status != 0:
+    #    print ("Error packaging finished product to %s/%s.tar") % (outputdir,product_filename)
+    #    print output
+    #    sys.exit(11)
     
     #COMPRESS THE PRODUCT FILE
-    cmd = ("gzip %s/%s.tar") % (outputdir,product_filename)
-    status,output = commands.getstatusoutput(cmd)
-    if status != 0:
-        print ("Error compressing final product file:%s/%s.tar") % (outputdir,product_filename)
-        print output
-        sys.exit(12)
+    #cmd = ("gzip %s/%s.tar") % (outputdir,product_filename)
+    #status,output = commands.getstatusoutput(cmd)
+    #if status != 0:
+    #    print ("Error compressing final product file:%s/%s.tar") % (outputdir,product_filename)
+    #    print output
+    #    sys.exit(12)
     
     
     #MAKE DISTRIBUTION DIRECTORIES
-    print ("Creating destination directories at %s" % destination_dir)
-    cmd = "ssh %s mkdir -p %s" % (destination_host, destination_dir)
-    status,output = commands.getstatusoutput(cmd)
-    if status != 0:
-        print ("Error creating destination directory %s on %s" % (destination_dir,destination_host))
-        print output
-        sys.exit(13)
+    #print ("Creating destination directories at %s" % destination_dir)
+    #cmd = "ssh %s mkdir -p %s" % (destination_host, destination_dir)
+    #status,output = commands.getstatusoutput(cmd)
+    #if status != 0:
+    #    print ("Error creating destination directory %s on %s" % (destination_dir,destination_host))
+    #    print output
+    #    sys.exit(13)
     
     
-    print ("Changing file permissions on  %s/%s.tar.gz to 0644" % (outputdir,product_filename))
-    cmd = "chmod 0644 %s/%s.tar.gz" % (outputdir, product_filename)
-    #os.chmod("%s/%s.tar.gz" % (outputdir, product_filename), 644)
-    status,output = commands.getstatusoutput(cmd)
-    if status != 0:
-        print ("Error changing permissions on %s/%s.tar.gz to 0644... exiting" % (outputdir,product_filename))
-        print output
-        sys.exit(14)
+    #print ("Changing file permissions on  %s/%s.tar.gz to 0644" % (outputdir,product_filename))
+    #cmd = "chmod 0644 %s/%s.tar.gz" % (outputdir, product_filename)
+    ##os.chmod("%s/%s.tar.gz" % (outputdir, product_filename), 644)
+    #status,output = commands.getstatusoutput(cmd)
+    #if status != 0:
+    #    print ("Error changing permissions on %s/%s.tar.gz to 0644... exiting" % (outputdir,product_filename))
+    #    print output
+    #    sys.exit(14)
     
     #DISTRIBUTE THE PRODUCT FILE
-    print ("Transferring %s.tar.gz to %s:%s" % (product_filename,destination_host,destination_file))   
-    cmd = "scp -p -C %s/%s.tar.gz %s:%s" % (outputdir, product_filename, destination_host, destination_file)       
-    status,output = commands.getstatusoutput(cmd)
-    if status != 0:
-        print ("Error transferring %s.tar to %s:%s... exiting" % (product_filename, destination_host,destination_file))
-        print output
-        sys.exit(15)
+    #print ("Transferring %s.tar.gz to %s:%s" % (product_filename,destination_host,destination_file))   
+    #cmd = "scp -p -C %s/%s.tar.gz %s:%s" % (outputdir, product_filename, destination_host, destination_file)       
+    #status,output = commands.getstatusoutput(cmd)
+    #if status != 0:
+    #    print ("Error transferring %s.tar to %s:%s... exiting" % (product_filename, destination_host,destination_file))
+    #    print output
+    #    sys.exit(15)
            
     
     #CLEAN UP THE LOCAL FILESYSTEM
