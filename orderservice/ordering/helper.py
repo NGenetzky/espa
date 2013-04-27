@@ -327,7 +327,7 @@ def markSceneComplete(name, orderid, processing_loc,completed_file_location, des
         s.processing_location = processing_loc
         s.product_distro_location = completed_file_location
         s.completion_date = datetime.now()
-        s.destination_cksum_file = destination_cksum_file
+        s.cksum_distro_location = destination_cksum_file
         
         #if source_l1t_location is not None:
             #s.source_distro_location = source_l1t_location
