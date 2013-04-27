@@ -318,7 +318,7 @@ def setSceneError(name, orderid, processing_loc, error):
         print("setSceneError:No scene was found with the name:%s for order:%s") % (name, orderid)
         return False
 
-def markSceneComplete(name, orderid, processing_loc,completed_file_location, source_l1t_location = None,log_file_contents=None):
+def markSceneComplete(name, orderid, processing_loc,completed_file_location, destination_cksum_file = None,log_file_contents=None):
     print ("Marking scene:%s complete for order:%s" % (name, orderid))
     o = Order.objects.get(orderid = orderid)
     s = Scene.objects.get(name=name, order__id = o.id)
@@ -327,15 +327,23 @@ def markSceneComplete(name, orderid, processing_loc,completed_file_location, sou
         s.processing_location = processing_loc
         s.product_distro_location = completed_file_location
         s.completion_date = datetime.now()
+        s.destination_cksum_file = destination_cksum_file
+        
         #if source_l1t_location is not None:
             #s.source_distro_location = source_l1t_location
+
         s.log_file_contents = log_file_contents
                                 
         #Need to modify this as soon as we're going to start
         #providing more than 1 product
-        base_url = Configuration().getValue('distribution.cache.home.url')       
-        s.product_dload_url = ('%s/orders/%s/%s') % (base_url,orderid,s.name + '-sr.tar.gz' )  
-        s.source_download_url = ('%s/orders/%s/%s') % (base_url,orderid,s.name + '.tar.gz' )
+        base_url = Configuration().getValue('distribution.cache.home.url')
+
+        product_file_parts = completed_file_location.split('/')
+        product_file = product_file_parts[len(product_file_parts) - ]
+        cksum_file_parts = destination_cksum_file.split('/')
+        cksum_file = cksum_file_parts[len(cksum_file_parts) - 1]
+        s.product_dload_url = ('%s/orders/%s/%s') % (base_url,orderid,product_file)  
+        s.cksum_download_url = ('%s/orders/%s/%s') % (base_url,orderid,cksum_file)
         s.save()
 
         sendEmailIfComplete(o.orderid,s)

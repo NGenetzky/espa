@@ -205,7 +205,7 @@ def orderdetails(request, orderid, output_format=None):
         scenes = Scene.objects.filter(order__orderid=orderid,status='Complete')
         output = ''
         for scene in scenes:
-            line = ("%s,%s,%s\n") % (scene.name,scene.download_url,scene.source_l1t_download_url)
+            line = ("%s,%s,%s\n") % (scene.name,scene.download_url,scene.cksum_download_url)
             output = output + line
         return HttpResponse(output, mimetype='text/plain')
         
