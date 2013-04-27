@@ -605,7 +605,7 @@ def distribute_product(product_file_full_path, cksum_file_full_path, destination
         return (3,)
                     
     #CHECK DISTRIBUTED PRODUCT CHECKSUM
-    cmd = "ssh %s cksum %s" % (destination_host, destination_file)
+    cmd = "ssh -q %s cksum %s" % (destination_host, destination_file)
     status,output = commands.getstatusoutput(cmd)
     if status != 0:
         #problem getting checksum
@@ -1021,6 +1021,8 @@ if __name__ == '__main__':
             break
         else:
             print ("Checksums do not match for %s:%s... retrying" % (destination_host, destination_file))
+            print ("Local cksum:%s" % local.split()[0])
+            print ("Remote cksum:%s" % remote.split()[0])
             attempt = attempt + 1
 
     if not success:
