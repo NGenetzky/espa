@@ -127,12 +127,12 @@ if __name__ == '__main__':
                         
                         server.markSceneComplete(sceneid,orderid,processing_location,completed_scene_location,cksum_file_location,"")
                     else:
-                        raise Exception("Did not receive a distribution location or cksum file location for:%s.  Status line was:%s" % (sceneid,status_line))
+                        raise Exception("Did not receive a distribution location or cksum file location for:%s.  Status line was:%s\n.  Log:%s" % (sceneid,status_line, output))
 
         except Exception, e:
             logger ("An error occurred processing %s" % sceneid)
             logger (e)
-            h = open('/tmp/jobdebug.txt', 'wb+')
+            h = open('/tmp/%s-jobdebug.txt' % (sceneid), 'wb+')
             h.write("An error occurred processing %s" % sceneid)
             h.write(str(e))
             h.flush()
