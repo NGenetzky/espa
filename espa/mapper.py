@@ -94,6 +94,7 @@ if __name__ == '__main__':
             status,output = commands.getstatusoutput(cmd)
             if status != 0:
                 logger ("Error occurred processing %s" % sceneid)
+                logger ("%s returned code:%s" % (sceneid, status))
                 if server is not None:
                     server.setSceneError(sceneid, orderid, processing_location, output)
                 else:
@@ -107,8 +108,7 @@ if __name__ == '__main__':
                 if server is not None:
                     b = StringIO(output)
                     status_line = [f for f in b.readlines() if f.startswith("espa:result")]
-                    b.close()
-                    
+                                        
                     #logger ("status_line%s" % status_line)
                     #logger ("status_line_len:%i" % len(status_line))
 
@@ -127,7 +127,7 @@ if __name__ == '__main__':
                         
                         server.markSceneComplete(sceneid,orderid,processing_location,completed_scene_location,cksum_file_location,"")
                     else:
-                        raise Exception("Did not receive a distribution location or cksum file location for:%s" % sceneid)
+                        raise Exception("Did not receive a distribution location or cksum file location for:%s.  Status line was:%s" % (sceneid,status_line))
 
         except Exception, e:
             logger ("An error occurred processing %s" % sceneid)
