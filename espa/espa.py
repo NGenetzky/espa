@@ -510,14 +510,13 @@ def make_cfmask(workdir):
 def package_product(product_dir, output_dir, product_filename):
 
     product_file_full_path = os.path.join(outputdir, product_filename)
-    
-    #PACKAGE THE PRODUCT FILE
-    orig_cwd = os.getcwd()
-    os.chdir(product_dir)
 
-    for l in os.listdir():
+    #delete any old ones if they are there
+    for l in os.listdir(outputdir):
         if l.startswith(product_filename):
-            os.remove(l)
+            full_path = os.path.join(outputdir, l)
+            os.remove(full_path)
+                                  
     
     print ("Packaging completed product to %s.tar.gz") % (product_file_full_path)
     cmd = ("tar -cvf %s.tar *") % (product_file_full_path)
