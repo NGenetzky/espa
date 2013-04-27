@@ -339,7 +339,7 @@ def markSceneComplete(name, orderid, processing_loc,completed_file_location, des
         base_url = Configuration().getValue('distribution.cache.home.url')
 
         product_file_parts = completed_file_location.split('/')
-        product_file = product_file_parts[len(product_file_parts) - ]
+        product_file = product_file_parts[len(product_file_parts) - 1]
         cksum_file_parts = destination_cksum_file.split('/')
         cksum_file = cksum_file_parts[len(cksum_file_parts) - 1]
         s.product_dload_url = ('%s/orders/%s/%s') % (base_url,orderid,product_file)  
