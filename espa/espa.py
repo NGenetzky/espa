@@ -1086,5 +1086,5 @@ if __name__ == '__main__':
     print ("ESPA Complete")
     #return 0 and the file we distributed
     {u'f1': u'aaa', u'f2': u'adsf'}
-    print ("espa.result={'destination_file':'%s', 'destination_cksum_file':'%s'}" % (destination_file, destination_cksum_file))
+    print ('espa.result={"destination_file":"%s", "destination_cksum_file":"%s"}' % (destination_file, destination_cksum_file))
     sys.exit()

@@ -38,7 +38,7 @@ if __name__ == '__main__':
                 logger("sceneid did not start with L")
                 continue;
         
-            logger "Processing %s" % sceneid
+            logger ("Processing %s" % sceneid)
 
             if xmlrpcurl is not None:
                 server = xmlrpclib.ServerProxy(xmlrpcurl)
@@ -97,7 +97,7 @@ if __name__ == '__main__':
                 if server is not None:
                     server.setSceneError(sceneid, orderid, processing_location, output)
                 else:
-                    logger output
+                    logger(output)
             else:
                 logger ("Processing complete for %s" % sceneid)
                 #where the hell do i get the completed_scene_location and source_l1t_location from?
@@ -107,19 +107,31 @@ if __name__ == '__main__':
                 if server is not None:
                     b = StringIO(output)
                     status_line = [f for f in b.readlines() if f.startswith("espa:result")]
+                    b.close()
+                    
+                    #logger ("status_line%s" % status_line)
+                    #logger ("status_line_len:%i" % len(status_line))
 
-                    logger ("status_line:%s" % status_line)
-                    logger ("status_line_len:%i" % len(status_line))
+                    if len(status_line) == 1:
+                        #print ("Loading %s into JSON" % (status_line[0]))
 
+                        myjson = status_line[0].split('=')[1]
+                        #print ("MyJSON:%s" % myjson)        
 
-                    completed_scene_location = '/data2/LSRD/orders/%s/%s-sr.tar.gz' % (orderid,sceneid)
-                    #source_l1t_location = '/data2/LSRD/orders/%s/%s.tar.gz' % (orderid, sceneid)
-                    source_l1t_location = 'not distributed'
-                    server.markSceneComplete(sceneid,orderid,processing_location,completed_scene_location,source_l1t_location,"")
+                        data = json.loads(myjson)
+                        #print data
+
+                        #completed_scene_location = '/data2/LSRD/orders/%s/%s-sr.tar.gz' % (orderid,sceneid)
+                        completed_scene_location = data['destination_file']
+                        cksum_file_location = data['destination_cksum_file']
+                        
+                        server.markSceneComplete(sceneid,orderid,processing_location,completed_scene_location,cksum_file_location,"")
+                    else:
+                        raise Exception("Did not receive a distribution location or cksum file location for:%s" % sceneid)
 
         except Exception, e:
             logger ("An error occurred processing %s" % sceneid)
-            logger e
+            logger (e)
             h = open('/tmp/jobdebug.txt', 'wb+')
             h.write("An error occurred processing %s" % sceneid)
             h.write(str(e))
