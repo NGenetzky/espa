@@ -506,37 +506,45 @@ def make_cfmask(workdir):
 
 ###############################################################
 
-###############################################################
+################################################ ###############
 def package_product(product_dir, output_dir, product_filename):
+
+    product_file_full_path = os.path.join(outputdir, product_filename)
     
     #PACKAGE THE PRODUCT FILE
     orig_cwd = os.getcwd()
     os.chdir(product_dir)
-    print ("Packaging completed product to %s/%s.tar.gz") % (output_dir,product_filename)
-    cmd = ("tar -cvf %s/%s.tar *") % (product_dir, product_filename)
+    print ("Packaging completed product to %s.tar.gz") % (product_file_full_path)
+    cmd = ("tar -cvf %s.tar *") % (product_file_full_path)
     status, output = commands.getstatusoutput(cmd)
     os.chdir(orig_cwd)
     if status != 0:
-        print ("Error packaging finished product to %s/%s.tar") % (outputdir,product_filename)
+        print ("Error packaging finished product to %s.tar") % (product_file_full_path)
         print output
         return (1,)
 
     os.chdir(output_dir)
 
+    #this is now the product filename with path
+    product_file_full_path = "%s.tar" % product_file_full_path
+    
     #COMPRESS THE PRODUCT FILE
-    cmd = ("gzip %s.tar") % (product_filename)
+    cmd = ("gzip %s") % (product_file_full_path)
     status, output = commands.getstatusoutput(cmd)
     if status != 0:
-        print ("Error compressing final product file:%s/%s.tar") % (output_dir,product_filename)
+        print ("Error compressing final product file:%s") % (product_file_full_path)
         print output
         return(2,)
 
+    #it now has a .gz extension
+    product_file_full_path = "%s.gz" % product_file_full_path
+    
     #CHANGE FILE PERMISSIONS 
-    print ("Changing file permissions on %s.tar.gz to 0644" % (product_filename))
-    os.chmod("%s.tar.gz" % (product_filename), 0644)
+    print ("Changing file permissions on %s to 0644" % (product_file_full_path))
+    os.chmod(product_file_full_path, 0644)
         
     #VERIFY THAT THE ARCHIVE IS GOOD
-    cmd = ("tar -tf %s.tar.gz") % (product_filename)
+    cmd = ("tar -tf %s") % (product_file_full_path)
     status, output = commands.getstatusoutput(cmd)
     if status != 0:
         print ("Packaged product is an invalid tgz...")
@@ -544,23 +552,25 @@ def package_product(product_dir, output_dir, product_filename):
         return(3,)
 
     #if it was good then create a checksum
-    cmd = ("cksum %s.tar.gz")% (product_filename)
+    cmd = ("cksum %s")% (product_file_full_path)
     status, output = commands.getstatusoutput(cmd)
     if status != 0:
-        print ("Couldn't generate cksum against:%s.tar.gz" % (product_filename))
+        print ("Couldn't generate cksum against:%s" % (product_file_full_path))
         print output
         return (4,)                   
     else:
-        h = open("%s.cksum" % product_filename, 'wb+')
+        cksum_file = "%s.cksum" % product_filename
+        h = open(cksum_file, 'wb+')
         h.write(output)
         h.flush()
+        cksum_file_full_path = h.name
         h.close()
-        return (0, output)  
+        return (0, output, product_file_full_path, cksum_file_full_path)  
     
 ###############################################################
 
 ###############################################################
-def distribute_product(product_file_full_path, destination_host, destination_file):
+def distribute_product(product_file_full_path, cksum_file_full_path, destination_host, destination_file, destination_cksum_file):
 
     #MAKE DISTRIBUTION DIRECTORIES
     print ("Creating destination directories at %s" % destination_dir)
@@ -572,50 +582,54 @@ def distribute_product(product_file_full_path, destination_host, destination_fil
         return (1,)
     
     #DISTRIBUTE THE PRODUCT FILE
-    print ("Transferring %s to %s:%s" % (product_file_full_path,destination_host,destination_file))   
-    cmd = "scp -pC %s %s:%s" % (product_file_full_path,destination_host, destination_file)       
+    print ("Transferring %s to %s:%s" % (product_file_full_path, destination_host, destination_file))   
+    cmd = "scp -pC %s %s:%s" % (product_file_full_path, destination_host, destination_file)       
     status,output = commands.getstatusoutput(cmd)
     if status != 0:
-        print ("Error transferring %s to %s:%s..." % (product_file_full_path, destination_host,destination_file))
+        print ("Error transferring %s to %s:%s..." % (product_file_full_path, destination_host, destination_file))
         print output
         return (2,)
 
     #DISTRIBUTE THE CHECKSUM
-    print ("Transferring the checksum to %s:%s" % (cksum_file_full_path, destination_host, destination_file))
-    cmd = "scp -pC %s %s:%s" % (cksum_file_full_path, destination_host, destination_file)       
+    print ("Transferring %s to %s:%s" % (cksum_file_full_path, destination_host, destination_cksum_file))
+    cmd = "scp -pC %s %s:%s" % (cksum_file_full_path, destination_host, destination_cksum_file)       
     status,output = commands.getstatusoutput(cmd)
     if status != 0:
-        print ("Error transferring %s to %s:%s..." % (cksum_file_full_path, destination_host,destination_file))
+        print ("Error transferring %s to %s:%s..." % (cksum_file_full_path, destination_host,destination_cksum_file))
         print output
         return (3,)
                     
     #CHECK DISTRIBUTED PRODUCT CHECKSUM
-    cmd = "ssh %s cksum %s/%s.tar.gz" % (destination_host, destination_dir, product_file)
+    cmd = "ssh %s cksum %s" % (destination_host, destination_file)
     status,output = commands.getstatusoutput(cmd)
     if status != 0:
         #problem getting checksum
-        print ("Error generating remote checksum for %s:%s on %s... " % (product_file, destination_host, destination_dir))
+        print ("Error generating remote checksum for %s:%s... " % (destination_host, destination_file))
         print output
         return (4,)
     else:
         return (0,output)
 
 
-def do_distribution(outputdir, product_filename, destination_host, destination_file):
+#wrapper for doing the distribution
+def do_distribution(outputdir, product_filename, destination_host, destination_file, destination_cksum_file):
     attempt = 0
     pstatus = None
     local_chksum = None
+    cksum_file_full_path = None
+    product_file_full_path = None
     while (attempt < 3 and pstatus != 0):
-        pstatus,local_chksum = package_product(outputdir, product_filename)
+        pstatus, local_chksum, product_file_full_path, cksum_file_full_path = package_product(workdir, outputdir, product_filename)
         if pstatus == 0:
             break
-         attempt = attempt + 1
+        attempt = attempt + 1
 
     attempt = 0
     dstatus = None
     remote_chksum = None
+    #product_file_full_path = os.path.join(outputdir, product_filename + ".tar.gz")
     while (attempt < 3 and dstatus != 0):
-        dstatus,remote_chksum = distribute_product(os.path.join(outputdir, product_filename), destination_host, destination_file)
+        dstatus,remote_chksum = distribute_product(product_file_full_path, cksum_file_full_path, destination_host, destination_file, destination_cksum_file)
         if dstatus == 0:
             break
         attempt = attempt + 1
@@ -740,9 +754,6 @@ if __name__ == '__main__':
                       dest="debug",
                       help="Print debug messages while running")
     
-    
-
-    
     (options,args) = parser.parse_args()
 
     #print str(options)
@@ -755,12 +766,12 @@ if __name__ == '__main__':
     if options.scene is None:
         print ("\n You must specify a scene to process\n")
         parser.print_help()        
-        exit(-1)
+        sys.exit((-1,))
 
     if options.ordernum is None and options.collection_name is None and options.destination_directory is None:
         print ("\n Either an ordernumber,collection name or destination directory is required \n")
         parser.print_help()
-        exit(-1)
+        sys.exit((-1,))
 
     if options.solr_flag and options.collection_name is None:
         options.collection_name = "DEFAULT_COLLECTION"
@@ -771,7 +782,7 @@ if __name__ == '__main__':
     if not os.environ.has_key("ESPA_WORK_DIR") or \
     len(os.environ.get("ESPA_WORK_DIR")) < 1:
         print '$ESPA_WORK_DIR not set... exiting'
-        sys.exit(1)
+        sys.exit((1, "ESPA_WORK_DIR not set"))
 
     if os.environ.get("ESPA_WORK_DIR") == ".":
         BASE_WORK_DIR = os.getcwd()
@@ -805,8 +816,9 @@ if __name__ == '__main__':
     elif options.source_type in ('sr','toa','th'):
         source_filename = "%s-sr.tar.gz" % scene
     else:
-        print ('Did not recognize source file type:%s' % options.source_type)
-        sys.exit(-1)
+        errmsg = 'Did not recognize source file type:%s' % options.source_type
+        print (errmsg)
+        sys.exit((-1, errmsg))
         
     source_file = ("%s/%s") % (source_directory,source_filename)
 
@@ -820,14 +832,16 @@ if __name__ == '__main__':
     elif options.ordernum is not None:
         destination_dir = ("%s/orders/%s") % (base_output_path, options.ordernum)
     else:
-        print ("Error determining if scene should be distributed as an order or to a directory")
-        sys.exit(-1)
+        errmsg = "Error determining if scene should be distributed as an order or to a directory"
+        print (errmsg)
+        sys.exit((-1, errmsg))
     
     destination_file = ("%s/%s.tar.gz") % (destination_dir,product_filename)
+    destination_cksum_file = ("%s/%s.cksum") % (destination_dir, product_filename)
     randdir = str(int(random.random() * 100000))
-    stagedir = ("%s/espawork/%s/%s/stage") % (BASE_WORK_DIR,randdir,scene)
-    workdir = ("%s/espawork/%s/%s/work") % (BASE_WORK_DIR,randdir,scene)
-    outputdir=("%s/espawork/%s/%s/output") % (BASE_WORK_DIR,randdir,scene)
+    stagedir = ("%s/%s/%s/stage") % (BASE_WORK_DIR,randdir,scene)
+    workdir = ("%s/%s/%s/work") % (BASE_WORK_DIR,randdir,scene)
+    outputdir=("%s/%s/%s/output") % (BASE_WORK_DIR,randdir,scene)
     localhostname = socket.gethostname()
 
     #PREPARE LOCAL STAGING DIRECTORY
@@ -841,7 +855,7 @@ if __name__ == '__main__':
     except Exception,e:
         print ("Error cleaning & creating stagedir:%s... exiting") % (stagedir)
         print e
-        sys.exit(1)
+        sys.exit((2, e))
 
     #PREPARE LOCAL WORK DIRECTORY
     try:
@@ -854,7 +868,7 @@ if __name__ == '__main__':
     except Exception,e:
         print ("Error cleaning & creating workdir:%s... exiting") % (workdir)
         print e
-        sys.exit(1)
+        sys.exit((3, e))
     
     #PREPARE LOCAL OUTPUT DIRECTORY
     try:
@@ -867,7 +881,7 @@ if __name__ == '__main__':
     except Exception, e:
         print ("Error cleaning & creating outputdir:%s... exiting") % (outputdir)
         print e
-        sys.exit(2)
+        sys.exit((4, e))
     
     #TRANSFER THE SOURCE FILE TO THE LOCAL MACHINE
     print ("Transferring %s from %s to %s") % (source_file,source_host,localhostname)  
@@ -876,7 +890,7 @@ if __name__ == '__main__':
     if status != 0:
         print ("Error transferring %s:%s to %s... exiting") % (source_host, source_file, stagedir)
         print output
-        sys.exit(3)
+        sys.exit((5, output))
     
     #UNPACK THE SOURCE FILE
     print ("Unpacking %s to %s") % (source_filename, workdir)
@@ -885,7 +899,7 @@ if __name__ == '__main__':
     if status != 0:
         print ("Error unpacking source file to %s/%s") % (workdir,source_filename)
         print output
-        sys.exit(4)
+        sys.exit((6, output))
 
     metadata = getMetaData(workdir)
     if options.debug is not None:
@@ -910,7 +924,7 @@ if __name__ == '__main__':
         if status != 0:
             print ("LEDAPS error detected... exiting")
             print output
-            sys.exit(5)
+            sys.exit((7, output))
 
      
     #MAKE BROWSE IMAGE
@@ -918,7 +932,7 @@ if __name__ == '__main__':
         status = makeBrowse(workdir, metadata, scene, options.browse_resolution)
         if status != 0:
             print ("Error generating browse... exiting")
-            sys.exit(6)
+            sys.exit((8, output))
 
     #MAKE NDVI
     #if options.sr_ndvi_flag:
@@ -935,20 +949,20 @@ if __name__ == '__main__':
         if status != 0:
             print ("NDVI error detected... exiting")
             print output
-            sys.exit(7)
+            sys.exit((9, output))
     
     #MAKE SOLR INDEX
     if options.solr_flag:
         status = makeSolrIndex(metadata, scene, workdir, options.collection_name)
         if status != 0:
             print ("Error creating solr index... exiting")
-            sys.exit(8)
+            sys.exit((10, output))
 
     if options.cfmask_flag:
         status = make_cfmask(workdir)
         if status != 0:
             print ("Error creating cfmask (status %s)... exiting" % status)
-            sys.exit(9)
+            sys.exit((11, output))
 
     #DELETE UNNEEDED FILES FROM PRODUCT DIRECTORY
     print("Purging unneeded files from %s") % workdir
@@ -988,14 +1002,14 @@ if __name__ == '__main__':
     if status != 0:
         print("Error purging files from %s... exiting") % workdir
         print output
-        sys.exit(10)
+        sys.exit((12, output))
 
 
     #PACKAGE THE PRODUCT    
     attempt = 0
     success = False
     while (attempt < 3):
-        local,remote = do_distribution()
+        local,remote = do_distribution(outputdir, product_filename, destination_host, destination_file, destination_cksum_file)
         if local.split()[0] == remote.split()[0]:
             print ("Distribution complete for %s:%s" % (destination_host, destination_file))
             success = True
@@ -1006,7 +1020,7 @@ if __name__ == '__main__':
 
     if not success:
         print ("Packaging and distribution for %s:%s failed after 3 attempts" % (destination_host,destination_file))
-    
+        sys.exit((13, "Failed to distribute %s" % destination_file))
         
     
         
@@ -1067,6 +1081,10 @@ if __name__ == '__main__':
     if status != 0:
         print("Error cleaning output:%s work:%s stage:%s directories... exiting" % (outputdir,workdir,stagedir))
         print output
-        sys.exit(16)
+        sys.exit((14,output))
     
     print ("ESPA Complete")
+    #return 0 and the file we distributed
+    {u'f1': u'aaa', u'f2': u'adsf'}
+    print ("espa.result={'destination_file':'%s', 'destination_cksum_file':'%s'}" % (destination_file, destination_cksum_file))
+    sys.exit()

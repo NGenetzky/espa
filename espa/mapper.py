@@ -5,6 +5,11 @@ import xmlrpclib
 import commands
 import socket
 import sys
+from cStringIO import StringIO
+
+
+def logger(value):
+    print("Mapper.py:%s" % value)
 
 if __name__ == '__main__':
     processing_location = socket.gethostname()
@@ -12,8 +17,8 @@ if __name__ == '__main__':
     sceneid = None   
     for line in sys.stdin:
         try:
-            print ("Processing input...")
-            print (line)
+            logger ("Processing input...")
+            logger (line)
             line = str(line).replace("#", '')
             line = json.loads(line)
             orderid = line['orderid']
@@ -30,10 +35,10 @@ if __name__ == '__main__':
                 xmlrpcurl = None
         
             if (not sceneid.startswith('L')): 
-                print("sceneid did not start with L")
+                logger("sceneid did not start with L")
                 continue;
         
-            print "Processing %s" % sceneid
+            logger "Processing %s" % sceneid
 
             if xmlrpcurl is not None:
                 server = xmlrpclib.ServerProxy(xmlrpcurl)
@@ -80,7 +85,7 @@ if __name__ == '__main__':
             if options.has_key('destination_directory'):
                 cmd = cmd + '--destination_directory %s ' % options['destination_directory']
 
-            print ("Running command:%s" % cmd)    
+            logger ("Running command:%s" % cmd)    
             h = open("/tmp/cmd_debug.txt", "wb+")
             h.write(cmd)
             h.flush()
@@ -88,23 +93,33 @@ if __name__ == '__main__':
 
             status,output = commands.getstatusoutput(cmd)
             if status != 0:
-                print ("Error occurred processing %s" % sceneid)
+                logger ("Error occurred processing %s" % sceneid)
                 if server is not None:
                     server.setSceneError(sceneid, orderid, processing_location, output)
                 else:
-                    print output
+                    logger output
             else:
-                print ("Processing complete for %s" % sceneid)
+                logger ("Processing complete for %s" % sceneid)
                 #where the hell do i get the completed_scene_location and source_l1t_location from?
+                #04-27-13 - From the standard out
+                #espa:result=[/tmp/bam/LT50290302007097PAC01-sr.tar.gz, /tmp/bam/LT50290302007097PAC01-sr.cksum]
+                
                 if server is not None:
+                    b = StringIO(output)
+                    status_line = [f for f in b.readlines() if f.startswith("espa:result")]
+
+                    logger ("status_line:%s" % status_line)
+                    logger ("status_line_len:%i" % len(status_line))
+
+
                     completed_scene_location = '/data2/LSRD/orders/%s/%s-sr.tar.gz' % (orderid,sceneid)
                     #source_l1t_location = '/data2/LSRD/orders/%s/%s.tar.gz' % (orderid, sceneid)
                     source_l1t_location = 'not distributed'
                     server.markSceneComplete(sceneid,orderid,processing_location,completed_scene_location,source_l1t_location,"")
 
         except Exception, e:
-            print ("An error occurred processing %s" % sceneid)
-            print e
+            logger ("An error occurred processing %s" % sceneid)
+            logger e
             h = open('/tmp/jobdebug.txt', 'wb+')
             h.write("An error occurred processing %s" % sceneid)
             h.write(str(e))
