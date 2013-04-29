@@ -575,6 +575,7 @@ def package_product(product_dir, output_dir, product_filename):
         cksum_prod_filename = prod_file[len(prod_file) - 1]
         output = output.split()
         cksum_val = str("%s %s %s") % (str(output[0]), str(output[1]), str(cksum_prod_filename))
+        print ("Generating cksum:%s" % cksum_val)
         h = open(cksum_file, 'wb+')
         h.write(cksum_val)
         h.flush()
