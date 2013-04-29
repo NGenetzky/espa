@@ -107,7 +107,7 @@ if __name__ == '__main__':
                 
                 if server is not None:
                     b = StringIO(output)
-                    status_line = [f for f in b.readlines() if f.startswith("espa:result")]
+                    status_line = [f for f in b.readlines() if f.startswith("espa.result")]
                                         
                     #logger ("status_line%s" % status_line)
                     #logger ("status_line_len:%i" % len(status_line))
