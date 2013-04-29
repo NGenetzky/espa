@@ -581,7 +581,7 @@ def package_product(product_dir, output_dir, product_filename):
         h.flush()
         cksum_file_full_path = h.name
         h.close()
-        return (0, output, product_file_full_path, cksum_file_full_path)  
+        return (0, cksum_val, product_file_full_path, cksum_file_full_path)  
     
 ###############################################################
 
