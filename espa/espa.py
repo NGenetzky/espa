@@ -8,6 +8,7 @@ from cStringIO import StringIO
 from frange import frange
 import json
 import random
+import datetime
 
 
 #TODO: 
@@ -61,6 +62,12 @@ def getSensor(scene_name):
         return 'tm'
     elif scene_name[0:3] == 'LE7':
         return 'etm'
+
+#==============================================================
+#return scene sensor code
+#==============================================================
+def getSensorCode(scene_name):
+    return scene_name[0:3]
 
 #==============================================================
 #returns the station this scene was acquired from
@@ -801,11 +808,12 @@ if __name__ == '__main__':
     base_source_path = '/data/standard_l1t'
     base_output_path = '/data2/LSRD'
     
-    processing_level = 'sr'
+    #processing_level = 'sr'
     scene = options.scene
     path = getPath(scene)
     row = getRow(scene)
     sensor = getSensor(scene)
+    sensor_code = getSensorCode(scene)
     year = getYear(scene)
     doy = getDoy(scene)
     source_host=options.source_host
@@ -828,7 +836,12 @@ if __name__ == '__main__':
 
     #MODIFY THIS TO MATCH THE NEW NAMING FORMAT
     #scene minus station and version-monthdayyearminutesecond
-    product_filename = ("%s-%s") % (scene,processing_level)
+    #product_filename = ("%s-%s") % (scene,processing_level)
+    
+    ts = datetime.datetime.today()
+    product_filename = ("%s%s%s%s%s") % (sensor_code,path,row,year,doy)
+    product_filename = ("%s-%s%s%s%s%s") % (product_filename, ts.month,ts.day,ts.year,ts.minute,ts.second)
+    
 
     destination_dir = None
     if options.destination_directory is not None:
