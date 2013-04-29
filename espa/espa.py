@@ -574,7 +574,7 @@ def package_product(product_dir, output_dir, product_filename):
         prod_file = product_file_full_path.split('/')
         cksum_prod_filename = prod_file[len(prod_file) - 1]
         output = output.split()
-        cksum_val = "%s %s %s" % (output[0], output[1], cksum_prod_filename)
+        cksum_val = str("%s %s %s") % (str(output[0]), str(output[1]), str(cksum_prod_filename))
         h = open(cksum_file, 'wb+')
         h.write(cksum_val)
         h.flush()
