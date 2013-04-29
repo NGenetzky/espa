@@ -1032,6 +1032,10 @@ if __name__ == '__main__':
     success = False
     while (attempt < 3):
         local,remote = do_distribution(outputdir, product_filename, destination_host, destination_file, destination_cksum_file)
+        print ("Comparing checksums")
+        print ("Local  cksum:%s  type:%s" % local, type(local))
+        print ("Remote cksum:%s  type:%s" % remote, type(remote))
+        
         if local.split()[0] == remote.split()[0]:
             print ("Distribution complete for %s:%s" % (destination_host, destination_file))
             success = True
