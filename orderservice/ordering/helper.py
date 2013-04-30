@@ -1,15 +1,14 @@
 from email.mime.text import MIMEText
 from smtplib import *
-from datetime import datetime
 from suds.client import Client
 from suds import null
 from models import Scene,Order,Configuration,TramOrder
-from datetime import datetime,timedelta
+from datetime import timedelta
 from espa.espa import *
 from espa.scene_cache import SceneCache
 import time
 import json
-
+import datetime
 
 
 #load configuration values
@@ -125,7 +124,7 @@ def getTramProductName(sceneid):
 
 
 def generate_order_id(email):
-    d = datetime.now()
+    d = datetime.datetime.now()
     return '%s-%s%s%s-%s%s%s' % (email,d.month,d.day,d.year,d.hour,d.minute,d.second)
 
 
@@ -189,7 +188,7 @@ def getScenesToProcess():
             tram_order_id = sendTramOrder(need_to_order)
             tramorder = TramOrder()
             tramorder.order_id = tram_order_id
-            tramorder.order_date = datetime.now()
+            tramorder.order_date = datetime.datetime.now()
             tramorder.save()
                     
             for to in need_to_order:
@@ -251,7 +250,7 @@ def purgeExpiredOrders():
     orders = None
     
     try:
-        cutoff = datetime.now() - timedelta(days=14)
+        cutoff = datetime.datetime.now() - timedelta(days=14)
         #get the orders where status == complete and that were completed more than 14 days ago
         orders = Order.objects.raw('select * from ordering_order oo where oo.id not in (select order_id from ordering_scene where status in ("queued","onorder","processing","distributing","oncache","purged"))')
         config = Configuration()
@@ -326,7 +325,7 @@ def markSceneComplete(name, orderid, processing_loc,completed_file_location, des
         s.status = 'complete'
         s.processing_location = processing_loc
         s.product_distro_location = completed_file_location
-        s.completion_date = datetime.now()
+        s.completion_date = datetime.datetime.now()
         s.cksum_distro_location = destination_cksum_file
         
         #if source_l1t_location is not None:
@@ -370,7 +369,7 @@ def sendEmailIfComplete(orderid, scene):
     if isComplete and scenes:
         scene_names = [s.name for s in scenes if s.status != 'unavailable']
         o.status = 'complete'
-        o.completion_date = datetime.now()
+        o.completion_date = datetime.datetime.now()
         o.save()
         sendCompletionEmail(o.email,o.orderid,readyscenes=scene_names)
                        
