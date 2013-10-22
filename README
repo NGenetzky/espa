@@ -1,0 +1,178 @@
+Author: David V. Hill, Information Dynamics
+License: NASA Open Source Agreement 1.3
+USGS Designation: EROS Science Processing Architecture (ESPA)
+
+ System Overview
+	The ESPA system is comprised of several types of nodes.  
+
+	There is a user interface node, which must house a working Apache HTTPD server 
+	with either mod_python or mod_wsgi installed, and must also have Django 1.3 installed.
+
+	The database node must have a working copy of MySQL 5.x with a user defined 'espa'.
+
+	The Hadoop Namenode and Hadoop TaskTracker nodes must have Apache Hadoop installed, naturally.
+
+	Processing nodes must have Apache Hadoop installed as well as any science processing software,
+	such as LEDAPS.
+
+	The overall system flow is as follows.   
+	A user request is submitted through the user interface whereby the request details 
+	(requested scenes plus email address) are persisted to the database.  Prior to storing the requested
+        scenes the bulk scene list is verified for basic sanity and cross referenced against the Long Term Archive's
+        Inventory for Landsat scenes.  Users are notified via the user interface if there are invalid scene 
+        identifiers in their order.
+	
+	Scenes newly stored in the database are marked with a status of "submitted".  A timed cron job interacts
+        with the UI's xmlrpc service to then request all 'submitted' scenes be checked to see their current
+        disposition: 1 - Not available and needing to be ordered (onorder) 2 - Available on cache and ready to 
+        be processed (oncache) or 3 - Unable to process the scene due to it being a TMA instead of TM scene (unavailable).
+        Scenes may also be marked unavailable if an unrecoverable error is encountered during processing, such as 
+        nighttime scenes being requested or missing auxillary data as examples.
+
+        Once this method completes, it returns to the cronjob via xmlrpc all the scenes that made it into oncache 
+        status.  The cron job creates the Hadoop input file, stores the file in HDFS, updates the scenes' status 
+        to 'queued', and finally starts the Hadoop job.
+
+        Hadoop handles distributing individual requests to available cpu's at this point.  As a request is 
+        pushed to a cpu, the individual job will update the scene status to "processing".  All requested
+        processing is applied to the scene and the resulting output product is stored on the LSRD Online 
+        Cache, which is a Lustre based system that augments the Landsat Online Cache.
+
+        Hadoop handles cleaning up all processing node resources nomatter if the scene processed correctly or 
+        not.  Thus as a part of the overall ESPA job, the processing chain will also store the processing log
+        file to the database via xmlrpc ONLY in the event of a failure of some sort.  In this regard, no log 
+        entry is a good log entry.
+
+        The final step in processing is a completion email is sent out to the user once their order has been
+        completed in totality. 
+
+Dependencies (All nodes)
+	64 bit Linux
+	Python 2.7
+	Java JDK 1.6
+	Apache Hadoop (HDFS + MapReduce)
+	Python Libraries:
+	suds 0.4 (for soap)
+	gsconfig.py (available from https://github.com/dwins/gsconfig.py)
+        gdal 1.9
+        dans-gdal-scripts (available from http://www.gina.alaska.edu/projects/gina-tools/)
+	
+
+Dependencies (NameNode and TaskTracker)
+	Apache 2.x Web Server
+	MySQL 5.x Database
+	Django 1.3
+	mod_python or mod_wsgi
+
+Dependencies (Processing Nodes)
+	LEDAPS executables
+		Must be located at /usr/local/bin/ledaps (will be installed here by default)
+	LEDAPS ancillary data
+		Must be located by system environment variable ANC_PATH 
+		(Will be installed to /usr/local/var/ledaps/anc by default)
+		
+Change Notes
+Version 2.2.0
+        Added code to perform reprojection.
+        Added code to perform framing.
+        Added code to perform subsetting.
+
+Version 2.1.6
+        Reorganized the codebase to accomodate LPVS code.
+        Implemented a standardized logging format.
+        Added webpages for marketing.
+
+Version 2.1.5
+        Added a lockfile to the scene_cache update to prevent multiple processes from running, 
+        which causes a parallel contention issue
+
+Version 2.1.4
+        Bug fix for duplicate orders from EE.  Modified core.py load_orders_from_ee() to look
+        for an order + scene in the db before attempting to add a new one
+
+Version 2.1.3
+        Fix to clear logs upon non-error status update.
+        Initial version of api.py added.
+        Integration for SI 1.1.2, cfmask 1.1.1, ledaps 1.3.0, cfmask_append 1.0.1, swe 1.0.0
+        Updated code to interact with online cache over private 10Gig network
+        Added load balancing code mapper.py for contacting the online cache
+
+Version 2.1.2
+        Updates for new cfmask and appending cfmask to sr outputs.
+        Multiple bug fixes related to UI css files when viewed of https
+Version 2.1.1
+        Update internal email verbage to remove "Surface Reflectance"
+        Bug fixes for LTA integration when processing mixed orders
+        Fixed product file names
+        Corrected bug where espa user interface wouldn't accept a Glovis scenelist
+        Added all available spectral indices to espa_internal
+        Integrated cfmask 1.0.4
+        Integrated updated Spectral Indices
+
+Version 2.1
+        Updated web code to verify submitted scenes against the inventory before accepting them.
+        Updated web code to pull orders from EE on demand for surface reflectance only.
+        
+Version 2.0.4
+        Update espa to work with new ledaps and cfmask
+        Corrected issue with bad tarballs being distributed.
+        Generated cksum files and distribute those with the product.
+
+Version 2.0.3
+        Updated espa to work with ledaps 1.2 & cfmask 1.0.1
+        Added ability for all users to select product options.
+        Added ability to order cfmask for espa_internal and espa_admin
+        Removed seperate source file distribution (can be selected as an option)
+        
+Version 2.0.2
+        Fixed solr generation to account for landsat metadata field name changes
+        Changed espa TRAM ordering priority
+        Tested setting ESPA work directory to "." or cwd()
+        
+Version 2.0.1
+        Added espa_internal for evaluation.
+
+Version 2.0.0
+        Modified architecture to remove the Chain of Command structure from processing.
+        Modified espa to work with ledaps 1.1.2.
+        Added ability for end users to select which products they want in their delivery (admin acct only at this time.)
+        Added mapper.py and removed any external calls from espa.py except for scp calls to obtain data.  Mapper.py handles
+        all status notifications to the espa tracking node now.
+
+Version 1.3.8
+        Updated espa to work with ledaps 1.1.1.
+
+Version 1.3.7
+        Updated espa to work with ledaps 1.1.0.  Added scene_cache.py to speed up scene submission.
+        Multiple bugfixes and cosmetic website/email changes.
+Version 1.3.5
+        Updated 'lndpm' binary to work with new Landsat metdata
+	
+        Corrected metadata file lookup to account for Landsat's metadata format
+	changes.
+Version 1.3.4
+	Corrections to reprojection code in espacollection.py when creating
+        browse images.
+Version 1.3.3
+        Modifications to the NDVI code to release memory more quickly, reduce
+        memory footprint.
+Version 1.3.2
+        Correction to the solr index to be semicolon seperated
+
+Version 1.3.1
+        Bug fixes for NDVI and CleanupDirs
+
+Version 1.3
+	Updated LEDAPS to the latest version from November 2011.  Added ability to generate NDVI for output products
+	Multiple additions to collection processing to create browse and solr index.
+
+Version 1.2
+	Replaced Python's tar and untar commands in espa.py with the native operating system commands.
+	Prior to this there were intermittent corrupt archives making it into the distribution node.
+	Native os commands are also far faster than the python implementation.
+
+Version 1.1
+	Added RSS Status capability to ordering interface
+
+Version 1.0
+	First major stable version of ESPA released that will process Landsat L1T's to Surface Reflectance
