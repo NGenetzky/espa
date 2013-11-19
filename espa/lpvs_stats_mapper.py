@@ -4,7 +4,9 @@
 License:
   "NASA Open Source Agreement 1.3"
 
-Description: TODO TODO TODO
+Description:
+  See 'Description' under '__main__' for more details.
+  This mapper performs the statistics portion of LPVS processing.
 
 History:
   Created Nov/2013 by Ron Dilley, USGS/EROS
@@ -14,79 +16,69 @@ import os
 import sys
 import socket
 import json
-import numpy as np
 from argparse import ArgumentParser
 
 # espa-common objects and methods
 from espa_constants import *
 from espa_logging import log
 
-from lpvs import process as process_lpvs
-#from espa_build_science_products import build_science_products
-#from espa_generate_tiles import generate_tiles
-#from lpvs_generate_tiles import generate_stats
+# local objects and methods
+from common.parameters import test_for_parameter
+from lpvs_generate_stats import process as process_lpvs, \
+    validate_input_parameters
 
 #=============================================================================
 if __name__ == '__main__':
     '''
-    Description: TODO TODO TODO
+    Description:
+      Read all lines from STDIN and process them.  Each line is converted to a
+      JSON dictionary of the parameters for processing.  Validation is
+      performed on the JSON dictionary to test if valid for this mapper.
+      After validation the generation of statistics for LPVS is performed.
     '''
 
     processing_location = socket.gethostname()
-    (server, sceneid) = (None, None)
 
     for line in sys.stdin:
+        # Reset these for each line
+        (server, orderid, sceneid) = (None, None, None)
+
         try:
             line = str(line).replace('#', '')
-#            line = json.loads(line)
-#            (orderid, sceneid) = (line['orderid'], line['scene'])
-#
-#            if type(line['options']) in (str, unicode):
-#                options = json.loads(line['options'])
-#            else:
-#                options = line['options']
-#
-#            if line.has_key('xmlrpcurl'):    
-#                xmlrpcurl = line['xmlrpcurl']
-#            else:
-#                xmlrpcurl = None
-#        
-#            if (not sceneid.startswith('L')): 
-#                logger(sceneid, "sceneid did not start with L")
-#                continue;
-#        
-#            log ("Processing %s:%s" % (orderid, sceneid))
-#
-#            if xmlrpcurl is not None:
-#                server = xmlrpclib.ServerProxy(xmlrpcurl)
-#                server.updateStatus(sceneid, orderid,processing_location,
-#                    'processing')
-#
-#            #=================================================================
-#            build_product_cmd = './espa_build_science_products.py'
-#            build_product_cmd += ' --order %s' % orderid
-#            build_product_cmd += ' --scene %s' % sceneid
-#
-#            print build_product_cmd
-##########################
-##########################
-##########################
-#
-#            #=================================================================
-#            build_product_cmd = './lpvs_generate_stats.py'
-#            build_product_cmd += ' --order %s' % orderid
-#            build_product_cmd += ' --scene %s' % sceneid
-#
-#            print build_product_cmd
-##########################
-##########################
-##########################
-##########################
+            json_parms = json.loads(line)
+
+            if not test_for_parameter(json_parms, 'options'):
+                log ("Error missing JSON 'options' record")
+                sys.exit(EXIT_FAILURE)
+
+            # Convert the 'options' to a dictionary
+            json_parms['options'] = json.loads(json_parms['options'])
+
+            # Validate the JSON parameters
+            validate_input_parameters(json_parms)
+
+            (orderid, sceneid) = (json_parms['orderid'], json_parms['scene'])
+
+            log ("Processing %s:%s" % (orderid, sceneid))
+
+            # Update the status in the database
+            if test_for_parameter(json_parms, 'xmlrpcurl'):
+                server = xmlrpclib.ServerProxy(json_parms['xmlrpcurl'])
+                server.updateStatus(sceneid, orderid, processing_location,
+                    'processing')
+
+            if process_lpvs(json_parms) != SUCCESS:
+                log ("An error occurred processing %s" % sceneid)
+                if server is not None: 
+                    server.setSceneError(sceneid, orderid,
+                        processing_location, e)
 
         except Exception, e:
             log ("An error occurred processing %s" % sceneid)
             log (str(e))
             if server is not None: 
                 server.setSceneError(sceneid, orderid, processing_location, e)
-    # END - for line
+    # END - for line in STDIN
+
+    sys.exit(EXIT_SUCCESS)
 

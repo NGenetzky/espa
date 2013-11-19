@@ -20,11 +20,12 @@ from argparse import ArgumentParser
 from espa_constants import *
 from espa_logging import log
 
-#from espa_order_status import update_order_status
-#from espa_build_science_products import build_science_products
-#from espa_generate_tiles import generate_tiles
-#from lpvs_process_tiles import generate_stats
+# local objects and methods
+from common.parameters import \
+    test_for_parameter, convert_to_command_line_options
 
+
+#=============================================================================
 def build_argument_parser():
     '''
     Description:
@@ -138,32 +139,20 @@ def build_argument_parser():
     return parser
 # END - build_argument_parser
 
-def test_for_parameter(parms, key):
-    if (not parms.has_key(key)) or (parms[key] == '') or (parms[key] == None):
-        log ("Error missing '%s' from input parameters" % key)
-        return ERROR
 
-    return SUCCESS
-# END - test_for_key
-
+#=============================================================================
 def validate_input_parameters(parms):
     '''
-    Description: TODO TODO TODO
+    Description:
+      Make sure all the parameter options needed for this and called routines
+      is available with the provided input parameters.
     '''
 
     # Test for presence of top-level parameters
     keys = ['orderid', 'scene', 'options']
     for key in keys:
-        if test_for_parameter(parms, key) != SUCCESS:
+        if not test_for_parameter(parms, key):
             return ERROR
-
-    # Convert the options JSON into a dictionary
-    try:
-        options = json.loads(parms['options'])
-        parms['options'] = options
-    except Exception, e:
-        log ("Error parsing JSON")
-        raise
 
     # Test for presence of required option-level parameters
     keys = ['source_host', 'source_directory', 'destination_host',
@@ -174,7 +163,7 @@ def validate_input_parameters(parms):
             'lpvs_stddev']
 
     for key in keys:
-        if test_for_parameter(options, key) != SUCCESS:
+        if not test_for_parameter(parms['options'], key):
             return ERROR
 
     # Test specific parameters for acceptable values if needed
@@ -183,29 +172,16 @@ def validate_input_parameters(parms):
     return SUCCESS
 # END - validate_input_parameters
 
-def convert_parms_to_command_line_options(parms):
-    '''
-    Description: TODO TODO TODO
-    '''
 
-    options = ['--orderid', parms['orderid']]
-    options += ['--scene', parms['scene']]
-
-    for (key, value) in parms['options'].items():
-        if value == True or value == False:
-            options += ['--%s' % key]
-        elif value != None:
-            options += ['--%s' % key, '%s' % value]
-
-    return options
-# END - convert_parms_to_command_line_options
-
+#=============================================================================
 def process(parms):
     '''
-    Description: TODO TODO TODO
+    Description:
+      Provides the processing for the generation of the science products and
+      then processing them through the statistics generation.
     '''
 
-    cmd_options = convert_parms_to_command_line_options(parms)
+    cmd_options = convert_to_command_line_options(parms)
 
     # build_science_products
     cmd = ['build_science_products.py']
@@ -244,61 +220,43 @@ def process(parms):
     return SUCCESS
 # END - process
 
+
 #=============================================================================
 if __name__ == '__main__':
     '''
-    Description: TODO TODO TODO
+    Description:
+      Read parameters from the command line and build a JSON dictionary from
+      them.  Pass the JSON dictionary to the process routine.
     '''
 
     # Create the JSON dictionary to use
-    json_parameters = dict()
+    json_parms = dict()
 
-    # Test for command line arguments
-    if not len(sys.argv) > 1:
-        # Test for STDIN - TODO TODO TODO - I don't like this
-        if select.select([sys.stdin,],[],[],0.0)[0]:
-            log ("Attempting to process using STDIN")
-            for line in iter(sys.stdin):
-                try:
-                    line = str(line).replace('#', '')
-                    json_parameters = json.loads(line)
-                except Exception, e:
-                    log ("Error parsing JSON")
-                    log (str(e))
-            # END - for line
-        # END - if STDIN
-        else:
-            log ("No parameters specified")
-            sys.exit(EXIT_FAILURE)
-        # END - no STDIN
-    # END - if no command line arguments
-    else:
-        # Build the command line argument parser
-        parser = build_argument_parser()
+    # Build the command line argument parser
+    parser = build_argument_parser()
 
-        # Parse the arguments and place them into a dictionary
-        args_dict = vars(parser.parse_args())
+    # Parse the arguments and place them into a dictionary
+    args_dict = vars(parser.parse_args())
 
-        # Build our JSON formatted input from the command line parameters
-        orderid = args_dict.pop('orderid')
-        scene = args_dict.pop('scene')
-        options = {k : args_dict[k] for k in args_dict if args_dict[k] != None}
+    # Build our JSON formatted input from the command line parameters
+    orderid = args_dict.pop('orderid')
+    scene = args_dict.pop('scene')
+    options = {k : args_dict[k] for k in args_dict if args_dict[k] != None}
 
-        json_parameters['orderid'] = orderid
-        json_parameters['scene'] = scene
-        json_parameters['options'] = options
-    # END - processing command line arguments
+    # Build the JSON parameters dictionary
+    json_parms['orderid'] = orderid
+    json_parms['scene'] = scene
+    json_parms['options'] = options
 
-    # Validate the input parameters
+    # Validate the JSON parameters
     try:
-        validate_input_parameters(json_parameters)
+        validate_input_parameters(json_parms)
     except Exception, e:
         log (str(e))
         sys.exit(EXIT_FAILURE)
 
-    # Call the process routine with the input parameters
-    status = process(json_parameters)
-    if status != SUCCESS:
+    # Call the process routine with the JSON parameters
+    if process(json_parms) != SUCCESS:
         log ("Error processing LPVS")
 
     sys.exit(EXIT_SUCCESS)
