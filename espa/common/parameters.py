@@ -14,6 +14,18 @@ History:
 from espa_constants import *
 from espa_logging import log
 
+#=============================================================================
+def add_standard_parameters(parser):
+
+    parser.add_argument('--orderid',
+        action='store', dest='orderid', required=True,
+        help="the order ID associated with this request")
+
+    parser.add_argument('--scene',
+        action='store', dest='scene', required=True,
+        help="the scene ID associated with this request")
+
+# END - add_standard_parameters
 
 #=============================================================================
 def test_for_parameter(parms, key):

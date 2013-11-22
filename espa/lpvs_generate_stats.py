@@ -12,7 +12,6 @@ History:
 
 import os
 import sys
-import select
 import json
 from argparse import ArgumentParser
 
@@ -21,8 +20,11 @@ from espa_constants import *
 from espa_logging import log
 
 # local objects and methods
-from common.parameters import \
-    test_for_parameter, convert_to_command_line_options
+from common.directory_tools import initialize_processing_directory
+from common.transfer import transfer_data
+from common.parameters \
+    import add_standard_parameters, test_for_parameter, \
+           convert_to_command_line_options
 
 
 #=============================================================================
@@ -32,116 +34,92 @@ def build_argument_parser():
       Build the command line argument parser.
     '''
 
-    # Create a command line option parser
-    parser = ArgumentParser(usage="%(prog)s [options]")
+    # Create a command line argument parser
+    parser = ArgumentParser (usage="%(prog)s [options]")
 
-    # One of the options
-    parser.add_argument('--orderid',
-        action='store', dest='orderid', required=True,
-        help="the order ID associated with this request")
+    # Add the standard parameters
+    add_standard_parameters (parser)
 
-    parser.add_argument('--scene',
-        action='store', dest='scene', required=True,
-        help="the scene ID associated with this request")
+    # Add specific parameters
+    parser.add_argument ('--source_type',
+        action='store', dest='source_type', default='level1',
+        help="source type of the input data (level1, sr, toa, th)")
+        # TODO TODO TODO - This may need to be enhanced for MODIS input
 
-    parser.add_argument('--source_host',
+    parser.add_argument ('--source_host',
         action='store', dest='source_host', default='localhost',
         help="source host for the location of the data")
 
-    parser.add_argument('--source_directory',
+    parser.add_argument ('--source_directory',
         action='store', dest='source_directory', default='.',
         help="directory on the source host")
 
-    parser.add_argument('--destination_host',
+    parser.add_argument ('--destination_host',
         action='store', dest='destination_host', default='localhost',
         help="destination host for the processing results")
 
-    parser.add_argument('--destination_directory',
+    parser.add_argument ('--destination_directory',
         action='store', dest='destination_directory', default='.',
         help="directory on the destination host")
 
-    parser.add_argument('--include_sr',
+    parser.add_argument ('--include_sr',
         action='store_true', dest='include_sr', default=False,
         help="process statistics on SR data")
 
-    parser.add_argument('--include_sr_toa',
+    parser.add_argument ('--include_sr_toa',
         action='store_true', dest='include_sr_toa', default=False,
         help="process statistics on SR TOA data")
 
-    parser.add_argument('--include_sr_thermal',
+    parser.add_argument ('--include_sr_thermal',
         action='store_true', dest='include_sr_thermal', default=False,
         help="process statistics on SR Thermal data")
 
-    parser.add_argument('--include_sr_nbr',
+    parser.add_argument ('--include_sr_nbr',
         action='store_true', dest='include_sr_nbr', default=False,
         help="process statistics on SR NBR data")
 
-    parser.add_argument('--include_sr_nbr2',
+    parser.add_argument ('--include_sr_nbr2',
         action='store_true', dest='include_sr_nbr2', default=False,
         help="process statistics on SR NBR2 data")
 
-    parser.add_argument('--include_sr_ndvi',
+    parser.add_argument ('--include_sr_ndvi',
         action='store_true', dest='include_sr_ndvi', default=False,
         help="process statistics on SR NDVI data")
 
-    parser.add_argument('--include_sr_ndmi',
+    parser.add_argument ('--include_sr_ndmi',
         action='store_true', dest='include_sr_ndmi', default=False,
         help="process statistics on SR NDMI data")
 
-    parser.add_argument('--include_sr_savi',
+    parser.add_argument ('--include_sr_savi',
         action='store_true', dest='include_sr_savi', default=False,
         help="process statistics on SR SAVI data")
 
-    parser.add_argument('--include_sr_evi',
+    parser.add_argument ('--include_sr_evi',
         action='store_true', dest='include_sr_evi', default=False,
         help="process statistics on SR EVI data")
 
-    parser.add_argument('--lpvs_minimum',
+    parser.add_argument ('--lpvs_minimum',
         action='store_true', dest='lpvs_minimum', default=False,
         help="compute minimum value for each specified dataset")
 
-    parser.add_argument('--lpvs_maximum',
+    parser.add_argument ('--lpvs_maximum',
         action='store_true', dest='lpvs_maximum', default=False,
         help="compute maximum value for each specified dataset")
 
-    parser.add_argument('--lpvs_average',
+    parser.add_argument ('--lpvs_average',
         action='store_true', dest='lpvs_average', default=False,
         help="compute average value for each specified dataset")
 
-    parser.add_argument('--lpvs_stddev',
+    parser.add_argument ('--lpvs_stddev',
         action='store_true', dest='lpvs_stddev', default=False,
         help="compute standard deviation value for each specified dataset")
-
-    parser.add_argument('--lpvs_band_1',
-        action='store_true', dest='lpvs_band_1', default=False,
-        help="for SR and TOA compute statistics for band 1")
-
-    parser.add_argument('--lpvs_band_2',
-        action='store_true', dest='lpvs_band_2', default=False,
-        help="for SR and TOA compute statistics for band 2")
-
-    parser.add_argument('--lpvs_band_3',
-        action='store_true', dest='lpvs_band_3', default=False,
-        help="for SR and TOA compute statistics for band 3")
-
-    parser.add_argument('--lpvs_band_4',
-        action='store_true', dest='lpvs_band_4', default=False,
-        help="for SR and TOA compute statistics for band 4")
-
-    parser.add_argument('--lpvs_band_5',
-        action='store_true', dest='lpvs_band_5', default=False,
-        help="for SR and TOA compute statistics for band 5")
-
-    parser.add_argument('--lpvs_band_6',
-        action='store_true', dest='lpvs_band_6', default=False,
-        help="for SR and TOA compute statistics for band 6")
 
     return parser
 # END - build_argument_parser
 
 
 #=============================================================================
-def validate_input_parameters(parms):
+def validate_input_parameters (parms):
     '''
     Description:
       Make sure all the parameter options needed for this and called routines
@@ -151,7 +129,7 @@ def validate_input_parameters(parms):
     # Test for presence of top-level parameters
     keys = ['orderid', 'scene', 'options']
     for key in keys:
-        if not test_for_parameter(parms, key):
+        if not test_for_parameter (parms, key):
             return ERROR
 
     # Test for presence of required option-level parameters
@@ -163,7 +141,7 @@ def validate_input_parameters(parms):
             'lpvs_stddev']
 
     for key in keys:
-        if not test_for_parameter(parms['options'], key):
+        if not test_for_parameter (parms['options'], key):
             return ERROR
 
     # Test specific parameters for acceptable values if needed
@@ -172,40 +150,64 @@ def validate_input_parameters(parms):
     return SUCCESS
 # END - validate_input_parameters
 
-
+import glob
 #=============================================================================
-def process(parms):
+def process (parms):
     '''
     Description:
       Provides the processing for the generation of the science products and
       then processing them through the statistics generation.
     '''
 
-    cmd_options = convert_to_command_line_options(parms)
+    cmd_options = convert_to_command_line_options (parms)
+
+    # Create/Retrieve the scene directory to use for processing
+    try:
+        (scene_directory, stage_directory, work_directory, output_directory) = \
+            initialize_processing_directory (parms['scene'])
+    except Exception, e:
+        log ("Error: Failed creating processing directory")
+        log (str(e))
+        return ERROR
+
+    options = parms['options']
+
+    # TODO TODO TODO - This could/can be an issue
+    # - Original code has logic for lndsr, lndth, and lndcal files as well as
+    #   the l1t file.  But I think it is only defaulting to l1t right now
+    filename = '%s*.tar.gz' % parms['scene']
+
+    # Transfer the input data to the working directory
+    transfer_data (options['source_host'], \
+        "%s/%s" % (options['source_directory'], filename), \
+        'localhost', stage_directory)
 
     # build_science_products
     cmd = ['build_science_products.py']
     cmd += cmd_options
 
     # TODO TODO TODO
-    print cmd
-    print ''
+    #print cmd
+    #print ''
 
-    # generate_tiles
+    # Generate the tile data for each science product
     cmd = ['generate_tiles.py']
     cmd += cmd_options
 
     # TODO TODO TODO
-    print cmd
-    print ''
+    #print cmd
+    #print ''
 
-    # generate_stats
+    # Generate the stats for each tile
     cmd = ['generate_stats.py']
     cmd += cmd_options
 
     # TODO TODO TODO
-    print cmd
-    print ''
+    #print cmd
+    #print ''
+
+    # Transfer the product data to the on-line product cache
+    # transfer.py  TODO TODO TODO
 
     # update_order_status
     cmd = ['update_order_status.py']
@@ -214,8 +216,8 @@ def process(parms):
     cmd += ['--order_status', 'LPVS_STATS_COMPLETE']
 
     # TODO TODO TODO
-    print cmd
-    print ''
+    #print cmd
+    #print ''
 
     return SUCCESS
 # END - process
@@ -239,8 +241,8 @@ if __name__ == '__main__':
     args_dict = vars(parser.parse_args())
 
     # Build our JSON formatted input from the command line parameters
-    orderid = args_dict.pop('orderid')
-    scene = args_dict.pop('scene')
+    orderid = args_dict.pop ('orderid')
+    scene = args_dict.pop ('scene')
     options = {k : args_dict[k] for k in args_dict if args_dict[k] != None}
 
     # Build the JSON parameters dictionary
@@ -250,14 +252,14 @@ if __name__ == '__main__':
 
     # Validate the JSON parameters
     try:
-        validate_input_parameters(json_parms)
+        validate_input_parameters (json_parms)
     except Exception, e:
         log (str(e))
-        sys.exit(EXIT_FAILURE)
+        sys.exit (EXIT_FAILURE)
 
     # Call the process routine with the JSON parameters
-    if process(json_parms) != SUCCESS:
+    if process (json_parms) != SUCCESS:
         log ("Error processing LPVS")
 
-    sys.exit(EXIT_SUCCESS)
+    sys.exit (EXIT_SUCCESS)
 
