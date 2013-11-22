@@ -21,10 +21,9 @@ from espa_logging import log
 
 # local objects and methods
 from common.directory_tools import initialize_processing_directory
-from common.transfer import transfer_data
-from common.parameters \
-    import add_standard_parameters, test_for_parameter, \
-           convert_to_command_line_options
+from common.transfer import retrieve_landsat_l1t_scene, retrieve_modis_data
+from common.packaging import unpack_data
+import common.parameters as parameters
 
 
 #=============================================================================
@@ -38,13 +37,10 @@ def build_argument_parser():
     parser = ArgumentParser (usage="%(prog)s [options]")
 
     # Add the standard parameters
-    add_standard_parameters (parser)
+    parameters.add_standard_parameters (parser)
 
     # Add specific parameters
-    parser.add_argument ('--source_type',
-        action='store', dest='source_type', default='level1',
-        help="source type of the input data (level1, sr, toa, th)")
-        # TODO TODO TODO - This may need to be enhanced for MODIS input
+    parameters.add_source_type_parameter (parser)
 
     parser.add_argument ('--source_host',
         action='store', dest='source_host', default='localhost',
@@ -129,28 +125,32 @@ def validate_input_parameters (parms):
     # Test for presence of top-level parameters
     keys = ['orderid', 'scene', 'options']
     for key in keys:
-        if not test_for_parameter (parms, key):
+        if not parameters.test_for_parameter (parms, key):
             return ERROR
 
     # Test for presence of required option-level parameters
-    keys = ['source_host', 'source_directory', 'destination_host',
-            'destination_directory', 'include_sr', 'include_sr_toa',
-            'include_sr_thermal', 'include_sr_nbr', 'include_sr_nbr2',
-            'include_sr_ndvi', 'include_sr_ndmi', 'include_sr_savi',
-            'include_sr_evi', 'lpvs_minimum', 'lpvs_maximum', 'lpvs_average',
-            'lpvs_stddev']
+    keys = ['source_type', 'source_host', 'source_directory',
+            'destination_host', 'destination_directory', 'include_sr',
+            'include_sr_toa', 'include_sr_thermal', 'include_sr_nbr',
+            'include_sr_nbr2', 'include_sr_ndvi', 'include_sr_ndmi',
+            'include_sr_savi', 'include_sr_evi', 'lpvs_minimum',
+            'lpvs_maximum', 'lpvs_average', 'lpvs_stddev']
 
     for key in keys:
-        if not test_for_parameter (parms['options'], key):
+        if not parameters.test_for_parameter (parms['options'], key):
             return ERROR
 
     # Test specific parameters for acceptable values if needed
-    # TODO TODO TODO TODO TODO TODO TODO TODO
+    options = parms['options']
 
-    return SUCCESS
+    if options['source_type'] not in parameters.valid_source_types:
+        raise Exception ("Error: Unsupported source_type [%s]" % \
+            options['source_type'])
+    # TODO TODO TODO TODO TODO TODO TODO TODO - Add more
+
 # END - validate_input_parameters
 
-import glob
+
 #=============================================================================
 def process (parms):
     '''
@@ -159,9 +159,9 @@ def process (parms):
       then processing them through the statistics generation.
     '''
 
-    cmd_options = convert_to_command_line_options (parms)
+    cmd_options = parameters.convert_to_command_line_options (parms)
 
-    # Create/Retrieve the scene directory to use for processing
+    # Create and retrieve the directories to use for processing
     try:
         (scene_directory, stage_directory, work_directory, output_directory) = \
             initialize_processing_directory (parms['scene'])
@@ -170,25 +170,42 @@ def process (parms):
         log (str(e))
         return ERROR
 
+    # Keep a local options for those apps that only need a few things
     options = parms['options']
+    source_type = options['source_type']
 
-    # TODO TODO TODO - This could/can be an issue
-    # - Original code has logic for lndsr, lndth, and lndcal files as well as
-    #   the l1t file.  But I think it is only defaulting to l1t right now
-    filename = '%s*.tar.gz' % parms['scene']
+    if source_type == 'landsat':
+        filename = '%s.tar.gz' % parms['scene']
+    else:
+        raise Exception ("Error: Not implemented for source_type [%s]" % \
+            source_type)
+
+    # TODO TODO TODO TODO TODO TODO - I'm not likeing all the if/else sections
+    # TODO TODO TODO TODO TODO TODO - Wonder if a class and inheritance would
+    # TODO TODO TODO TODO TODO TODO - be better for the processing loop?
 
     # Transfer the input data to the working directory
-    transfer_data (options['source_host'], \
-        "%s/%s" % (options['source_directory'], filename), \
-        'localhost', stage_directory)
+    if source_type == 'landsat':
+        retrieve_landsat_l1t_scene(options, filename, stage_directory)
+    elif source_type == 'modis':
+        retrieve_modis_data(options, stage_directory)
 
-    # build_science_products
-    cmd = ['build_science_products.py']
-    cmd += cmd_options
+    # Unpack the input data to the work directory
+    if source_type == 'landsat':
+        unpack_data ('%s/%s' % (stage_directory, filename), work_directory)
 
-    # TODO TODO TODO
-    #print cmd
-    #print ''
+    # build_science_products Landsat Science Products
+    if source_type == 'landsat':
+        # TODO - ?? convert to internal binary format first ??
+        cmd = ['build_science_products.py']
+        cmd += cmd_options
+
+        # TODO TODO TODO
+        #print cmd
+        #print ''
+    elif source_type == 'landsat':
+        # TODO - ?? convert to internal binary format first ??
+        x = 'y'
 
     # Generate the tile data for each science product
     cmd = ['generate_tiles.py']

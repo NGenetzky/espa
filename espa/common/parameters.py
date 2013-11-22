@@ -14,24 +14,39 @@ History:
 from espa_constants import *
 from espa_logging import log
 
+# TODO TODO TODO
+# - Original code has logic for lndsr, lndth, and lndcal files as well as
+#   the l1t file.  But I think it is only defaulting to l1t right now
+valid_source_types = ['landsat', 'modis']
+
+
 #=============================================================================
 def add_standard_parameters(parser):
 
-    parser.add_argument('--orderid',
+    parser.add_argument ('--orderid',
         action='store', dest='orderid', required=True,
         help="the order ID associated with this request")
 
-    parser.add_argument('--scene',
+    parser.add_argument ('--scene',
         action='store', dest='scene', required=True,
         help="the scene ID associated with this request")
-
 # END - add_standard_parameters
+
+
+#=============================================================================
+def add_source_type_parameter(parser):
+    parser.add_argument ('--source_type',
+        action='store', dest='source_type', default='landsat',
+        choices=valid_source_types,
+        help="source type of the input data")
+# END - add_standard_parameters
+
 
 #=============================================================================
 def test_for_parameter(parms, key):
     '''
     Description:
-      Tests to see if a specific parameters is present.
+      Tests to see if a specific parameter is present.
 
     Returns:
        True - If the parameter is present in the dictionary

@@ -16,7 +16,6 @@ import sys
 import uuid
 import shutil
 import subprocess
-import glob
 
 # espa-common objects and methods
 from espa_constants import *
@@ -28,7 +27,8 @@ def transfer_data (source_host, source_file,
                    destination_host, destination_directory):
     '''
     Description:
-        Using SCP transfer a file from a remote host to a local directory.
+        Using cp/SCP transfer a file from a source location to a destination
+        location.
     '''
 
     # If both source and destination are localhost we can just copy the data
@@ -40,11 +40,7 @@ def transfer_data (source_host, source_file,
 
     # Build the source portion of the command
     if source_host == 'localhost':
-        filename = ''
-        for file in glob.glob(source_file):
-            filename = file
-            break # Only want the first hit - TODO TODO TODO is that correct??
-        cmd += [filename]
+        cmd += [source_file]
     else:
         # Build the SCP command line
         cmd += ['%s:%s' % (source_host, source_file)]
@@ -68,6 +64,20 @@ def transfer_data (source_host, source_file,
         log (str(e))
         raise
 # END - transfer_data
+
+
+#=============================================================================
+def retrieve_landsat_l1t_scene(options, filename, stage_directory):
+    transfer_data (options['source_host'], \
+        "%s/%s" % (options['source_directory'], filename), \
+        'localhost', stage_directory)
+#END - retrieve_landsat_l1t_scene
+
+
+#=============================================================================
+def retrieve_modis_data(options, stage_directory):
+    raise Exception ("Error: Not implemented")
+#END - retrieve_modis_data
 
 
 #=============================================================================
