@@ -23,8 +23,12 @@ from espa_constants import *
 from espa_logging import log
 
 
+# This contains the valid data sources which are supported
+valid_unpack_sources = ['landsat', 'modis']
+
+
 #=============================================================================
-def unpack_data (source_file, destination_directory):
+def untar_data (source_file, destination_directory):
     '''
     Description:
         Using tar extract the file contents into a destination directory.
@@ -32,7 +36,6 @@ def unpack_data (source_file, destination_directory):
 
     # If both source and destination are localhost we can just copy the data
     cmd = ['tar', '--directory', destination_directory, '-xvf', source_file]
-
 
     log ("Unpacking [%s] to [%s]" % (source_file, destination_directory))
 
@@ -43,23 +46,27 @@ def unpack_data (source_file, destination_directory):
     except subprocess.CalledProcessError, e:
         log (output)
         log ("Error: Failed to unpack data")
-        log (str(e))
         raise
-# END - unpack_data
+# END - untar_data
 
 
 #=============================================================================
-if __name__ == '__main__':
+def unpack_data (data_source, source_file, destination_directory):
     '''
     Description:
-        For testing purposes only.
+        Unpacks the data using the appropriate mechanism for the data source.
     '''
 
-    try:
-        unpack_data('xxxxxx', 'yyyyyy')
-    except Exception, e:
-        log ("Error: Unable to unpack data")
-        sys.exit (EXIT_FAILURE)
+    if data_source not in valid_unpack_sources:
+        raise ValueError("Unsupported data source %s" % data_source)
 
-    sys.exit (EXIT_SUCCESS)
+    metadata = None
+
+    if data_source == 'landsat':
+        metadata = untar_data(source_file, destination_directory)
+
+    elif data_source == 'modis':
+        raise NotImplementedError("Data source %s is not implemented" % \
+            data_source)
+# END - unpack_data
 

@@ -14,14 +14,15 @@ History:
 from espa_constants import *
 from espa_logging import log
 
-# TODO TODO TODO
+
+# TODO TODO TODO - Comment this better
 # - Original code has logic for lndsr, lndth, and lndcal files as well as
 #   the l1t file.  But I think it is only defaulting to l1t right now
-valid_source_types = ['landsat', 'modis']
+valid_data_sources = ['landsat', 'modis']
 
 
 #=============================================================================
-def add_standard_parameters(parser):
+def add_standard_parameters (parser):
 
     parser.add_argument ('--orderid',
         action='store', dest='orderid', required=True,
@@ -34,16 +35,22 @@ def add_standard_parameters(parser):
 
 
 #=============================================================================
-def add_source_type_parameter(parser):
-    parser.add_argument ('--source_type',
-        action='store', dest='source_type', default='landsat',
-        choices=valid_source_types,
+def add_data_source_parameter (parser, choices):
+    '''
+    Description:
+      Adds the data_source parameter to the command line parameters with
+      specific choices
+    '''
+
+    parser.add_argument ('--data_source',
+        action='store', dest='data_source', default='landsat',
+        choices=choices,
         help="source type of the input data")
-# END - add_standard_parameters
+# END - add_data_source_parameter
 
 
 #=============================================================================
-def test_for_parameter(parms, key):
+def test_for_parameter (parms, key):
     '''
     Description:
       Tests to see if a specific parameter is present.
@@ -62,7 +69,7 @@ def test_for_parameter(parms, key):
 # END - test_for_parameter
 
 #=============================================================================
-def convert_to_command_line_options(parms):
+def convert_to_command_line_options (parms):
     '''
     Description:
       As simply stated in the routine name... Convert the JSON dictionary

@@ -21,6 +21,7 @@ import subprocess
 from espa_constants import *
 from espa_logging import log
 
+valid_stage_sources = ['landsat', 'modis']
 
 #=============================================================================
 def transfer_data (source_host, source_file,
@@ -35,20 +36,22 @@ def transfer_data (source_host, source_file,
     cmd = []
     if source_host == 'localhost' and destination_host == 'localhost':
         cmd = ['cp']
+    elif source_host == destination_host:
+        cmd = ['ssh', source_host, 'cp', source_file, destination_directory]
     else:
         cmd = ['scp', '-o', 'StrictHostKeyChecking=no', '-c', 'arcfour', '-C']
 
     # Build the source portion of the command
     if source_host == 'localhost':
         cmd += [source_file]
-    else:
+    elif source_host != destination_host:
         # Build the SCP command line
         cmd += ['%s:%s' % (source_host, source_file)]
 
     # Build the destination portion of the command
     if destination_host == 'localhost':
         cmd += [destination_directory]
-    else:
+    elif source_host != destination_host:
         cmd += ['%s:%s' % (destination_host, destination_directory)]
 
     log ("Transfering [%s:%s] to [%s:%s]" % \
@@ -61,37 +64,54 @@ def transfer_data (source_host, source_file,
     except subprocess.CalledProcessError, e:
         log (output)
         log ("Error: Failed to transfer data")
-        log (str(e))
         raise
 # END - transfer_data
 
 
 #=============================================================================
-def retrieve_landsat_l1t_scene(options, filename, stage_directory):
-    transfer_data (options['source_host'], \
-        "%s/%s" % (options['source_directory'], filename), \
-        'localhost', stage_directory)
-#END - retrieve_landsat_l1t_scene
-
-
-#=============================================================================
-def retrieve_modis_data(options, stage_directory):
-    raise Exception ("Error: Not implemented")
-#END - retrieve_modis_data
-
-
-#=============================================================================
-if __name__ == '__main__':
+def stage_landsat_l1t_data (scene, source_host, source_directory, \
+  destination_host, destination_directory):
     '''
     Description:
-        For testing purposes only.
+      Stages landsat L1T input data and places it on the localhost in the
+      specified destination directory
     '''
 
-    try:
-        transfer_data('localhost', 'xxxxxx', 'localhost', 'yyyyyy')
-    except Exception, e:
-        log ("Error: Unable to transfer data")
-        sys.exit (EXIT_FAILURE)
+    filename = '%s.tar.gz' % scene
 
-    sys.exit (EXIT_SUCCESS)
+    source_filename = '%s/%s' % (source_directory, filename)
+    destination_filename = '%s/%s' % (destination_directory, filename)
+
+    transfer_data (source_host, source_filename, destination_host,
+        destination_directory)
+
+    return destination_filename
+#END - stage_landsat_l1t_data
+
+
+#=============================================================================
+def stage_input_data (data_source, scene, source_host, source_directory,
+  destination_host, destination_directory):
+    '''
+    Description:
+      Stages known input data sources to the specified destination directory
+    '''
+
+    if data_source not in valid_stage_sources:
+        raise ValueError("Unsupported data source %s" % data_source)
+
+    filename = None
+
+    if data_source == 'landsat':
+        filename = stage_landsat_l1t_data(scene, source_host,
+            source_directory, destination_host, destination_directory)
+
+    elif data_source == 'modis':
+        raise NotImplementedError("Data source %s is not implemented" % \
+            data_source)
+
+    return filename
+#END - stage_input_data
+
+
 

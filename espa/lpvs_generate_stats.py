@@ -13,6 +13,7 @@ History:
 import os
 import sys
 import json
+import subprocess
 from argparse import ArgumentParser
 
 # espa-common objects and methods
@@ -21,9 +22,10 @@ from espa_logging import log
 
 # local objects and methods
 from common.directory_tools import initialize_processing_directory
-from common.transfer import retrieve_landsat_l1t_scene, retrieve_modis_data
+from common.transfer import stage_input_data
 from common.packaging import unpack_data
 import common.parameters as parameters
+from common.metadata import get_metadata
 
 
 #=============================================================================
@@ -40,7 +42,8 @@ def build_argument_parser():
     parameters.add_standard_parameters (parser)
 
     # Add specific parameters
-    parameters.add_source_type_parameter (parser)
+    parameters.add_data_source_parameter (parser,
+        parameters.valid_data_sources)
 
     parser.add_argument ('--source_host',
         action='store', dest='source_host', default='localhost',
@@ -129,7 +132,7 @@ def validate_input_parameters (parms):
             return ERROR
 
     # Test for presence of required option-level parameters
-    keys = ['source_type', 'source_host', 'source_directory',
+    keys = ['data_source', 'source_host', 'source_directory',
             'destination_host', 'destination_directory', 'include_sr',
             'include_sr_toa', 'include_sr_thermal', 'include_sr_nbr',
             'include_sr_nbr2', 'include_sr_ndvi', 'include_sr_ndmi',
@@ -143,9 +146,9 @@ def validate_input_parameters (parms):
     # Test specific parameters for acceptable values if needed
     options = parms['options']
 
-    if options['source_type'] not in parameters.valid_source_types:
-        raise Exception ("Error: Unsupported source_type [%s]" % \
-            options['source_type'])
+    if options['data_source'] not in parameters.valid_data_sources:
+        raise Exception ("Error: Unsupported data_source [%s]" % \
+            options['data_source'])
     # TODO TODO TODO TODO TODO TODO TODO TODO - Add more
 
 # END - validate_input_parameters
@@ -161,10 +164,12 @@ def process (parms):
 
     cmd_options = parameters.convert_to_command_line_options (parms)
 
+    scene = parms['scene']
+
     # Create and retrieve the directories to use for processing
     try:
         (scene_directory, stage_directory, work_directory, output_directory) = \
-            initialize_processing_directory (parms['scene'])
+            initialize_processing_directory (scene)
     except Exception, e:
         log ("Error: Failed creating processing directory")
         log (str(e))
@@ -172,30 +177,33 @@ def process (parms):
 
     # Keep a local options for those apps that only need a few things
     options = parms['options']
-    source_type = options['source_type']
+    data_source = options['data_source']
 
-    if source_type == 'landsat':
-        filename = '%s.tar.gz' % parms['scene']
-    else:
-        raise Exception ("Error: Not implemented for source_type [%s]" % \
-            source_type)
+    metadata = None
+    filename = None
+    try:
+        # Stage the input data
+        # TODO TODO TODO - Maybe in the future we don't care about source and host because we look it up in a service?????????????????????????
+        filename = stage_input_data(data_source, scene,
+            options['source_host'], options['source_directory'],
+            'localhost', stage_directory)
 
-    # TODO TODO TODO TODO TODO TODO - I'm not likeing all the if/else sections
-    # TODO TODO TODO TODO TODO TODO - Wonder if a class and inheritance would
-    # TODO TODO TODO TODO TODO TODO - be better for the processing loop?
+        # Unpack the input data to the work directory
+        unpack_data (data_source, filename, work_directory)
 
-    # Transfer the input data to the working directory
-    if source_type == 'landsat':
-        retrieve_landsat_l1t_scene(options, filename, stage_directory)
-    elif source_type == 'modis':
-        retrieve_modis_data(options, stage_directory)
+        # Get metadata information
+        metadata = get_metadata (data_source, work_directory)
+    except ValueError, e:
+        log ("Error: %s" % e.message)
+        raise
 
-    # Unpack the input data to the work directory
-    if source_type == 'landsat':
-        unpack_data ('%s/%s' % (stage_directory, filename), work_directory)
+    # TODO TODO TODO
+    # Probably need to change to the work directory somewhere
+    # A bunch of the following also gets placed into the above try/except
+    # TODO TODO TODO
 
     # build_science_products Landsat Science Products
-    if source_type == 'landsat':
+    if data_source == 'landsat':
         # TODO - ?? convert to internal binary format first ??
         cmd = ['build_science_products.py']
         cmd += cmd_options
@@ -203,7 +211,7 @@ def process (parms):
         # TODO TODO TODO
         #print cmd
         #print ''
-    elif source_type == 'landsat':
+    elif data_source == 'landsat':
         # TODO - ?? convert to internal binary format first ??
         x = 'y'
 
