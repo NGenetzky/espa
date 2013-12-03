@@ -23,8 +23,10 @@ from espa_constants import *
 from espa_logging import log
 
 
-# This contains the valid data sources which are supported
-valid_unpack_sources = ['landsat', 'modis']
+# This contains the valid sensors which are supported
+valid_landsat_sensors = ['LT', 'LE']
+valid_modis_sensors = ['MODIS']
+valid_unpack_sensors = valid_landsat_sensors + valid_modis_sensors
 
 
 #=============================================================================
@@ -51,22 +53,20 @@ def untar_data (source_file, destination_directory):
 
 
 #=============================================================================
-def unpack_data (data_source, source_file, destination_directory):
+def unpack_data (data_sensor, source_file, destination_directory):
     '''
     Description:
-        Unpacks the data using the appropriate mechanism for the data source.
+        Unpacks the data using the appropriate mechanism for the data sensor.
     '''
 
-    if data_source not in valid_unpack_sources:
-        raise ValueError("Unsupported data source %s" % data_source)
+    if data_sensor not in valid_unpack_sensors:
+        raise NotImplementedError ("Unsupported data sensor %s" % data_sensor)
 
-    metadata = None
+    if data_sensor in valid_landsat_sensors:
+        untar_data(source_file, destination_directory)
 
-    if data_source == 'landsat':
-        metadata = untar_data(source_file, destination_directory)
-
-    elif data_source == 'modis':
-        raise NotImplementedError("Data source %s is not implemented" % \
-            data_source)
+    elif data_sensor in valid_modis_sensors:
+        raise NotImplementedError ("Data sensor %s is not implemented" % \
+            data_sensor)
 # END - unpack_data
 

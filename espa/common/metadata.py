@@ -19,8 +19,10 @@ from espa_constants import *
 from espa_logging import log, debug
 
 
-# This contains the valid data sources which are supported
-valid_metadata_sources = ['landsat', 'modis']
+# This contains the valid sensors which are supported
+valid_landsat_sensors = ['LT', 'LE']
+valid_modis_sensors = ['MODIS']
+valid_metadata_sensors = valid_landsat_sensors + valid_modis_sensors
 
 
 #=============================================================================
@@ -49,7 +51,7 @@ def get_landsat_metadata (work_dir):
         return None
 
     # Save the current directory and change to the work directory
-    current_directory = os.getcwd()
+    current_directory = os.curdir
     os.chdir(work_dir)
 
 # TODO TODO TODO - Do we still need to do these cleanup attempts?
@@ -98,23 +100,23 @@ def get_landsat_metadata (work_dir):
 
 
 #=============================================================================
-def get_metadata (data_source, work_dir):
+def get_metadata (data_sensor, work_dir):
     '''
     Description:
       Returns metadata as a dictionary
     '''
 
-    if data_source not in valid_metadata_sources:
-        raise ValueError("Unsupported data source %s" % data_source)
+    if data_sensor not in valid_metadata_sensors:
+        raise NotImplementedError ("Unsupported data sensor %s" % data_sensor)
 
     metadata = None
 
-    if data_source == 'landsat':
+    if data_sensor in valid_landsat_sensors:
         metadata = get_landsat_metadata(work_dir)
 
-    elif data_source == 'modis':
-        raise NotImplementedError("Data source %s is not implemented" % \
-            data_source)
+    elif data_sensor in valid_modis_sensors:
+        raise NotImplementedError ("Data sensor %s is not implemented" % \
+            data_sensor)
 
     return metadata
 # END - get_metadata

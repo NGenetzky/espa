@@ -15,10 +15,9 @@ from espa_constants import *
 from espa_logging import log
 
 
-# TODO TODO TODO - Comment this better
-# - Original code has logic for lndsr, lndth, and lndcal files as well as
-#   the l1t file.  But I think it is only defaulting to l1t right now
-valid_data_sources = ['landsat', 'modis']
+# This contains the valid sensors and data types which are supported
+valid_sensors = ['LT', 'LE'] # TODO TODO TODO - Someday add MODIS
+valid_data_types = ['level1', 'sr', 'toa', 'th']
 
 
 #=============================================================================
@@ -35,17 +34,17 @@ def add_standard_parameters (parser):
 
 
 #=============================================================================
-def add_data_source_parameter (parser, choices):
+def add_data_type_parameter (parser, choices):
     '''
     Description:
       Adds the data_source parameter to the command line parameters with
       specific choices
     '''
 
-    parser.add_argument ('--data_source',
-        action='store', dest='data_source', default='landsat',
+    parser.add_argument ('--data_type',
+        action='store', dest='data_type', default='level1',
         choices=choices,
-        help="source type of the input data")
+        help="type of the input data")
 # END - add_data_source_parameter
 
 
@@ -62,11 +61,11 @@ def test_for_parameter (parms, key):
     '''
 
     if (not parms.has_key(key)) or (parms[key] == '') or (parms[key] == None):
-        log ("Warning: Missing '%s' from parameters" % key)
         return False
 
     return True
 # END - test_for_parameter
+
 
 #=============================================================================
 def convert_to_command_line_options (parms):

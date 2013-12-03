@@ -1,0 +1,215 @@
+#! /usr/bin/env python
+
+'''
+License:
+  "NASA Open Source Agreement 1.3"
+
+Description:
+  See 'Description' under '__main__' for more details.
+  This mapper performs the statistics portion of LPVS processing.
+
+History:
+  Original Development (cdr_ecv.py) by David V. Hill, USGS/EROS
+  Created Nov/2013 by Ron Dilley, USGS/EROS
+    - Gutted the original implementation from cdr_ecv.py and placed it in this
+      file.
+'''
+
+import os
+import sys
+import subprocess
+
+# espa-common objects and methods
+from espa_constants import *
+from espa_logging import log, set_debug, debug
+
+# local objects and methods
+import common.parameters as parameters
+from common.metadata import get_metadata
+
+# This contains the valid sensors which are supported
+valid_landsat_sensors = ['LT', 'LE']
+valid_modis_sensors = ['MODIS']
+valid_science_sensors = valid_landsat_sensors + valid_modis_sensors
+
+# Default browse resolution
+default_browse_resolution = 50
+
+#=============================================================================
+def build_argument_parser():
+    '''
+    Description:
+      Build the command line argument parser.
+    '''
+
+    # Create a command line argument parser
+    parser = ArgumentParser(usage="%(prog)s [options]")
+
+    # Add the standard parameters
+    add_standard_parameters(parser)
+
+    # Add specific parameters
+    # TODO TODO TODO - Need more, but need to implement transfer_data.py first
+
+    return parser
+# END - build_argument_parser
+
+
+#=============================================================================
+def validate_landsat_parameters (parms):
+    '''
+    Description:
+      Make sure all the parameter options needed for this and called routines
+      is available with the provided input parameters.
+    '''
+
+    # Test for presence of top-level parameters
+    keys = ['orderid', 'scene', 'options']
+    for key in keys:
+        if not parameters.test_for_parameter (parms, key):
+            return ERROR
+
+    # Access to the options parameters
+    options = parms['options']
+
+    # Test for presence of required option-level parameters
+    keys = ['data_type']
+
+    for key in keys:
+        if not parameters.test_for_parameter (options, key):
+            return ERROR
+
+    # Test specific parameters for acceptable values if needed
+    if options['data_type'] not in parameters.valid_data_types:
+        raise NotImplementedError ("Unsupported data_type [%s]" % \
+            options['data_type'])
+
+    # Force these parameters to false if not provided
+    # TODO TODO TODO - add others
+    keys = ['include_sr', 'include_sr_browse', 'include_sr_toa',
+            'include_sr_thermal', 'include_sr_nbr', 'include_sr_nbr2',
+            'include_sr_ndvi', 'include_sr_ndmi', 'include_sr_savi',
+            'include_sr_evi', 'include_snow_covered_area',
+            'include_surface_water_extent']
+
+    for key in keys:
+        if not parameters.test_for_parameter (options, key):
+            options[key] = False
+
+    # Determine if browse was requested and specify the default resolution if
+    # a resolution was not specified
+    if options['include_sr_browse']:
+        if not parameters.test_for_parameter (options, 'browse_resolution'):
+            options['browse_resolution'] = default_browse_resolution
+
+    # TODO TODO TODO TODO TODO TODO TODO TODO - Add more
+
+# END - validate_landsat_parameters
+
+
+#=============================================================================
+def make_browse (scene, browse_resolution=default_browse_resolution):
+    log ("Browse Generation Not Implemented!!!!")
+    return SUCCESS
+# END - make_browse
+
+
+#=============================================================================
+def build_landsat_science_products (parms):
+    # Keep a local options for those apps that only need a few things
+    options = parms['options']
+
+    metadata = get_metadata (options['data_sensor'], parms['work_directory'])
+    metadata_filename = metadata['metadata_filename']
+
+    # Change to the working directory
+    current_directory = os.curdir
+    os.chdir(parms['work_directory'])
+
+    try:
+        # Generate LEDAPS products SR, TOA, TH
+        if options['include_sr'] \
+          or options['include_sr'] \
+          or options['include_sr_browse'] \
+          or options['include_sr_toa'] \
+          or options['include_sr_thermal'] \
+          or options['include_sr_nbr'] \
+          or options['include_sr_nbr2'] \
+          or options['include_sr_ndvi'] \
+          or options['include_sr_ndmi'] \
+          or options['include_sr_savi'] \
+          or options['include_sr_evi'] \
+          or options['include_snow_covered_area'] \
+          or options['include_surface_water_extent']:
+            cmd = ['do_ledaps.py', '--metafile', metadata_filename]
+            output = subprocess.check_output (cmd)
+            log (output)
+
+        # Generate SR browse product
+        if options['include_sr_browse']:
+            make_browse (parms['scene'], options['browse_resolution'])
+
+        # TODO TODO TODO - Add next step here
+    except Exception, e:
+        # Change back to the previous directory
+        os.chdir(parms['work_directory'])
+        raise e
+
+    return SUCCESS
+# END - build_science_products
+
+
+#=============================================================================
+def build_science_products (parms):
+    options = parms['options']
+    data_sensor = options['data_sensor']
+
+    if data_sensor not in valid_science_sensors:
+        raise NotImplementedError ("Unsupported data sensor %s" % data_sensor)
+
+    if data_sensor in valid_landsat_sensors:
+        # Validate the parameters
+        validate_landsat_parameters (parms)
+        debug (parms)
+
+        xxx = build_landsat_science_products (parms)
+
+    elif data_sensor in valid_modis_sensors:
+        raise NotImplementedError ("Data source %s is not implemented" % \
+            data_source)
+# END - build_science_products
+
+
+#=============================================================================
+if __name__ == '__main__':
+    '''
+    Description:
+      Read parameters from the command line and build a JSON dictionary from
+      them.  Pass the JSON dictionary to the process routine.
+    '''
+
+    # Build the command line argument parser
+    parser = build_argument_parser() # TODO TODO TODO - Needs a lot of work
+
+    # Parse the command line arguments
+    args_dict = vars(parser.parse_args())
+
+    # Build our JSON formatted input from the command line parameters
+    orderid = args_dict.pop ('orderid')
+    scene = args_dict.pop ('scene')
+    options = {k : args_dict[k] for k in args_dict if args_dict[k] != None}
+
+    # Build the JSON parameters dictionary
+    json_parms['orderid'] = orderid
+    json_parms['scene'] = scene
+    json_parms['options'] = options
+
+    try:
+        # Call the main processing routine
+        build_science_products (parms)
+    except Exception, e:
+        log (str(e))
+        sys.exit (EXIT_FAILURE)
+
+    sys.exit (EXIT_SUCCESS)
+

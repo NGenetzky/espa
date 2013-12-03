@@ -4,5 +4,5 @@ echo
 echo
 echo
 
-./lpvs_generate_stats.py --orderid french_toast --scene LE70290302013185EDC00 --source_directory /home/dilley/espa-data --data_source landsat
+#./lpvs_generate_stats.py --orderid french_toast --scene LE70290302013185EDC00 --source_directory /home/dilley/espa-data --data_source landsat --include_sr
 

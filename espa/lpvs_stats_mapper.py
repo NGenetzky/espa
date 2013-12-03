@@ -20,7 +20,7 @@ from argparse import ArgumentParser
 
 # espa-common objects and methods
 from espa_constants import *
-from espa_logging import log
+from espa_logging import log, debug, set_debug
 
 # local objects and methods
 from common.parameters import test_for_parameter
@@ -58,6 +58,9 @@ if __name__ == '__main__':
             validate_input_parameters(json_parms)
 
             (orderid, sceneid) = (json_parms['orderid'], json_parms['scene'])
+
+            if json_parms['options']['debug']:
+                set_debug()
 
             log ("Processing %s:%s" % (orderid, sceneid))
 

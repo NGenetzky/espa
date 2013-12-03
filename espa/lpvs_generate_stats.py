@@ -12,13 +12,13 @@ History:
 
 import os
 import sys
+import re
 import json
-import subprocess
 from argparse import ArgumentParser
 
 # espa-common objects and methods
 from espa_constants import *
-from espa_logging import log
+from espa_logging import log, debug
 
 # local objects and methods
 from common.directory_tools import initialize_processing_directory
@@ -26,6 +26,7 @@ from common.transfer import stage_input_data
 from common.packaging import unpack_data
 import common.parameters as parameters
 from common.metadata import get_metadata
+from build_science_products import build_science_products
 
 
 #=============================================================================
@@ -42,8 +43,7 @@ def build_argument_parser():
     parameters.add_standard_parameters (parser)
 
     # Add specific parameters
-    parameters.add_data_source_parameter (parser,
-        parameters.valid_data_sources)
+    parameters.add_data_type_parameter (parser, parameters.valid_data_types)
 
     parser.add_argument ('--source_host',
         action='store', dest='source_host', default='localhost',
@@ -124,31 +124,47 @@ def validate_input_parameters (parms):
       Make sure all the parameter options needed for this and called routines
       is available with the provided input parameters.
     '''
-
+# TODO TODO TODO - xmlrpc needs to be figured out.....................
+# TODO TODO TODO - xmlrpc needs to be figured out.....................
+# TODO TODO TODO - xmlrpc needs to be figured out.....................
+# TODO TODO TODO - xmlrpc needs to be figured out.....................
     # Test for presence of top-level parameters
     keys = ['orderid', 'scene', 'options']
     for key in keys:
         if not parameters.test_for_parameter (parms, key):
-            return ERROR
+            raise RuntimeError ("Missing required input parameter [%s]" % key)
 
     # Test for presence of required option-level parameters
-    keys = ['data_source', 'source_host', 'source_directory',
-            'destination_host', 'destination_directory', 'include_sr',
-            'include_sr_toa', 'include_sr_thermal', 'include_sr_nbr',
-            'include_sr_nbr2', 'include_sr_ndvi', 'include_sr_ndmi',
-            'include_sr_savi', 'include_sr_evi', 'lpvs_minimum',
-            'lpvs_maximum', 'lpvs_average', 'lpvs_stddev']
+    keys = ['data_type',
+            'source_host',
+            'source_directory',
+            'destination_host',
+            'destination_directory']
 
-    for key in keys:
-        if not parameters.test_for_parameter (parms['options'], key):
-            return ERROR
-
-    # Test specific parameters for acceptable values if needed
     options = parms['options']
 
-    if options['data_source'] not in parameters.valid_data_sources:
-        raise Exception ("Error: Unsupported data_source [%s]" % \
-            options['data_source'])
+    for key in keys:
+        if not parameters.test_for_parameter (options, key):
+            raise RuntimeError ("Missing required input parameter [%s]" % key)
+
+    # Test specific parameters for acceptable values if needed
+    data_type = options['data_type']
+
+    if data_type not in parameters.valid_data_types:
+        raise NotImplementedError ("Unsupported data_type [%s]" % data_type)
+
+    # Extract the sensor from the scene string
+    data_sensor = re.search('^([A-Z]+).', parms['scene']).group(1)
+
+    if data_sensor not in parameters.valid_sensors:
+        raise NotImplementedError ("Data sensor %s is not implemented" % \
+            data_sensor)
+
+    # Add the sensor to the options
+    options['data_sensor'] = data_sensor
+
+    # TODO TODO TODO TODO TODO TODO TODO TODO - Add more
+    # TODO TODO TODO TODO TODO TODO TODO TODO - Add more
     # TODO TODO TODO TODO TODO TODO TODO TODO - Add more
 
 # END - validate_input_parameters
@@ -162,6 +178,14 @@ def process (parms):
       then processing them through the statistics generation.
     '''
 
+    # Validate the parameters
+    try:
+        validate_input_parameters (parms)
+    except Exception, e:
+        log ("Error: %s" % str(e))
+        return ERROR
+
+    # Convert to command line parameters
     cmd_options = parameters.convert_to_command_line_options (parms)
 
     scene = parms['scene']
@@ -171,49 +195,42 @@ def process (parms):
         (scene_directory, stage_directory, work_directory, output_directory) = \
             initialize_processing_directory (scene)
     except Exception, e:
-        log ("Error: Failed creating processing directory")
-        log (str(e))
+        log ("Error: %s" % str(e))
         return ERROR
+
+    # Add the work directory to the parameters
+    parms['work_directory'] = work_directory
 
     # Keep a local options for those apps that only need a few things
     options = parms['options']
-    data_source = options['data_source']
+    data_sensor = options['data_sensor']
 
     metadata = None
     filename = None
     try:
         # Stage the input data
         # TODO TODO TODO - Maybe in the future we don't care about source and host because we look it up in a service?????????????????????????
-        filename = stage_input_data(data_source, scene,
+        filename = stage_input_data(data_sensor, scene,
             options['source_host'], options['source_directory'],
             'localhost', stage_directory)
 
         # Unpack the input data to the work directory
-        unpack_data (data_source, filename, work_directory)
+        unpack_data (data_sensor, filename, work_directory)
 
+        # TODO TODO TODO - If the metadata filename is only used by build_science_products or a few other routines, then this can probably be pushed into those routines, instead of trying to pass it around.
         # Get metadata information
-        metadata = get_metadata (data_source, work_directory)
+        #metadata = get_metadata (data_sensor, work_directory)
+
+        # Build the requested science products
+        something = build_science_products(parms)
     except ValueError, e:
-        log ("Error: %s" % e.message)
-        raise
+        log ("Error: %s" % str(e))
+        return ERROR
 
     # TODO TODO TODO
     # Probably need to change to the work directory somewhere
     # A bunch of the following also gets placed into the above try/except
     # TODO TODO TODO
-
-    # build_science_products Landsat Science Products
-    if data_source == 'landsat':
-        # TODO - ?? convert to internal binary format first ??
-        cmd = ['build_science_products.py']
-        cmd += cmd_options
-
-        # TODO TODO TODO
-        #print cmd
-        #print ''
-    elif data_source == 'landsat':
-        # TODO - ?? convert to internal binary format first ??
-        x = 'y'
 
     # Generate the tile data for each science product
     cmd = ['generate_tiles.py']
@@ -274,13 +291,6 @@ if __name__ == '__main__':
     json_parms['orderid'] = orderid
     json_parms['scene'] = scene
     json_parms['options'] = options
-
-    # Validate the JSON parameters
-    try:
-        validate_input_parameters (json_parms)
-    except Exception, e:
-        log (str(e))
-        sys.exit (EXIT_FAILURE)
 
     # Call the process routine with the JSON parameters
     if process (json_parms) != SUCCESS:
