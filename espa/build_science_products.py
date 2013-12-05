@@ -142,6 +142,7 @@ def build_landsat_science_products (parms):
     th_filename = 'lndth.%s.hdf' % scene
     solr_filename = '%s-index.xml' % scene
     fmask_filename = 'fmask.%s.hdf' % scene
+    sca_filename = 'sca.%s.hdf' % scene
 
     # Change to the working directory
     current_directory = os.curdir
@@ -230,9 +231,42 @@ def build_landsat_science_products (parms):
                 raise RuntimeError (("Could not find LEDAPS TOA reflectance"
                     " file in %s") % parms['work_directory'])
 
+            # TODO TODO TODO - I wonder if this should be a 'do_cfmask.py'
             cmd = ['cfmask', '--verbose', '--toarefl=%s' % toa_filename]
 
             log ("CREATE CFMASK COMMAND:%s" % ' '.join(cmd))
+            output = subprocess.check_output (cmd)
+            log (output)
+
+        # --------------------------------------------------------------------
+        # Append CFMask into the SR product if only SR was selected
+        if options['include_sr'] and not options['include_cfmask']:
+            cmd = ['do_append_cfmask.py', '--sr_infile', sr_filename,
+                   '--cfmask_infile', fmask_filename]
+
+            log ("APPEND CFMASK COMMAND:%s" % ' '.join(cmd))
+            output = subprocess.check_output (cmd)
+            log (output)
+
+        # --------------------------------------------------------------------
+        # Generate Surface Water Extent product
+        if options['include_surface_water_extent']:
+            cmd = ['do_surface_water_extent.py', '--metafile',
+                   metadata_filename, '--reflectance', sr_filename, '--dem',
+                   dem_filename]
+
+            log ("CREATE SWE COMMAND:%s" % ' '.join(cmd))
+            output = subprocess.check_output (cmd)
+            log (output)
+
+        # --------------------------------------------------------------------
+        # Generate Snow Covered Area product
+        if options['include_snow_covered_area']:
+            cmd = ['do_snow_cover.py', '--metafile', metadata_filename,
+                   '--toa_infile', toa_filename, '--btemp_infile', th_filename,
+                   '--sca_outfile', sca_filename, '--dem', dem_filename]
+
+            log ("CREATE SCA COMMAND:%s" % ' '.join(cmd))
             output = subprocess.check_output (cmd)
             log (output)
 
