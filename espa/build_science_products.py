@@ -26,14 +26,16 @@ from espa_logging import log, set_debug, debug
 # local objects and methods
 import common.parameters as parameters
 from common.metadata import get_metadata
+from products.solr import create_solr_index
 
 # This contains the valid sensors which are supported
 valid_landsat_sensors = ['LT', 'LE']
 valid_modis_sensors = ['MODIS']
 valid_science_sensors = valid_landsat_sensors + valid_modis_sensors
 
-# Default browse resolution
+# Default values
 default_browse_resolution = 50
+default_collection_name = 'DEFAULT_COLLECTION'
 
 #=============================================================================
 def build_argument_parser():
@@ -90,7 +92,7 @@ def validate_landsat_parameters (parms):
             'include_sr_thermal', 'include_sr_nbr', 'include_sr_nbr2',
             'include_sr_ndvi', 'include_sr_ndmi', 'include_sr_savi',
             'include_sr_evi', 'include_snow_covered_area',
-            'include_surface_water_extent']
+            'include_surface_water_extent', 'create_dem', 'include_solr_index']
 
     for key in keys:
         if not parameters.test_for_parameter (options, key):
@@ -101,6 +103,12 @@ def validate_landsat_parameters (parms):
     if options['include_sr_browse']:
         if not parameters.test_for_parameter (options, 'browse_resolution'):
             options['browse_resolution'] = default_browse_resolution
+
+    # Determine if SOLR was requested and specify the default collection name
+    # if a collection name was not specified
+    if options['include_solr_index']:
+        if not parameters.test_for_parameter (options, 'collection_name'):
+            options['collection_name'] = default_collection_name
 
     # TODO TODO TODO TODO TODO TODO TODO TODO - Add more
 
@@ -118,18 +126,31 @@ def make_browse (scene, browse_resolution=default_browse_resolution):
 def build_landsat_science_products (parms):
     # Keep a local options for those apps that only need a few things
     options = parms['options']
+    scene = parms['scene']
 
+    # Figure out the metadata filename
     metadata = get_metadata (options['data_sensor'], parms['work_directory'])
     metadata_filename = metadata['metadata_filename']
+
+    # Figure out the DEM filename
+    dem_prefix = 'dem.envi' # used to create the DEM filename and for cleanup
+    dem_filename = dem_prefix + '.%s.bin' % scene
+
+    # Figure out remaining filenames
+    sr_filename = 'lndsr.%s.hdf' % scene
+    toa_filename = 'lndcal.%s.hdf' % scene
+    th_filename = 'lndth.%s.hdf' % scene
+    solr_filename = '%s-index.xml' % scene
+    fmask_filename = 'fmask.%s.hdf' % scene
 
     # Change to the working directory
     current_directory = os.curdir
     os.chdir(parms['work_directory'])
 
     try:
+        # --------------------------------------------------------------------
         # Generate LEDAPS products SR, TOA, TH
         if options['include_sr'] \
-          or options['include_sr'] \
           or options['include_sr_browse'] \
           or options['include_sr_toa'] \
           or options['include_sr_thermal'] \
@@ -142,21 +163,90 @@ def build_landsat_science_products (parms):
           or options['include_snow_covered_area'] \
           or options['include_surface_water_extent']:
             cmd = ['do_ledaps.py', '--metafile', metadata_filename]
+            log ("LEDAPS COMMAND:%s" % ' '.join(cmd))
             output = subprocess.check_output (cmd)
             log (output)
 
+        # --------------------------------------------------------------------
         # Generate SR browse product
         if options['include_sr_browse']:
-            make_browse (parms['scene'], options['browse_resolution'])
+            make_browse (scene, options['browse_resolution'])
 
+        # --------------------------------------------------------------------
+        # Generate any specified indices
+        if options['include_sr_nbr'] \
+          or options['include_sr_nbr2'] \
+          or options['include_sr_ndvi'] \
+          or options['include_sr_ndmi'] \
+          or options['include_sr_savi'] \
+          or options['include_sr_evi']:
+            cmd = ['do_spectral_indices.py']
+
+            # Add the specified index options
+            if options['include_sr_nbr']:
+                cmd += ['--nbr']
+            if options['include_sr_nbr2']:
+                cmd += ['--nbr2']
+            if options['include_sr_ndvi']:
+                cmd += ['--ndvi']
+            if options['include_sr_ndmi']:
+                cmd += ['--ndmi']
+            if options['include_sr_savi']:
+                cmd += ['--savi']
+            if options['include_sr_evi']:
+                cmd += ['--evi']
+
+            # We are always generating indices off of surface reflectance
+            cmd += ['-i', sr_filename]
+
+            log ("SPECTRAL INDICES COMMAND:%s" % ' '.join(cmd))
+            output = subprocess.check_output (cmd)
+            log (output)
+        # END - if indices
+
+        # --------------------------------------------------------------------
+        # Create a DEM
+        if options['create_dem'] \
+          or options['include_snow_covered_area'] \
+          or options['include_surface_water_extent']:
+            cmd = ['do_create_dem.py', '--metafile', metadata_filename,
+                   '--demfile', dem_filename]
+
+            log ("CREATE DEM COMMAND:%s" % ' '.join(cmd))
+            output = subprocess.check_output (cmd)
+            log (output)
+
+        # --------------------------------------------------------------------
+        # Generate SOLR index
+        if options['include_solr_index']:
+            create_solr_index (metadata, scene, solr_filename,
+                options['collection_name'])
+
+        # --------------------------------------------------------------------
+        # Generate CFMask product
+        if options['include_cfmask'] or options['include_sr']:
+            # Verify lndcal file exists first
+            if not os.path.isfile(toa_filename):
+                raise RuntimeError (("Could not find LEDAPS TOA reflectance"
+                    " file in %s") % parms['work_directory'])
+
+            cmd = ['cfmask', '--verbose', '--toarefl=%s' % toa_filename]
+
+            log ("CREATE CFMASK COMMAND:%s" % ' '.join(cmd))
+            output = subprocess.check_output (cmd)
+            log (output)
+
+        # --------------------------------------------------------------------
         # TODO TODO TODO - Add next step here
     except Exception, e:
         # Change back to the previous directory
-        os.chdir(parms['work_directory'])
+        os.chdir(current_directory)
         raise e
 
+    os.chdir(current_directory)
+
     return SUCCESS
-# END - build_science_products
+# END - build_landsat_science_products
 
 
 #=============================================================================
