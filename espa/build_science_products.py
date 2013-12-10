@@ -18,6 +18,7 @@ History:
 import os
 import sys
 import subprocess
+import glob
 
 # espa-common objects and methods
 from espa_constants import *
@@ -117,6 +118,10 @@ def validate_landsat_parameters (parms):
 
 #=============================================================================
 def make_browse (scene, browse_resolution=default_browse_resolution):
+    '''
+    Descrription: TODO TODO TODO
+    '''
+
     log ("Browse Generation Not Implemented!!!!")
     return SUCCESS
 # END - make_browse
@@ -124,6 +129,10 @@ def make_browse (scene, browse_resolution=default_browse_resolution):
 
 #=============================================================================
 def build_landsat_science_products (parms):
+    '''
+    Descrription: TODO TODO TODO
+    '''
+
     # Keep a local options for those apps that only need a few things
     options = parms['options']
     scene = parms['scene']
@@ -149,6 +158,14 @@ def build_landsat_science_products (parms):
     os.chdir(parms['work_directory'])
 
     try:
+        # Build command line arguments to remove intermediate data files that
+        # are not part of the final products
+        non_products = glob.glob ('*sixs*')
+        non_products += glob.glob ('*metadata*')
+        non_products += glob.glob ('LogReport*')
+        non_products += glob.glob ('README*')
+        non_products += glob.glob ('fmask*txt')
+
         # --------------------------------------------------------------------
         # Generate LEDAPS products SR, TOA, TH
         if options['include_sr'] \
@@ -165,7 +182,7 @@ def build_landsat_science_products (parms):
           or options['include_surface_water_extent']:
             cmd = ['do_ledaps.py', '--metafile', metadata_filename]
             log ("LEDAPS COMMAND:%s" % ' '.join(cmd))
-            output = subprocess.check_output (cmd)
+            output = subprocess.check_output (cmd, stderr=subprocess.STDOUT)
             log (output)
 
         # --------------------------------------------------------------------
@@ -201,7 +218,7 @@ def build_landsat_science_products (parms):
             cmd += ['-i', sr_filename]
 
             log ("SPECTRAL INDICES COMMAND:%s" % ' '.join(cmd))
-            output = subprocess.check_output (cmd)
+            output = subprocess.check_output (cmd, stderr=subprocess.STDOUT)
             log (output)
         # END - if indices
 
@@ -214,7 +231,7 @@ def build_landsat_science_products (parms):
                    '--demfile', dem_filename]
 
             log ("CREATE DEM COMMAND:%s" % ' '.join(cmd))
-            output = subprocess.check_output (cmd)
+            output = subprocess.check_output (cmd, stderr=subprocess.STDOUT)
             log (output)
 
         # --------------------------------------------------------------------
@@ -235,7 +252,7 @@ def build_landsat_science_products (parms):
             cmd = ['cfmask', '--verbose', '--toarefl=%s' % toa_filename]
 
             log ("CREATE CFMASK COMMAND:%s" % ' '.join(cmd))
-            output = subprocess.check_output (cmd)
+            output = subprocess.check_output (cmd, stderr=subprocess.STDOUT)
             log (output)
 
         # --------------------------------------------------------------------
@@ -245,7 +262,7 @@ def build_landsat_science_products (parms):
                    '--cfmask_infile', fmask_filename]
 
             log ("APPEND CFMASK COMMAND:%s" % ' '.join(cmd))
-            output = subprocess.check_output (cmd)
+            output = subprocess.check_output (cmd, stderr=subprocess.STDOUT)
             log (output)
 
         # --------------------------------------------------------------------
@@ -256,7 +273,7 @@ def build_landsat_science_products (parms):
                    dem_filename]
 
             log ("CREATE SWE COMMAND:%s" % ' '.join(cmd))
-            output = subprocess.check_output (cmd)
+            output = subprocess.check_output (cmd, stderr=subprocess.STDOUT)
             log (output)
 
         # --------------------------------------------------------------------
@@ -267,24 +284,48 @@ def build_landsat_science_products (parms):
                    '--sca_outfile', sca_filename, '--dem', dem_filename]
 
             log ("CREATE SCA COMMAND:%s" % ' '.join(cmd))
-            output = subprocess.check_output (cmd)
+            output = subprocess.check_output (cmd, stderr=subprocess.STDOUT)
             log (output)
 
         # --------------------------------------------------------------------
-        # TODO TODO TODO - Add next step here
+        # Remove non product files here
+        if not options['include_sourcefile']:
+            non_products += glob.glob ('*TIF')
+            non_products += glob.glob ('*gap_mask*')
+        if not options['include_source_metadata']:
+            non_products += glob.glob ('*MTL*')
+            non_products += glob.glob ('*VER*')
+            non_products += glob.glob ('*GCP*')
+        if not options['include_sr']:
+            non_products += glob.glob ('lndsr*')
+        if not options['include_sr_toa']:
+            non_products += glob.glob ('lndcal*')
+        if not options['include_sr_thermal']:
+            non_products += glob.glob ('lndth*')
+        if not options['include_sr_browse']:
+            non_products += glob.glob ('*browse*')
+        if not options['create_dem']:
+            non_products += glob.glob ('dem*')
+        if not options['include_cfmask']:
+            non_products += glob.glob ('fmask*')
+        cmd = ['rm', '-rf'] + non_products
+        log ("REMOVING INTERMEDIATE DATA COMMAND:%s" % ' '.join(cmd))
+        output = subprocess.check_output (cmd, stderr=subprocess.STDOUT)
+        log (output)
     except Exception, e:
+        raise e
+    finally:
         # Change back to the previous directory
         os.chdir(current_directory)
-        raise e
-
-    os.chdir(current_directory)
-
-    return SUCCESS
 # END - build_landsat_science_products
 
 
 #=============================================================================
 def build_science_products (parms):
+    '''
+    Descrription: TODO TODO TODO
+    '''
+
     options = parms['options']
     data_sensor = options['data_sensor']
 
@@ -296,10 +337,10 @@ def build_science_products (parms):
         validate_landsat_parameters (parms)
         debug (parms)
 
-        xxx = build_landsat_science_products (parms)
+        build_landsat_science_products (parms)
 
     elif data_sensor in valid_modis_sensors:
-        raise NotImplementedError ("Data source %s is not implemented" % \
+        raise NotImplementedError ("Data sensor %s is not implemented" % \
             data_source)
 # END - build_science_products
 

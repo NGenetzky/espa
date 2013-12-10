@@ -25,8 +25,8 @@ from common.directory_tools import initialize_processing_directory
 from common.transfer import stage_input_data
 from common.packaging import unpack_data
 import common.parameters as parameters
-from common.metadata import get_metadata
 from build_science_products import build_science_products
+from warp_science_products import warp_science_products
 
 
 #=============================================================================
@@ -97,20 +97,20 @@ def build_argument_parser():
         action='store_true', dest='include_sr_evi', default=False,
         help="process statistics on SR EVI data")
 
-    parser.add_argument ('--lpvs_minimum',
-        action='store_true', dest='lpvs_minimum', default=False,
+    parser.add_argument ('--stats_minimum',
+        action='store_true', dest='stats_minimum', default=False,
         help="compute minimum value for each specified dataset")
 
-    parser.add_argument ('--lpvs_maximum',
-        action='store_true', dest='lpvs_maximum', default=False,
+    parser.add_argument ('--stats_maximum',
+        action='store_true', dest='stats_maximum', default=False,
         help="compute maximum value for each specified dataset")
 
-    parser.add_argument ('--lpvs_average',
-        action='store_true', dest='lpvs_average', default=False,
+    parser.add_argument ('--stats_average',
+        action='store_true', dest='stats_average', default=False,
         help="compute average value for each specified dataset")
 
-    parser.add_argument ('--lpvs_stddev',
-        action='store_true', dest='lpvs_stddev', default=False,
+    parser.add_argument ('--stats_stddev',
+        action='store_true', dest='stats_stddev', default=False,
         help="compute standard deviation value for each specified dataset")
 
     return parser
@@ -209,7 +209,6 @@ def process (parms):
     filename = None
     try:
         # Stage the input data
-        # TODO TODO TODO - Maybe in the future we don't care about source and host because we look it up in a service?????????????????????????
         filename = stage_input_data(data_sensor, scene,
             options['source_host'], options['source_directory'],
             'localhost', stage_directory)
@@ -217,39 +216,32 @@ def process (parms):
         # Unpack the input data to the work directory
         unpack_data (data_sensor, filename, work_directory)
 
-        # TODO TODO TODO - If the metadata filename is only used by build_science_products or a few other routines, then this can probably be pushed into those routines, instead of trying to pass it around.
-        # Get metadata information
-        #metadata = get_metadata (data_sensor, work_directory)
-
         # Build the requested science products
-        something = build_science_products(parms)
-    except ValueError, e:
+        build_science_products (parms)
+
+        # Reproject the data for each science product, but only if necessary
+        # TODO - Should this also tile the data and (TODO) in the future the
+        # tile will only contain the information contained within the
+        # requested polygon
+        if options['reproject'] or options['pixel_size'] \
+          or options['image_extents']:
+            warp_science_products (parms)
+
+        # TODO - Generate the stats for each stat'able' science product
+        #cmd = ['generate_stats.py']
+        #cmd += cmd_options
+
+        # TODO - Package the product files
+        #cmd = ['package_product.py']
+        #cmd += cmd_options
+
+        # TODO - Transfer the product data to the on-line product cache
+        # transfer.py
+
+    except Exception, e:
         log ("Error: %s" % str(e))
+        log ("Error: Output [%s]" % e.output)
         return ERROR
-
-    # TODO TODO TODO
-    # Probably need to change to the work directory somewhere
-    # A bunch of the following also gets placed into the above try/except
-    # TODO TODO TODO
-
-    # Generate the tile data for each science product
-    cmd = ['generate_tiles.py']
-    cmd += cmd_options
-
-    # TODO TODO TODO
-    #print cmd
-    #print ''
-
-    # Generate the stats for each tile
-    cmd = ['generate_stats.py']
-    cmd += cmd_options
-
-    # TODO TODO TODO
-    #print cmd
-    #print ''
-
-    # Transfer the product data to the on-line product cache
-    # transfer.py  TODO TODO TODO
 
     # update_order_status
     cmd = ['update_order_status.py']

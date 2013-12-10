@@ -10,6 +10,8 @@ History:
   Created Nov/2013 by Ron Dilley, USGS/EROS
 '''
 
+import os
+
 # espa-common objects and methods
 from espa_constants import *
 from espa_logging import log
@@ -29,6 +31,10 @@ def add_standard_parameters (parser):
 
     parser.add_argument ('--scene',
         action='store', dest='scene', required=True,
+        help="the scene ID associated with this request")
+
+    parser.add_argument ('--work_directory',
+        action='store', dest='work_directory', default=os.curdir,
         help="the scene ID associated with this request")
 # END - add_standard_parameters
 
