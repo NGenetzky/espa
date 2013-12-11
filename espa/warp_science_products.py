@@ -226,6 +226,7 @@ def get_hdf_global_metadata(hdf_file):
     return (metadata, has_subdatasets)
 # END - get_hdf_global_metadata
 
+
 #=============================================================================
 def warp_science_products (parms):
     '''
@@ -233,10 +234,10 @@ def warp_science_products (parms):
     '''
 
     options = parms['options']
-    data_sensor = options['data_sensor']
+    sensor = options['sensor']
 
-    if data_sensor not in valid_science_sensors:
-        raise NotImplementedError ("Unsupported data sensor %s" % data_sensor)
+    if sensor not in valid_science_sensors:
+        raise NotImplementedError ("Unsupported data sensor %s" % sensor)
 
     # Validate the parameters
     validate_parameters (parms)
@@ -281,19 +282,13 @@ def warp_science_products (parms):
                     run_warp(file, output_filename)
 
                 # Remove the HDF file, it is not needed anymore
-                try:
+                if os.path.exists(file):
                     os.unlink(file)
-                except OSError, e:
-                    log (str(e))
-                    pass
 
                 # Remove the associated hdr file
                 hdr_filename = '%s.hdr' % file
-                try:
+                if os.path.exists(hdr_filename):
                     os.unlink(hdr_filename)
-                except OSError, e:
-                    log (str(e))
-                    pass
             # END - HDF files
             else:
                 # Assuming GeoTIFF
@@ -301,11 +296,9 @@ def warp_science_products (parms):
                 run_warp(file, output_filename)
 
                 # Remove the TIF file, it is not needed anymore
-                try:
+                if os.path.exists(file):
                     os.unlink(file)
-                except OSError, e:
-                    log (str(e))
-                    pass
+
                 # Rename the temp file back to the original name
                 try:
                     os.rename(output_filename, file)
@@ -314,8 +307,6 @@ def warp_science_products (parms):
                     raise e
             # END - GeoTIFF
         # END - for each file
-    except Exception, e:
-        raise e
     finally:
         # Change back to the previous directory
         os.chdir(current_directory)

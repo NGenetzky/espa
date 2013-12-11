@@ -14,6 +14,8 @@ import os
 import sys
 import re
 import json
+from time import sleep
+from datetime import datetime
 from argparse import ArgumentParser
 
 # espa-common objects and methods
@@ -27,6 +29,8 @@ from common.packaging import unpack_data
 import common.parameters as parameters
 from build_science_products import build_science_products
 from warp_science_products import warp_science_products
+from package_product import package_product
+import util
 
 
 #=============================================================================
@@ -113,6 +117,8 @@ def build_argument_parser():
         action='store_true', dest='stats_stddev', default=False,
         help="compute standard deviation value for each specified dataset")
 
+    parameters.add_debug_parameter (parser)
+
     return parser
 # END - build_argument_parser
 
@@ -154,20 +160,49 @@ def validate_input_parameters (parms):
         raise NotImplementedError ("Unsupported data_type [%s]" % data_type)
 
     # Extract the sensor from the scene string
-    data_sensor = re.search('^([A-Z]+).', parms['scene']).group(1)
+    sensor_code = parms['scene'][0:3]
+    sensor = re.search('^([A-Za-z]+).', sensor_code).group(1)
 
-    if data_sensor not in parameters.valid_sensors:
+    if sensor not in parameters.valid_sensors:
         raise NotImplementedError ("Data sensor %s is not implemented" % \
-            data_sensor)
+            sensor)
 
     # Add the sensor to the options
-    options['data_sensor'] = data_sensor
+    options['sensor'] = sensor
+    options['sensor_code'] = sensor_code
 
     # TODO TODO TODO TODO TODO TODO TODO TODO - Add more
     # TODO TODO TODO TODO TODO TODO TODO TODO - Add more
     # TODO TODO TODO TODO TODO TODO TODO TODO - Add more
 
 # END - validate_input_parameters
+
+
+#=============================================================================
+# TODO TODO TODO - This should probably be in a library somewhere
+def build_product_name (sensor_code, scene):
+    '''
+    Description:
+      Build  the product name from the current time and the scene.
+    '''
+
+    # Get the current time information
+    ts = datetime.today()
+
+    # Extract stuff from the scene
+    path = util.getPath(scene)
+    row = util.getRow(scene)
+    year = util.getYear(scene)
+    doy = util.getDoy(scene)
+
+    product_name = "%s%s%s%s%s-SC%s%s%s%s%s%s" \
+        % (sensor_code, path.zfill(3), row.zfill(3), year.zfill(4),
+           doy.zfill(3), str(ts.year).zfill(4), str(ts.month).zfill(2),
+           str(ts.day).zfill(2), str(ts.hour).zfill(2),
+           str(ts.minute).zfill(2), str(ts.second).zfill(2))
+
+    return product_name
+# END - build_product_name
 
 
 #=============================================================================
@@ -193,7 +228,7 @@ def process (parms):
     # Create and retrieve the directories to use for processing
     try:
         (scene_directory, stage_directory, work_directory, output_directory) = \
-            initialize_processing_directory (scene)
+            initialize_processing_directory (parms['orderid'], scene)
     except Exception, e:
         log ("Error: %s" % str(e))
         return ERROR
@@ -203,18 +238,21 @@ def process (parms):
 
     # Keep a local options for those apps that only need a few things
     options = parms['options']
-    data_sensor = options['data_sensor']
+    sensor = options['sensor']
+
+    # Figure out the product name
+    product_name = build_product_name(options['sensor_code'], scene)
 
     metadata = None
     filename = None
     try:
-        # Stage the input data
-        filename = stage_input_data(data_sensor, scene,
+        # Stage the input data TODO TODO TODO - Change to a list of files
+        filename = stage_input_data(sensor, scene,
             options['source_host'], options['source_directory'],
             'localhost', stage_directory)
 
         # Unpack the input data to the work directory
-        unpack_data (data_sensor, filename, work_directory)
+        unpack_data (sensor, filename, work_directory)
 
         # Build the requested science products
         build_science_products (parms)
@@ -231,11 +269,23 @@ def process (parms):
         #cmd = ['generate_stats.py']
         #cmd += cmd_options
 
-        # TODO - Package the product files
-        #cmd = ['package_product.py']
-        #cmd += cmd_options
+        # Package the product files
+        # Attempt three times sleeping between each attempt
+        attempt = 0
+        while True:
+            try:
+                (product_full_path, cksum_full_path, cksum_value) = \
+                    package_product (work_directory, output_directory,
+                        product_name)
+            except Exception, e:
+                if attempt < 3:
+                    sleep(15) # 15 seconds and try again
+                    continue
+                else:
+                    raise e
+            break
 
-        # TODO - Transfer the product data to the on-line product cache
+        # TODO - Distribute the product
         # transfer.py
 
     except Exception, e:
@@ -272,7 +322,11 @@ if __name__ == '__main__':
     parser = build_argument_parser()
 
     # Parse the arguments and place them into a dictionary
-    args_dict = vars(parser.parse_args())
+    args = parser.parse_args()
+    args_dict = vars(args)
+
+    # Setup debug
+    set_debug (args.debug)
 
     # Build our JSON formatted input from the command line parameters
     orderid = args_dict.pop ('orderid')

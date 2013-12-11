@@ -6,7 +6,7 @@ License:
 
 Description:
   See 'Description' under '__main__' for more details.
-  This mapper performs the statistics portion of LPVS processing.
+  TODO TODO TODO
 
 History:
   Original Development (cdr_ecv.py) by David V. Hill, USGS/EROS
@@ -29,6 +29,7 @@ import common.parameters as parameters
 from common.metadata import get_metadata
 from products.solr import create_solr_index
 
+
 # This contains the valid sensors which are supported
 valid_landsat_sensors = ['LT', 'LE']
 valid_modis_sensors = ['MODIS']
@@ -37,6 +38,7 @@ valid_science_sensors = valid_landsat_sensors + valid_modis_sensors
 # Default values
 default_browse_resolution = 50
 default_collection_name = 'DEFAULT_COLLECTION'
+
 
 #=============================================================================
 def build_argument_parser():
@@ -138,7 +140,7 @@ def build_landsat_science_products (parms):
     scene = parms['scene']
 
     # Figure out the metadata filename
-    metadata = get_metadata (options['data_sensor'], parms['work_directory'])
+    metadata = get_metadata (options['sensor'], parms['work_directory'])
     metadata_filename = metadata['metadata_filename']
 
     # Figure out the DEM filename
@@ -327,19 +329,19 @@ def build_science_products (parms):
     '''
 
     options = parms['options']
-    data_sensor = options['data_sensor']
+    sensor = options['sensor']
 
-    if data_sensor not in valid_science_sensors:
-        raise NotImplementedError ("Unsupported data sensor %s" % data_sensor)
+    if sensor not in valid_science_sensors:
+        raise NotImplementedError ("Unsupported data sensor %s" % sensor)
 
-    if data_sensor in valid_landsat_sensors:
+    if sensor in valid_landsat_sensors:
         # Validate the parameters
         validate_landsat_parameters (parms)
         debug (parms)
 
         build_landsat_science_products (parms)
 
-    elif data_sensor in valid_modis_sensors:
+    elif sensor in valid_modis_sensors:
         raise NotImplementedError ("Data sensor %s is not implemented" % \
             data_source)
 # END - build_science_products

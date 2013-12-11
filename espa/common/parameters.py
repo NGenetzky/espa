@@ -55,6 +55,19 @@ def add_data_type_parameter (parser, choices):
 
 
 #=============================================================================
+def add_debug_parameter (parser):
+    '''
+    Description:
+      Adds the debug parameter to the command line parameters
+    '''
+
+    parser.add_argument ('--debug',
+        action='store_true', dest='debug', default=False,
+        help="turn debug logging on")
+# END - add_data_source_parameter
+
+
+#=============================================================================
 def test_for_parameter (parms, key):
     '''
     Description:

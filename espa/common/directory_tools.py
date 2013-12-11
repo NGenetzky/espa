@@ -15,7 +15,6 @@ History:
 import os
 import errno
 import sys
-import uuid
 import shutil
 
 # espa-common objects and methods
@@ -44,7 +43,7 @@ def create_directory (directory):
 
 
 #=============================================================================
-def initialize_processing_directory (scene):
+def initialize_processing_directory (orderid, scene):
     '''
     Description:
         Create the procesing directory for a scene along with it's
@@ -52,28 +51,26 @@ def initialize_processing_directory (scene):
         current working directory as the base starting point.
     '''
 
-# TODO TODO TODO - Not sure we even really need the scene level directory, especially if we are going to use uuid or another unique ID for the parent directory.
-
-    random_directory = ''
+    order_directory = ''
 
     if not os.environ.has_key (espa_base_working_dir_envvar):
         log ("Warning: Environment variable $%s is not defined" %
             espa_working_dir_var)
     else:
-        random_directory = os.environ.get (espa_base_working_dir_envvar)
+        order_directory = os.environ.get (espa_base_working_dir_envvar)
 
     # If the directory is '.' or empty, use the current working directory
-    if random_directory == '' or random_directory == '.':
-        random_directory = os.getcwd()
+    if order_directory == '' or order_directory == '.':
+        order_directory = os.getcwd()
 
-    # Specify a random directory using uuid
-    random_directory += '/' + str(uuid.uuid4())
+    # Specify a random directory using orderid
+    order_directory += '/' + str(orderid)
 
     # Just incase remove it, and we don't care about errors
-    shutil.rmtree (random_directory, ignore_errors=True)
+    shutil.rmtree (order_directory, ignore_errors=True)
 
     # Specify the scene sub-directory
-    scene_directory = random_directory + '/' + scene
+    scene_directory = order_directory + '/' + scene
 
     # Specify the sub-directories of a processing directory
     stage_directory = scene_directory + '/stage'
