@@ -312,8 +312,8 @@ def build_landsat_science_products (parms):
             non_products += glob.glob ('fmask*')
         cmd = ['rm', '-rf'] + non_products
         log ("REMOVING INTERMEDIATE DATA COMMAND:%s" % ' '.join(cmd))
-        output = subprocess.check_output (cmd, stderr=subprocess.STDOUT)
-        log (output)
+        subprocess.check_output (cmd, stderr=subprocess.STDOUT)
+
     except Exception, e:
         raise e
     finally:
