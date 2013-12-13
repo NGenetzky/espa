@@ -21,7 +21,6 @@ from espa_logging import log
 valid_sensors = ['LT', 'LE'] # TODO TODO TODO - Someday add MODIS
 valid_data_types = ['level1', 'sr', 'toa', 'th']
 
-
 #=============================================================================
 def add_standard_parameters (parser):
 
@@ -95,15 +94,15 @@ def convert_to_command_line_options (parms):
       executables that will be called.
     '''
 
-    options = ['--orderid', parms['orderid']]
-    options += ['--scene', parms['scene']]
+    cmd_line = ['--orderid', parms['orderid']]
+    cmd_line += ['--scene', parms['scene']]
 
     for (key, value) in parms['options'].items():
         if value == True or value == False:
-            options += ['--%s' % key]
+            cmd_line += ['--%s' % key]
         elif value != None:
-            options += ['--%s' % key, '%s' % value]
+            cmd_line += ['--%s' % key, '%s' % value]
 
-    return options
+    return cmd_line
 # END - convert_parms_to_command_line_options
 
