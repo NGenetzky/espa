@@ -29,7 +29,7 @@ from common.transfer import stage_input_data
 from common.packaging import unpack_data
 import common.parameters as parameters
 from build_science_products import build_science_products
-from warp_science_products import warp_science_products
+import warp_science_products as warp
 from package_product import package_product
 import util
 
@@ -48,23 +48,14 @@ def build_argument_parser():
     parameters.add_standard_parameters (parser)
 
     # Add specific parameters
+    parameters.add_debug_parameter (parser)
+
     parameters.add_data_type_parameter (parser, parameters.valid_data_types)
 
-    parser.add_argument ('--source_host',
-        action='store', dest='source_host', default='localhost',
-        help="source host for the location of the data")
+    parameters.add_destination_parameters (parser)
 
-    parser.add_argument ('--source_directory',
-        action='store', dest='source_directory', default='.',
-        help="directory on the source host")
-
-    parser.add_argument ('--destination_host',
-        action='store', dest='destination_host', default='localhost',
-        help="destination host for the processing results")
-
-    parser.add_argument ('--destination_directory',
-        action='store', dest='destination_directory', default='.',
-        help="directory on the destination host")
+    parameters.add_reprojection_parameters (parser, warp.valid_projections,
+        warp.valid_utm, warp.valid_pixel_units, warp.valid_resample_methods)
 
     parser.add_argument ('--include_sr',
         action='store_true', dest='include_sr', default=False,
@@ -102,23 +93,10 @@ def build_argument_parser():
         action='store_true', dest='include_sr_evi', default=False,
         help="process statistics on SR EVI data")
 
-    parser.add_argument ('--stats_minimum',
-        action='store_true', dest='stats_minimum', default=False,
-        help="compute minimum value for each specified dataset")
-
-    parser.add_argument ('--stats_maximum',
-        action='store_true', dest='stats_maximum', default=False,
-        help="compute maximum value for each specified dataset")
-
-    parser.add_argument ('--stats_average',
-        action='store_true', dest='stats_average', default=False,
-        help="compute average value for each specified dataset")
-
-    parser.add_argument ('--stats_stddev',
-        action='store_true', dest='stats_stddev', default=False,
-        help="compute standard deviation value for each specified dataset")
-
-    parameters.add_debug_parameter (parser)
+    parser.add_argument ('--include_statistics',
+        action='store_true', dest='include_statistics', default=False,
+        help="compute minimum, maximum, mean, and stddev values for each" \
+             " appropriate dataset")
 
     return parser
 # END - build_argument_parser
@@ -153,6 +131,10 @@ def validate_input_parameters (parms):
     for key in keys:
         if not parameters.test_for_parameter (options, key):
             raise RuntimeError ("Missing required input parameter [%s]" % key)
+
+    parameters.validate_reprojection_parameters (options,
+        warp.valid_projections, warp.valid_utm, warp.valid_pixel_units,
+        warp.valid_resample_methods)
 
     # Test specific parameters for acceptable values if needed
     data_type = options['data_type']
@@ -234,12 +216,12 @@ def process (parms):
         log ("Error: %s" % str(e))
         return ERROR
 
-    # Add the work directory to the parameters
-    parms['work_directory'] = work_directory
-
     # Keep a local options for those apps that only need a few things
     options = parms['options']
     sensor = options['sensor']
+
+    # Add the work directory to the parameters
+    options['work_directory'] = work_directory
 
     # Figure out the product name
     product_name = build_product_name(options['sensor_code'], scene)
@@ -262,9 +244,8 @@ def process (parms):
         # TODO TODO TODO - In the future the (image extents)tile processing
         # should be capable of only containing the information contained
         # within a requested polygon
-        if options['reproject'] or options['resize'] \
-          or options['image_extents']:
-            warp_science_products (parms)
+        if options['reproject'] or options['resize'] or options['image_extents']:
+            warp.warp_science_products (options)
 
         # TODO TODO TODO - Generate the stats for each stat'able'
         #                  science product

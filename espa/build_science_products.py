@@ -140,7 +140,7 @@ def build_landsat_science_products (parms):
     scene = parms['scene']
 
     # Figure out the metadata filename
-    metadata = get_metadata (options['sensor'], parms['work_directory'])
+    metadata = get_metadata (options['sensor'], options['work_directory'])
     metadata_filename = metadata['metadata_filename']
 
     # Figure out the DEM filename
@@ -157,7 +157,7 @@ def build_landsat_science_products (parms):
 
     # Change to the working directory
     current_directory = os.curdir
-    os.chdir(parms['work_directory'])
+    os.chdir(options['work_directory'])
 
     try:
         # Build command line arguments to remove intermediate data files that
@@ -248,7 +248,7 @@ def build_landsat_science_products (parms):
             # Verify lndcal file exists first
             if not os.path.isfile(toa_filename):
                 raise RuntimeError (("Could not find LEDAPS TOA reflectance"
-                    " file in %s") % parms['work_directory'])
+                    " file in %s") % options['work_directory'])
 
             # TODO TODO TODO - I wonder if this should be a 'do_cfmask.py'
             cmd = ['cfmask', '--verbose', '--toarefl=%s' % toa_filename]

@@ -16,6 +16,7 @@ import os
 import sys
 import socket
 import json
+import traceback
 from argparse import ArgumentParser
 
 # espa-common objects and methods
@@ -65,10 +66,10 @@ if __name__ == '__main__':
             log ("Processing %s:%s" % (orderid, sceneid))
 
             # Update the status in the database
-            if test_for_parameter(json_parms, 'xmlrpcurl'):
-                server = xmlrpclib.ServerProxy(json_parms['xmlrpcurl'])
-                server.updateStatus(sceneid, orderid, processing_location,
-                    'processing')
+#            if test_for_parameter(json_parms, 'xmlrpcurl'):
+#                server = xmlrpclib.ServerProxy(json_parms['xmlrpcurl'])
+#                server.updateStatus(sceneid, orderid, processing_location,
+#                    'processing')
 
             if process_lpvs(json_parms) != SUCCESS:
                 log ("An error occurred processing %s" % sceneid)
@@ -78,7 +79,10 @@ if __name__ == '__main__':
 
         except Exception, e:
             log ("An error occurred processing %s" % sceneid)
-            log (str(e))
+            log ("Error: %s" % str(e))
+            tb = traceback.format_exc()
+            log ("Traceback: [%s]" % tb)
+            log ("Error: Output [%s]" % e.output)
             if server is not None: 
                 server.setSceneError(sceneid, orderid, processing_location, e)
     # END - for line in STDIN

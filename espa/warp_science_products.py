@@ -18,8 +18,10 @@ History:
 import os
 import sys
 import subprocess
+import traceback
 import glob
 from cStringIO import StringIO
+from argparse import ArgumentParser
 
 # espa-common objects and methods
 from espa_constants import *
@@ -38,6 +40,7 @@ valid_science_sensors = valid_landsat_sensors + valid_modis_sensors
 valid_resample_methods = ['near', 'bilinear', 'cubic', 'cubicspline', 'lanczos']
 valid_pixel_units = ['meters', 'dd']
 valid_projections = ['sinu', 'aea', 'utm', 'lonlat']
+valid_utm = ['north', 'south']
 
 
 #=============================================================================
@@ -125,64 +128,31 @@ def convert_target_projection_to_proj4 (parms):
       depending on the projection, the correct proj4 parameters are returned.
     '''
 
-    options = parms['options']
     projection = None
     target_projection = None
 
-    if parameters.test_for_parameter (options, 'target_projection'):
-        target_projection = options['target_projection'].lower()
-    else:
-        raise RuntimeError ("Missing target_projection option")
-
-    if target_projection not in valid_projections:
-        raise NotImplementedError ("Projection %s is not implemented" % \
-            target_projection)
+    target_projection = parms['target_projection']
 
     if target_projection == "sinu":
-        if not parameters.test_for_parameter (options, 'central_meridian'):
-            raise RuntimeError ("Missing central_meridian option")
-        if not parameters.test_for_parameter (options, 'false_easting'):
-            raise RuntimeError ("Missing false_easting option")
-        if not parameters.test_for_parameter (options, 'false_northing'):
-            raise RuntimeError ("Missing false_northing option")
-
         projection = \
-            build_sinu_proj4_string(float(options['central_meridian']),
-                                    float(options['false_easting']),
-                                    float(options['false_northing']))
+            build_sinu_proj4_string(float(parms['central_meridian']),
+                                    float(parms['false_easting']),
+                                    float(parms['false_northing']))
 
     elif target_projection == "aea":
-        if not parameters.test_for_parameter (options, 'std_parallel_1'):
-            raise RuntimeError ("Missing std_parallel_1 option")
-        if not parameters.test_for_parameter (options, 'std_parallel_2'):
-            raise RuntimeError ("Missing std_parallel_2 option")
-        if not parameters.test_for_parameter (options, 'origin_lat'):
-            raise RuntimeError ("Missing origin_lat option")
-        if not parameters.test_for_parameter (options, 'central_meridian'):
-            raise RuntimeError ("Missing central_meridian option")
-        if not parameters.test_for_parameter (options, 'false_easting'):
-            raise RuntimeError ("Missing false_easting option")
-        if not parameters.test_for_parameter (options, 'false_northing'):
-            raise RuntimeError ("Missing false_northing option")
-
         projection = \
-            build_albers_proj4_string(float(options['std_parallel_1']),
-                                      float(options['std_parallel_2']),
-                                      float(options['origin_lat']),
-                                      float(options['central_meridian']),
-                                      float(options['false_easting']),
-                                      float(options['false_northing']),
-                                      options['datum'])
+            build_albers_proj4_string(float(parms['std_parallel_1']),
+                                      float(parms['std_parallel_2']),
+                                      float(parms['origin_lat']),
+                                      float(parms['central_meridian']),
+                                      float(parms['false_easting']),
+                                      float(parms['false_northing']),
+                                      parms['datum'])
 
     elif target_projection == "utm":
-        if not parameters.test_for_parameter (options, 'utm_zone'):
-            raise RuntimeError ("Missing utm_zone option")
-        if not parameters.test_for_parameter (options, 'utm_north_south'):
-            raise RuntimeError ("Missing utm_north_south option")
-
         projection = \
-            build_utm_proj4_string(int(options['utm_zone']),
-                                   options['utm_north_south'])
+            build_utm_proj4_string(int(parms['utm_zone']),
+                                   parms['utm_north_south'])
 
     elif target_projection == "lonlat":
         projection = build_geographic_proj4_string()
@@ -199,45 +169,17 @@ def build_argument_parser():
     '''
 
     # Create a command line argument parser
-    parser = ArgumentParser(usage="%(prog)s [options]")
+    parser = ArgumentParser (usage="%(prog)s [options]")
 
-    # Add the standard parameters
-    add_standard_parameters(parser)
+    # Add parameters
+    parameters.add_debug_parameter (parser)
 
-    # Add specific parameters
-    parser.add_argument("--resample_method",
-        action="store", dest="resample_method", default="near",
-        choices=valid_resample_methods,
-        help="one of %s" % ", ".join(valid_resample_methods))
+    parameters.add_reprojection_parameters (parser, valid_projections,
+        valid_utm, valid_pixel_units, valid_resample_methods)
 
-    parser.add_argument("--minx",
-        action="store", dest="minx",
-        help="minimum x image exntent")
-
-    parser.add_argument("--miny",
-        action="store", dest="miny",
-        help="minimum y image exntent")
-
-    parser.add_argument("--maxx",
-        action="store", dest="maxx",
-        help="maximum x image exntent")
-
-    parser.add_argument("--maxy",
-        action="store", dest="maxy",
-        help="maximum y image exntent")
-
-    parser.add_argument("--projection",
-        action="store", dest="projection",
-        help="proj.4 string for desired output projection")
-
-    parser.add_argument("--pixel_units",
-        action="store", dest="pixel_units", default='meters',
-        choices=valid_pixel_units,
-        help="one of %s" % ", ".join(valid_pixel_units))
-
-    parser.add_argument("--pixel_size",
-        action="store", dest="pixel_size", default=30.0,
-        help="size of the pixels")
+    parser.add_argument ('--work_directory',
+        action='store', dest='work_directory', default=os.curdir,
+        help="work directory on the localhost")
 
     return parser
 # END - build_argument_parser
@@ -247,65 +189,12 @@ def build_argument_parser():
 def validate_parameters (parms):
     '''
     Description:
-      Make sure all the parameter options needed for this and called routines
+      Make sure all the parameters needed for this and called routines
       is available with the provided input parameters.
     '''
 
-    # Test for presence of top-level parameters
-    keys = ['orderid', 'scene', 'options']
-    for key in keys:
-        if not parameters.test_for_parameter (parms, key):
-            return ERROR
-
-    # Access to the options parameters
-    options = parms['options']
-
-    # Test for presence of required option-level parameters
-    keys = ['data_type']
-
-    for key in keys:
-        if not parameters.test_for_parameter (options, key):
-            return ERROR
-
-    # Test specific parameters for acceptable values if needed
-    if options['data_type'] not in parameters.valid_data_types:
-        raise NotImplementedError ("Unsupported data_type [%s]" % \
-            options['data_type'])
-
-    if parameters.test_for_parameter (options, 'resample_method'):
-        if options['resample_method'] not in valid_resample_methods:
-            raise NotImplementedError ("Unsupported resample_method [%s]" % \
-                options['resample_method'])
-
-    if parameters.test_for_parameter (options, 'pixel_units'):
-        if options['pixel_units'] not in valid_pixel_units:
-            raise NotImplementedError ("Unsupported pixel_units [%s]" % \
-                options['pixel_units'])
-
-    if parameters.test_for_parameter (options, 'reproject'):
-        # Verify and create proj.4 reprojection information
-        options['projection'] = convert_target_projection_to_proj4 (parms)
-
-    # Fix the pixel size and units if needed
-    if parameters.test_for_parameter (options, 'resize'):
-        if not parameters.test_for_parameter (options, 'pixel_size'):
-            raise RuntimeError ("Missing pixel_size option")
-        if not parameters.test_for_parameter (options, 'pixel_units'):
-            raise RuntimeError ("Missing pixel_units option")
-    elif parameters.test_for_parameter (options, 'reproject') \
-      or parameters.test_for_parameter (options, 'image_extents'):
-        # Sombody asked for reproject or extents, but didn't specify a pixel
-        # size
-        # Default to 30 meters of dd equivalent
-        # Everything will default to 30 meters except if they chose geographic
-        # projection, which will default to dd equivalent
-        options['pixel_size'] = 30.0
-        options['pixel_units'] = 'meters'
-        if parameters.test_for_parameter (options, 'target_projection'):
-            if str(options['target_projection']).lower() == 'lonlat':
-                options['pixel_size'] = .0002695
-                options['pixel_units'] = 'dd'
-
+    parameters.validate_reprojection_parameters (parms, valid_projections,
+        valid_utm, valid_pixel_units, valid_resample_methods)
 # END - validate_parameters
 
 
@@ -414,30 +303,29 @@ def get_hdf_global_metadata(hdf_file):
 def warp_science_products (parms):
     '''
     Description:
-      Warp each science product to the parameters specified in the options
+      Warp each science product to the parameters specified in the parms
     '''
-
-    options = parms['options']
-    sensor = options['sensor']
-
-    if sensor not in valid_science_sensors:
-        raise NotImplementedError ("Unsupported data sensor %s" % sensor)
 
     # Validate the parameters
     validate_parameters (parms)
     debug (parms)
 
+    if parms['reproject']:
+        # Verify and create proj.4 reprojection information
+        projection = convert_target_projection_to_proj4 (parms)
+    else:
+        projection = None
+
     # Change to the working directory
     current_directory = os.curdir
     os.chdir(parms['work_directory'])
 
-    projection = options['projection']
-    min_x = options['minx']
-    min_y = options['miny']
-    max_x = options['maxx']
-    max_y = options['maxy'],
-    pixel_size = options['pixel_size']
-    resample_method = options['resample_method']
+    min_x = parms['minx']
+    min_y = parms['miny']
+    max_x = parms['maxx']
+    max_y = parms['maxy'],
+    pixel_size = parms['pixel_size']
+    resample_method = parms['resample_method']
 
     # TODO - If the gap_mask directory is present for L7 data then we also
     #        need to figure out where and how to warp them ????
@@ -499,11 +387,7 @@ def warp_science_products (parms):
                     os.unlink(file)
 
                 # Rename the temp file back to the original name
-                try:
-                    os.rename(output_filename, file)
-                except OSError, e:
-                    log (str(e))
-                    raise e
+                os.rename(output_filename, file)
             # END - GeoTIFF
         # END - for each file
     finally:
@@ -526,20 +410,15 @@ if __name__ == '__main__':
     args_dict = vars(parser.parse_args())
 
     # Build our JSON formatted input from the command line parameters
-    orderid = args_dict.pop ('orderid')
-    scene = args_dict.pop ('scene')
     options = {k : args_dict[k] for k in args_dict if args_dict[k] != None}
-
-    # Build the JSON parameters dictionary
-    json_parms['orderid'] = orderid
-    json_parms['scene'] = scene
-    json_parms['options'] = options
 
     try:
         # Call the main processing routine
-        warp_science_products (parms)
+        warp_science_products (options)
     except Exception, e:
-        log (str(e))
+        log ("Error: %s" % str(e))
+        tb = traceback.format_exc()
+        log ("Traceback: [%s]" % tb)
         sys.exit (EXIT_FAILURE)
 
     sys.exit (EXIT_SUCCESS)
