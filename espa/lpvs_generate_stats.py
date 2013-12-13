@@ -17,6 +17,7 @@ import json
 from time import sleep
 from datetime import datetime
 from argparse import ArgumentParser
+import traceback
 
 # espa-common objects and methods
 from espa_constants import *
@@ -167,7 +168,7 @@ def validate_input_parameters (parms):
         raise NotImplementedError ("Data sensor %s is not implemented" % \
             sensor)
 
-    # Add the sensor to the options
+    # Add the sensor and sensor_code to the options
     options['sensor'] = sensor
     options['sensor_code'] = sensor_code
 
@@ -258,14 +259,15 @@ def process (parms):
         build_science_products (parms)
 
         # Reproject the data for each science product, but only if necessary
-        # TODO - Should this also tile the data and (TODO) in the future the
-        # tile will only contain the information contained within the
-        # requested polygon
-        if options['reproject'] or options['pixel_size'] \
+        # TODO TODO TODO - In the future the (image extents)tile processing
+        # should be capable of only containing the information contained
+        # within a requested polygon
+        if options['reproject'] or options['resize'] \
           or options['image_extents']:
             warp_science_products (parms)
 
-        # TODO - Generate the stats for each stat'able' science product
+        # TODO TODO TODO - Generate the stats for each stat'able'
+        #                  science product
         #cmd = ['generate_stats.py']
         #cmd += cmd_options
 
@@ -285,23 +287,22 @@ def process (parms):
                     raise e
             break
 
-        # TODO - Distribute the product
+        # TODO TODO TODO - Distribute the product
         # transfer.py
 
     except Exception, e:
         log ("Error: %s" % str(e))
+        tb = traceback.format_exc()
+        log ("Traceback: [%s]" % tb)
         log ("Error: Output [%s]" % e.output)
         return ERROR
 
     # update_order_status
+    # TODO TODO TODO
     cmd = ['update_order_status.py']
     cmd += ['--orderid', parms['orderid']]
     cmd += ['--scene', parms['scene']]
     cmd += ['--order_status', 'LPVS_STATS_COMPLETE']
-
-    # TODO TODO TODO
-    #print cmd
-    #print ''
 
     return SUCCESS
 # END - process
