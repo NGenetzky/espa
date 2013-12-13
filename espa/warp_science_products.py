@@ -34,8 +34,162 @@ valid_landsat_sensors = ['LT', 'LE']
 valid_modis_sensors = ['MODIS']
 valid_science_sensors = valid_landsat_sensors + valid_modis_sensors
 
+# These contain valid warping options
 valid_resample_methods = ['near', 'bilinear', 'cubic', 'cubicspline', 'lanczos']
 valid_pixel_units = ['meters', 'dd']
+valid_projections = ['sinu', 'aea', 'utm', 'lonlat']
+
+
+#=============================================================================
+def build_sinu_proj4_string(central_meridian, false_easting, false_northing):
+    '''
+    Description:
+      Builds a proj.4 string for modis
+
+    Example:
+      +proj=sinu +lon_0=0 +x_0=0 +y_0=0 +a=6371007.181 +b=6371007.181
+      +units=m +no_defs
+    '''
+    proj4_string = "+proj=sinu +lon_0=%f +x_0=%f +y_0=%f +a=6371007.181" \
+        " +b=6371007.181 +units=m +no_defs" \
+        % (central_meridian, false_easting, false_northing)
+
+    return proj4_string
+# END - build_sinu_proj4_string
+
+
+#=============================================================================
+def build_albers_proj4_string(std_parallel_1, std_parallel_2, origin_lat,
+  central_meridian, false_easting, false_northing, datum):
+    '''
+    Description:
+      Builds a proj.4 string for albers equal area
+
+    Example:
+      +proj=aea +lat_1=20 +lat_2=60 +lat_0=40 +lon_0=-96 +x_0=0 +y_0=0
+      +ellps=GRS80 +datum=NAD83 +units=m +no_defs
+    '''
+
+    proj4_string = "+proj=aea +lat_1=%f +lat_2=%f +lat_0=%f +lon_0=%f" \
+        " +x_0=%f +y_0=%f +ellps=GRS80 +datum=%s +units=m +no_defs" \
+        % (std_parallel_1, std_parallel_2, origin_lat, central_meridian,
+           false_easting, false_northing, datum)
+
+    return proj4_string
+# END - build_albers_proj4_string
+
+
+#=============================================================================
+def build_utm_proj4_string(utm_zone, utm_north_south):
+    '''
+    Description:
+      Builds a proj.4 string for utm
+    Example:
+      +proj=utm +zone=60 +ellps=WGS84 +datum=WGS84 +units=m +no_defs
+      +proj=utm +zone=39 +south +ellps=WGS72 +towgs84=0,0,1.9,0,0,0.814,-0.38
+      +units=m +no_defs 
+    '''
+
+    proj4_string = ''
+    if str(utm_north_south).lower() == 'north':
+        proj4_string = "+proj=utm +zone=%i +ellps=WGS84 +datum=WGS84" \
+            " +units=m +no_defs" % utm_zone
+    elif str(utm_north_south).lower() == 'south':
+        proj4_string = "+proj=utm +zone=%i +south +ellps=WGS72" \
+            " +towgs84=0,0,1.9,0,0,0.814,-0.38 +units=m +no_defs" % utm_zone
+    else:
+        raise ValueError("Invalid utm_north_south argument[%s]" \
+            " Argument must be one of 'north' or 'south'" % utm_north_south)
+
+    return proj4_string
+# END - build_utm_proj4_string
+
+
+#=============================================================================
+def build_geographic_proj4_string():
+    '''
+    Description:
+      Builds a proj.4 string for geographic
+    '''
+
+    return '+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs'
+# END - build_geographic_proj4_string
+
+
+#=============================================================================
+def convert_target_projection_to_proj4 (parms):
+    '''
+    Description:
+      Checks to see if the reproject parameter was set.  If set the
+      target projection is validated against the implemented projections and
+      depending on the projection, the correct proj4 parameters are returned.
+    '''
+
+    options = parms['options']
+    projection = None
+    target_projection = None
+
+    if parameters.test_for_parameter (options, 'target_projection'):
+        target_projection = options['target_projection'].lower()
+    else:
+        raise RuntimeError ("Missing target_projection option")
+
+    if target_projection not in valid_projections:
+        raise NotImplementedError ("Projection %s is not implemented" % \
+            target_projection)
+
+    if target_projection == "sinu":
+        if not parameters.test_for_parameter (options, 'central_meridian'):
+            raise RuntimeError ("Missing central_meridian option")
+        if not parameters.test_for_parameter (options, 'false_easting'):
+            raise RuntimeError ("Missing false_easting option")
+        if not parameters.test_for_parameter (options, 'false_northing'):
+            raise RuntimeError ("Missing false_northing option")
+
+        projection = \
+            build_sinu_proj4_string(float(options['central_meridian']),
+                                    float(options['false_easting']),
+                                    float(options['false_northing']))
+
+    elif target_projection == "aea":
+        if not parameters.test_for_parameter (options, 'std_parallel_1'):
+            raise RuntimeError ("Missing std_parallel_1 option")
+        if not parameters.test_for_parameter (options, 'std_parallel_2'):
+            raise RuntimeError ("Missing std_parallel_2 option")
+        if not parameters.test_for_parameter (options, 'origin_lat'):
+            raise RuntimeError ("Missing origin_lat option")
+        if not parameters.test_for_parameter (options, 'central_meridian'):
+            raise RuntimeError ("Missing central_meridian option")
+        if not parameters.test_for_parameter (options, 'false_easting'):
+            raise RuntimeError ("Missing false_easting option")
+        if not parameters.test_for_parameter (options, 'false_northing'):
+            raise RuntimeError ("Missing false_northing option")
+
+        projection = \
+            build_albers_proj4_string(float(options['std_parallel_1']),
+                                      float(options['std_parallel_2']),
+                                      float(options['origin_lat']),
+                                      float(options['central_meridian']),
+                                      float(options['false_easting']),
+                                      float(options['false_northing']),
+                                      options['datum'])
+
+    elif target_projection == "utm":
+        if not parameters.test_for_parameter (options, 'utm_zone'):
+            raise RuntimeError ("Missing utm_zone option")
+        if not parameters.test_for_parameter (options, 'utm_north_south'):
+            raise RuntimeError ("Missing utm_north_south option")
+
+        projection = \
+            build_utm_proj4_string(int(options['utm_zone']),
+                                   options['utm_north_south'])
+
+    elif target_projection == "lonlat":
+        projection = build_geographic_proj4_string()
+
+    return projection
+# END - convert_target_projection_to_proj4
+
 
 #=============================================================================
 def build_argument_parser():
@@ -56,17 +210,38 @@ def build_argument_parser():
         choices=valid_resample_methods,
         help="one of %s" % ", ".join(valid_resample_methods))
 
-    # TODO TODO TODO - Add resample parameters
+    parser.add_argument("--minx",
+        action="store", dest="minx",
+        help="minimum x image exntent")
+
+    parser.add_argument("--miny",
+        action="store", dest="miny",
+        help="minimum y image exntent")
+
+    parser.add_argument("--maxx",
+        action="store", dest="maxx",
+        help="maximum x image exntent")
+
+    parser.add_argument("--maxy",
+        action="store", dest="maxy",
+        help="maximum y image exntent")
+
+    parser.add_argument("--projection",
+        action="store", dest="projection",
+        help="proj.4 string for desired output projection")
 
     parser.add_argument("--pixel_units",
-        action="store", dest="pixel_units", default="meters",
+        action="store", dest="pixel_units", default='meters',
         choices=valid_pixel_units,
         help="one of %s" % ", ".join(valid_pixel_units))
 
-    # TODO TODO TODO - Add pixel_size
+    parser.add_argument("--pixel_size",
+        action="store", dest="pixel_size", default=30.0,
+        help="size of the pixels")
 
     return parser
 # END - build_argument_parser
+
 
 #=============================================================================
 def validate_parameters (parms):
@@ -97,33 +272,39 @@ def validate_parameters (parms):
         raise NotImplementedError ("Unsupported data_type [%s]" % \
             options['data_type'])
 
-    # Force these parameters to false if not provided
-    # TODO TODO TODO - add others
-    keys = ['include_sr', 'include_sr_browse', 'include_sr_toa',
-            'include_sr_thermal', 'include_sr_nbr', 'include_sr_nbr2',
-            'include_sr_ndvi', 'include_sr_ndmi', 'include_sr_savi',
-            'include_sr_evi', 'include_snow_covered_area',
-            'include_surface_water_extent', 'create_dem']
-
-    for key in keys:
-        if not parameters.test_for_parameter (options, key):
-            options[key] = False
-
-    
     if parameters.test_for_parameter (options, 'resample_method'):
         if options['resample_method'] not in valid_resample_methods:
             raise NotImplementedError ("Unsupported resample_method [%s]" % \
                 options['resample_method'])
-        # TODO - Test for resample parameters
 
     if parameters.test_for_parameter (options, 'pixel_units'):
         if options['pixel_units'] not in valid_pixel_units:
             raise NotImplementedError ("Unsupported pixel_units [%s]" % \
                 options['pixel_units'])
-        # TODO - Test for pixel_size parameter
 
-    #if parameters.test_for_parameter (options, 'image_extents'):
-        # TODO - Test for image_extents parameters
+    if parameters.test_for_parameter (options, 'reproject'):
+        # Verify and create proj.4 reprojection information
+        options['projection'] = convert_target_projection_to_proj4 (parms)
+
+    # Fix the pixel size and units if needed
+    if parameters.test_for_parameter (options, 'resize'):
+        if not parameters.test_for_parameter (options, 'pixel_size'):
+            raise RuntimeError ("Missing pixel_size option")
+        if not parameters.test_for_parameter (options, 'pixel_units'):
+            raise RuntimeError ("Missing pixel_units option")
+    elif parameters.test_for_parameter (options, 'reproject') \
+      or parameters.test_for_parameter (options, 'image_extents'):
+        # Sombody asked for reproject or extents, but didn't specify a pixel
+        # size
+        # Default to 30 meters of dd equivalent
+        # Everything will default to 30 meters except if they chose geographic
+        # projection, which will default to dd equivalent
+        options['pixel_size'] = 30.0
+        options['pixel_units'] = 'meters'
+        if parameters.test_for_parameter (options, 'target_projection'):
+            if str(options['target_projection']).lower() == 'lonlat':
+                options['pixel_size'] = .0002695
+                options['pixel_units'] = 'dd'
 
 # END - validate_parameters
 
@@ -151,7 +332,8 @@ def build_warp_command (source_file, output_file,
 
     # Reproject the data
     if projection is not None:
-        cmd += ['-t_srs', projection]
+        cmd += ['-t_srs']
+        cmd += [projection] # ***DO NOT*** split the projection string
 
     # Specify the resampling method
     if resample_method is not None:
@@ -200,7 +382,8 @@ def run_warp (source_file, output_file,
 #=============================================================================
 def get_hdf_global_metadata(hdf_file):
     '''
-    Description: TODO TODO TODO
+    Description:
+        Extract the metadata information from the HDF formatted file
     '''
 
     cmd = ['gdalinfo', hdf_file]
@@ -230,7 +413,8 @@ def get_hdf_global_metadata(hdf_file):
 #=============================================================================
 def warp_science_products (parms):
     '''
-    Description: TODO TODO TODO
+    Description:
+      Warp each science product to the parameters specified in the options
     '''
 
     options = parms['options']
@@ -247,8 +431,17 @@ def warp_science_products (parms):
     current_directory = os.curdir
     os.chdir(parms['work_directory'])
 
+    projection = options['projection']
+    min_x = options['minx']
+    min_y = options['miny']
+    max_x = options['maxx']
+    max_y = options['maxy'],
+    pixel_size = options['pixel_size']
+    resample_method = options['resample_method']
+
     # TODO - If the gap_mask directory is present for L7 data then we also
-    #        need to figure out where and host to warp them??????
+    #        need to figure out where and how to warp them ????
+    #        ???? WE ARE NOT DOING THIS TODAY, SHOULD WE ????
 
     try:
         # Include all HDF and TIF
@@ -276,10 +469,14 @@ def warp_science_products (parms):
                         sds_parts = sds_name.split(':')
                         output_filename = '%s-%s.tif' \
                             % (hdf_name, sds_parts[len(sds_parts) - 1])
-                        run_warp(sds_name, output_filename)
+                        run_warp(sds_name, output_filename,
+                            min_x, min_y, max_x, max_y,
+                            pixel_size, projection, resample_method)
                 else:
                     output_filename = '%s.tif' % hdf_name
-                    run_warp(file, output_filename)
+                    run_warp(file, output_filename,
+                        min_x, min_y, max_x, max_y,
+                        pixel_size, projection, resample_method)
 
                 # Remove the HDF file, it is not needed anymore
                 if os.path.exists(file):
@@ -293,7 +490,9 @@ def warp_science_products (parms):
             else:
                 # Assuming GeoTIFF
                 output_filename = 'tmp-%s.tif' % file.split('.TIF')[0].lower()
-                run_warp(file, output_filename)
+                run_warp(file, output_filename,
+                    min_x, min_y, max_x, max_y,
+                    pixel_size, projection, resample_method)
 
                 # Remove the TIF file, it is not needed anymore
                 if os.path.exists(file):
@@ -321,7 +520,7 @@ if __name__ == '__main__':
     '''
 
     # Build the command line argument parser
-    parser = build_argument_parser() # TODO TODO TODO - Needs a lot of work
+    parser = build_argument_parser()
 
     # Parse the command line arguments
     args_dict = vars(parser.parse_args())
