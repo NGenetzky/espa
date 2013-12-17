@@ -24,9 +24,9 @@ from espa_constants import *
 from espa_logging import log, debug, set_debug
 
 # local objects and methods
-from common.parameters import test_for_parameter
-from lpvs_generate_stats import process as process_lpvs, \
-    validate_input_parameters
+import common.parameters as parameters
+from cdr_ecv_landsat import process as process_landsat
+import common.util as util
 
 #=============================================================================
 if __name__ == '__main__':
@@ -46,44 +46,56 @@ if __name__ == '__main__':
 
         try:
             line = str(line).replace('#', '')
-            json_parms = json.loads(line)
+            parms = json.loads(line)
 
-            if not test_for_parameter(json_parms, 'options'):
+            if not parameters.test_for_parameter(parms, 'options'):
                 log ("Error missing JSON 'options' record")
                 sys.exit(EXIT_FAILURE)
 
             # Convert the 'options' to a dictionary
-            json_parms['options'] = json.loads(json_parms['options'])
+            parms['options'] = json.loads(parms['options'])
 
-            # Validate the JSON parameters
-            validate_input_parameters(json_parms)
+            (orderid, sceneid) = (parms['orderid'], parms['scene'])
 
-            (orderid, sceneid) = (json_parms['orderid'], json_parms['scene'])
-
-            if json_parms['options']['debug']:
-                set_debug()
+            if parameters.test_for_parameter(parms['options'], 'debug'):
+                set_debug(parms['options']['debug'])
 
             log ("Processing %s:%s" % (orderid, sceneid))
 
-            # Update the status in the database
-#            if test_for_parameter(json_parms, 'xmlrpcurl'):
-#                server = xmlrpclib.ServerProxy(json_parms['xmlrpcurl'])
-#                server.updateStatus(sceneid, orderid, processing_location,
-#                    'processing')
+            sensor = util.getSensor(parms['scene'])
 
-            if process_lpvs(json_parms) != SUCCESS:
-                log ("An error occurred processing %s" % sceneid)
-                if server is not None: 
-                    server.setSceneError(sceneid, orderid,
-                        processing_location, e)
+            # Update the status in the database
+            if parameters.test_for_parameter(parms, 'xmlrpcurl'):
+                if parms['xmlrpcurl'] != 'dev':
+                    server = xmlrpclib.ServerProxy(parms['xmlrpcurl'])
+                    server.updateStatus(sceneid, orderid, processing_location,
+                        'processing')
+
+            # Make sure we can process the sensor
+            if sensor not in parameters.valid_sensors:
+                raise ValueError("Invalid Sensor %s" % sensor)
+
+            #------------------------------------------------------------------
+            # NOTE:
+            #   The first thing process does is validate the input parameters
+            #------------------------------------------------------------------
+
+            # Process the landsat sensors
+            if sensor in parameters.valid_landsat_sensors:
+                process_landsat (parms)
+            #------------------------------------------------------------------
+            # NOTE:
+            #   Add processing for another sensor here in an 'elif' section
+            #------------------------------------------------------------------
 
         except Exception, e:
             log ("An error occurred processing %s" % sceneid)
             log ("Error: %s" % str(e))
             tb = traceback.format_exc()
             log ("Traceback: [%s]" % tb)
-            log ("Error: Output [%s]" % e.output)
-            if server is not None: 
+            if hasattr(e, 'output'):
+                log ("Error: Output [%s]" % e.output)
+            if server is not None:
                 server.setSceneError(sceneid, orderid, processing_location, e)
     # END - for line in STDIN
 

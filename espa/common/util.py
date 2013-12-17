@@ -54,14 +54,15 @@ def getDoy(scene_name):
     """Returns the day of year for a given scene"""
     return scene_name[13:16]
 
-
 def getSensor(scene_name):
     """Returns the sensor of a given scene"""
-    if scene_name[0:3] =='LT5' or scene_name[0:3] == 'LT4':
-        return 'tm'
-    elif scene_name[0:3] == 'LE7':
-        return 'etm'
-
+    if scene_name[0:3].lower() =='lt5' or scene_name[0:3].lower() == 'lt4':
+        return 'LT'
+    elif scene_name[0:3].lower() == 'le7':
+        return 'LE'
+    elif scene_name[0:3].lower() == 'mod':
+        return 'MOD'
+    return ''
 
 def getSensorCode(scene_name):
     """Returns the raw sensor code of a given scene"""

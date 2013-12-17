@@ -19,6 +19,7 @@ import os
 import sys
 import glob
 import subprocess
+import traceback
 from argparse import ArgumentParser
 
 # espa-common objects and methods
@@ -29,7 +30,7 @@ from espa_logging import log, set_debug, debug
 import common.parameters as parameters
 
 
-#=============================================================================
+#==============================================================================
 def build_argument_parser():
     '''
     Description:
@@ -39,29 +40,33 @@ def build_argument_parser():
     # Create a command line argument parser
     parser = ArgumentParser(usage="%(prog)s [options]")
 
-    # Add specific parameters
+    # Parameters
+    parameters.add_debug_parameter (parser)
+
     parser.add_argument ('--product_name',
         action='store', dest='product_name', required=True,
         help="basename of the product to create")
 
-    parser.add_argument ('--destination_directory',
-        action='store', dest='destination_directory', required=True,
-        help="directory on the local system to place the package")
-
     parser.add_argument ('--source_directory',
         action='store', dest='source_directory', default=os.curdir,
-        help="directory with the contents for packaging")
+        help="directory on the localhost with the contents for packaging")
 
-    parameters.add_debug_parameter (parser)
+    parser.add_argument ('--destination_directory',
+        action='store', dest='destination_directory', required=True,
+        help="directory on the localhost to place the package")
 
     return parser
 # END - build_argument_parser
 
 
-#=============================================================================
+#==============================================================================
 def package_product (source_directory, destination_directory, product_name):
     '''
-    Descrription: TODO TODO TODO
+    Descrription:
+      Package the contents of the source directory into a gzipped tarball
+      located in the destination directory and generate a checksum file
+
+      The filename will be prefixed with the specified product name
     '''
 
     product_full_path = os.path.join(destination_directory, product_name)
@@ -133,7 +138,7 @@ def package_product (source_directory, destination_directory, product_name):
 # END - package_product
 
 
-#=============================================================================
+#==============================================================================
 if __name__ == '__main__':
     '''
     Description:
@@ -160,7 +165,11 @@ if __name__ == '__main__':
         print ("Checksum Path: %s" % cksum_full_path)
         print ("Checksum Value: %s" % cksum_value)
     except Exception, e:
-        log (str(e))
+        log ("Error: %s" % str(e))
+        tb = traceback.format_exc()
+        log ("Traceback: [%s]" % tb)
+        if hasattr(e, 'output'):
+            log ("Error: Output [%s]" % e.output)
         sys.exit (EXIT_FAILURE)
 
     sys.exit (EXIT_SUCCESS)

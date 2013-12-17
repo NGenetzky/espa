@@ -28,7 +28,8 @@ from espa_logging import log, set_debug, debug
 
 # local objects and methods
 import common.parameters as parameters
-from common.transfer import transfer_data
+from package_product import package_product
+from distribute_product import distribute_product
 
 
 #==============================================================================
@@ -44,13 +45,15 @@ def build_argument_parser():
     # Parameters
     parameters.add_debug_parameter (parser)
 
-    parser.add_argument ('--product_filename',
+    parameters.add_work_directory_parameter (parser)
+
+    parser.add_argument ('--package_directory',
+        action='store', dest='package_directory', default=os.curdir,
+        help="directory to place the package on the localhost")
+
+    parser.add_argument ('--product_name',
         action='store', dest='product_filename', required=True,
         help="basename of the product to distribute")
-
-    parser.add_argument ('--cksum_filename',
-        action='store', dest='cksum_filename', required=True,
-        help="basename of the checksum file to distribute and verify")
 
     parameters.add_destination_parameters (parser)
 
@@ -59,41 +62,54 @@ def build_argument_parser():
 
 
 #==============================================================================
-def distribute_product (destination_host, destination_directory,
-  product_filename, cksum_filename):
+def deliver_product (work_directory, package_directory, product_name,
+  destination_host, destination_directory):
     '''
     Descrription:
-      Transfers the product and associated checksum to the specified directory
-      on the destination host
-
-    Note:
-      It is assumed ssh has been setup for access between the localhost
-      and destination system
+      Packages the product and distributes it to the destination.
+      Verification of the checksum values is also performed.
     '''
 
-    # Create the destination directory on the destination host
-    log ("Creating destination directory %s on %s" \
-        % (destination_directory, destination_host))
-    cmd = ['ssh', '-o', 'StrictHostKeyChecking=no', destination_host,
-           'mkdir', '-p', destination_directory]
-    subprocess.check_output (cmd)
+    # Package the product files
+    # Attempt three times sleeping between each attempt
+    attempt = 0
+    while True:
+        try:
+            (product_full_path, cksum_full_path, cksum_value) = \
+                package_product (work_directory, package_directory,
+                    product_name)
+        except Exception, e:
+            log ("An error occurred processing %s" % scene)
+            log ("Error: %s" % str(e))
+            if attempt < 3:
+                sleep(15) # 15 seconds and try again
+                attempt += 1
+                continue
+            else:
+                raise e
+        break
 
-    # Transfer the product file
-    transfer_data('localhost', product_filename, destination_host,
-        destination_directory)
+    # Distribute the product
+    # Attempt three times sleeping between each attempt
+    attempt = 0
+    while True:
+        try:
+            cksum_value = distribute_product (destination_host,
+                destination_directory, product_full_path, cksum_full_path)
+        except Exception, e:
+            log ("An error occurred processing %s" % scene)
+            log ("Error: %s" % str(e))
+            if attempt < 3:
+                sleep(15) # 15 seconds and try again
+                attempt += 1
+                continue
+            else:
+                raise e
+        break
 
-    # Transfer the checksum file
-    transfer_data('localhost', cksum_filename, destination_host,
-        destination_directory)
+    # TODO TODO TODO - Compare the checksum values
 
-    # Get the checksum value 
-    cmd = ['ssh', '-o', 'StrictHostKeyChecking=no', '-q', destination_host,
-           'cksum', "%s/%s" % (destination_directory, \
-                               os.path.basename(product_filename))]
-    cksum_value = subprocess.check_output (cmd)
-
-    return cksum_value
-# END - distribute_product
+# END - deliver_product
 
 
 #==============================================================================
@@ -115,11 +131,10 @@ if __name__ == '__main__':
 
     try:
         # Call the main processing routine
-        cksum_value = distribute_product (args.destination_host,
-            args.destination_directory, args.product_filename,
-            args.cksum_filename)
+        deliver_product (args.work_directory, args.package_directory,
+            args.package_name, args.destination_host,
+            args.destination_directory)
 
-        print ("Checksum Value: %s" % cksum_value)
     except Exception, e:
         log ("Error: %s" % str(e))
         tb = traceback.format_exc()

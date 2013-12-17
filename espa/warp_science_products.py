@@ -43,7 +43,7 @@ valid_projections = ['sinu', 'aea', 'utm', 'lonlat']
 valid_utm = ['north', 'south']
 
 
-#=============================================================================
+#==============================================================================
 def build_sinu_proj4_string(central_meridian, false_easting, false_northing):
     '''
     Description:
@@ -61,7 +61,7 @@ def build_sinu_proj4_string(central_meridian, false_easting, false_northing):
 # END - build_sinu_proj4_string
 
 
-#=============================================================================
+#==============================================================================
 def build_albers_proj4_string(std_parallel_1, std_parallel_2, origin_lat,
   central_meridian, false_easting, false_northing, datum):
     '''
@@ -82,7 +82,7 @@ def build_albers_proj4_string(std_parallel_1, std_parallel_2, origin_lat,
 # END - build_albers_proj4_string
 
 
-#=============================================================================
+#==============================================================================
 def build_utm_proj4_string(utm_zone, utm_north_south):
     '''
     Description:
@@ -108,7 +108,7 @@ def build_utm_proj4_string(utm_zone, utm_north_south):
 # END - build_utm_proj4_string
 
 
-#=============================================================================
+#==============================================================================
 def build_geographic_proj4_string():
     '''
     Description:
@@ -119,7 +119,7 @@ def build_geographic_proj4_string():
 # END - build_geographic_proj4_string
 
 
-#=============================================================================
+#==============================================================================
 def convert_target_projection_to_proj4 (parms):
     '''
     Description:
@@ -161,7 +161,7 @@ def convert_target_projection_to_proj4 (parms):
 # END - convert_target_projection_to_proj4
 
 
-#=============================================================================
+#==============================================================================
 def build_argument_parser():
     '''
     Description:
@@ -177,15 +177,13 @@ def build_argument_parser():
     parameters.add_reprojection_parameters (parser, valid_projections,
         valid_utm, valid_pixel_units, valid_resample_methods)
 
-    parser.add_argument ('--work_directory',
-        action='store', dest='work_directory', default=os.curdir,
-        help="work directory on the localhost")
+    parameters.add_work_directory_parameter (parser)
 
     return parser
 # END - build_argument_parser
 
 
-#=============================================================================
+#==============================================================================
 def validate_parameters (parms):
     '''
     Description:
@@ -198,7 +196,7 @@ def validate_parameters (parms):
 # END - validate_parameters
 
 
-#=============================================================================
+#==============================================================================
 def build_warp_command (source_file, output_file,
   min_x=None, min_y=None, max_x=None, max_y=None,
   pixel_size=None, projection=None, resample_method=None):
@@ -234,7 +232,7 @@ def build_warp_command (source_file, output_file,
 # END - build_warp_command
 
 
-#=============================================================================
+#==============================================================================
 def parse_hdf_subdatasets (hdf_file):
     '''
     Description:
@@ -251,7 +249,7 @@ def parse_hdf_subdatasets (hdf_file):
 # END - parse_hdf_subdatasets
 
 
-#=============================================================================
+#==============================================================================
 def run_warp (source_file, output_file,
   min_x=None, min_y=None, max_x=None, max_y=None,
   pixel_size=None, projection=None, resample_method=None):
@@ -268,7 +266,7 @@ def run_warp (source_file, output_file,
 # END - run_warp
 
 
-#=============================================================================
+#==============================================================================
 def get_hdf_global_metadata(hdf_file):
     '''
     Description:
@@ -299,7 +297,7 @@ def get_hdf_global_metadata(hdf_file):
 # END - get_hdf_global_metadata
 
 
-#=============================================================================
+#==============================================================================
 def warp_science_products (parms):
     '''
     Description:
@@ -395,7 +393,8 @@ def warp_science_products (parms):
         os.chdir(current_directory)
 # END - reproject_science_products
 
-#=============================================================================
+
+#==============================================================================
 if __name__ == '__main__':
     '''
     Description:
@@ -407,7 +406,11 @@ if __name__ == '__main__':
     parser = build_argument_parser()
 
     # Parse the command line arguments
+    args = parser.parse_args()
     args_dict = vars(parser.parse_args())
+
+    # Setup debug
+    set_debug (args.debug)
 
     # Build our JSON formatted input from the command line parameters
     options = {k : args_dict[k] for k in args_dict if args_dict[k] != None}
@@ -419,6 +422,8 @@ if __name__ == '__main__':
         log ("Error: %s" % str(e))
         tb = traceback.format_exc()
         log ("Traceback: [%s]" % tb)
+        if hasattr(e, 'output'):
+            log ("Error: Output [%s]" % e.output)
         sys.exit (EXIT_FAILURE)
 
     sys.exit (EXIT_SUCCESS)

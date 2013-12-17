@@ -18,27 +18,143 @@ from espa_logging import log
 
 
 # This contains the valid sensors and data types which are supported
-valid_sensors = ['LT', 'LE'] # TODO TODO TODO - Someday add MODIS
+valid_landsat_sensors = ['LT', 'LE']
+valid_sensors = valid_landsat_sensors
 valid_data_types = ['level1', 'sr', 'toa', 'th']
 
-#=============================================================================
-def add_standard_parameters (parser):
+
+#==============================================================================
+def add_orderid_parameter (parser):
+    '''
+    Description:
+      Adds the orderid parameter to the command line parameters
+    '''
 
     parser.add_argument ('--orderid',
         action='store', dest='orderid', required=True,
-        help="the order ID associated with this request")
+        help="order ID associated with this request")
+# END - add_orderid_parameter
+
+
+#==============================================================================
+def add_scene_parameter (parser):
+    '''
+    Description:
+      Adds the scene parameter to the command line parameters
+    '''
 
     parser.add_argument ('--scene',
         action='store', dest='scene', required=True,
-        help="the scene ID associated with this request")
+        help="scene ID to process")
+# END - add_scene_parameter
+
+
+#==============================================================================
+def add_work_directory_parameter (parser):
+    '''
+    Description:
+      Adds the work_directory parameter to the command line parameters
+    '''
 
     parser.add_argument ('--work_directory',
         action='store', dest='work_directory', default=os.curdir,
-        help="the scene ID associated with this request")
-# END - add_standard_parameters
+        help="work directory on the localhost")
+# END - add_work_directory_parameter
 
 
-#=============================================================================
+#==============================================================================
+def add_debug_parameter (parser):
+    '''
+    Description:
+      Adds the debug parameter to the command line parameters
+    '''
+
+    parser.add_argument ('--debug',
+        action='store_true', dest='debug', default=False,
+        help="turn debug logging on")
+# END - add_debug_parameter
+
+
+#==============================================================================
+def add_science_product_parameters (parser):
+    '''
+    Description:
+      Adds the science product parameters to the command line parameters
+    '''
+
+    parser.add_argument ('--include_sr',
+        action='store_true', dest='include_sr', default=False,
+        help="build surface reflectance product")
+
+    parser.add_argument ('--include_sr_toa',
+        action='store_true', dest='include_sr_toa', default=False,
+        help="build top of atmosphere product")
+
+    parser.add_argument ('--include_sr_thermal',
+        action='store_true', dest='include_sr_thermal', default=False,
+        help="build SR thermal product")
+
+    parser.add_argument ('--include_sr_browse',
+        action='store_true', dest='include_sr_browse', default=False,
+        help="build SR browse product")
+
+    parser.add_argument ('--include_sr_nbr',
+        action='store_true', dest='include_sr_nbr', default=False,
+        help="build SR NBR index")
+
+    parser.add_argument ('--include_sr_nbr2',
+        action='store_true', dest='include_sr_nbr2', default=False,
+        help="build SR NBR2 index")
+
+    parser.add_argument ('--include_sr_ndvi',
+        action='store_true', dest='include_sr_ndvi', default=False,
+        help="build SR NDVI index")
+
+    parser.add_argument ('--include_sr_ndmi',
+        action='store_true', dest='include_sr_ndmi', default=False,
+        help="build SR NDMI index")
+
+    parser.add_argument ('--include_sr_savi',
+        action='store_true', dest='include_sr_savi', default=False,
+        help="build SR SAVI index")
+
+    parser.add_argument ('--include_sr_evi',
+        action='store_true', dest='include_sr_evi', default=False,
+        help="build SR EVI index")
+
+    parser.add_argument ('--include_snow_covered_area',
+        action='store_true', dest='include_snow_covered_area', default=False,
+        help="build snow covered area product")
+
+    parser.add_argument ('--include_surface_water_extent',
+        action='store_true', dest='include_surface_water_extent', default=False,
+        help="build surface water extent product")
+
+    parser.add_argument ('--include_solr_index',
+        action='store_true', dest='include_solr_index', default=False,
+        help="build SOLR index product")
+
+    parser.add_argument ('--include_dem',
+        action='store_true', dest='include_dem', default=False,
+        help="build DEM product")
+# END - add_science_product_parameters
+
+
+#==============================================================================
+def add_include_statistics_parameter (parser):
+    '''
+    Description:
+      Adds the include_statistics parameter to the command line parameters
+    '''
+
+    parser.add_argument ('--include_statistics',
+        action='store_true', dest='include_statistics', default=False,
+        help="compute minimum, maximum, mean, and stddev values for each" \
+             " appropriate science product")
+# END - add_include_statistics_parameter
+
+
+#==============================================================================
 def add_data_type_parameter (parser, data_types):
     '''
     Description:
@@ -53,20 +169,7 @@ def add_data_type_parameter (parser, data_types):
 # END - add_data_source_parameter
 
 
-#=============================================================================
-def add_debug_parameter (parser):
-    '''
-    Description:
-      Adds the debug parameter to the command line parameters
-    '''
-
-    parser.add_argument ('--debug',
-        action='store_true', dest='debug', default=False,
-        help="turn debug logging on")
-# END - add_data_source_parameter
-
-
-#=============================================================================
+#==============================================================================
 def add_source_parameters (parser):
     '''
     Description:
@@ -84,7 +187,7 @@ def add_source_parameters (parser):
 # END - add_source_parameters
 
 
-#=============================================================================
+#==============================================================================
 def add_destination_parameters (parser):
     '''
     Description:
@@ -102,7 +205,7 @@ def add_destination_parameters (parser):
 # END - add_source_parameters
 
 
-#=============================================================================
+#==============================================================================
 def add_reprojection_parameters (parser, projection_values, utm_values,
   pixel_units, resample_methods):
     '''
@@ -187,7 +290,7 @@ def add_reprojection_parameters (parser, projection_values, utm_values,
 # END - add_reprojection_parameters
 
 
-#=============================================================================
+#==============================================================================
 def test_for_parameter (parms, key):
     '''
     Description:
@@ -206,7 +309,7 @@ def test_for_parameter (parms, key):
 # END - test_for_parameter
 
 
-#=============================================================================
+#==============================================================================
 def convert_to_command_line_options (parms):
     '''
     Description:
@@ -227,7 +330,7 @@ def convert_to_command_line_options (parms):
     return cmd_line
 # END - convert_parms_to_command_line_options
 
-#=============================================================================
+#==============================================================================
 def validate_reprojection_parameters (parms, projections, utm_values,
   pixel_units, resample_methods):
     '''

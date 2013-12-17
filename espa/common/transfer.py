@@ -21,10 +21,6 @@ import subprocess
 from espa_constants import *
 from espa_logging import log
 
-# This contains the valid sensors which are supported
-valid_landsat_sensors = ['LT', 'LE']
-valid_modis_sensors = ['MODIS']
-valid_stage_sensors = valid_landsat_sensors + valid_modis_sensors
 
 #=============================================================================
 def transfer_data (source_host, source_file,
@@ -67,7 +63,7 @@ def transfer_data (source_host, source_file,
     except subprocess.CalledProcessError, e:
         log (output)
         log ("Error: Failed to transfer data")
-        raise
+        raise e
 # END - transfer_data
 
 
@@ -90,31 +86,4 @@ def stage_landsat_data (scene, source_host, source_directory, \
 
     return destination_filename
 #END - stage_landsat_data
-
-
-#=============================================================================
-def stage_input_data (data_sensor, scene, source_host, source_directory,
-  destination_host, destination_directory):
-    '''
-    Description:
-      Stages known input data sources to the specified destination directory
-    '''
-
-    if data_sensor not in valid_stage_sensors:
-        raise NotImplementedError ("Unsupported data sensor %s" % data_sensor)
-
-    filename = None
-
-    if data_sensor in valid_landsat_sensors:
-        filename = stage_landsat_data (scene, source_host,
-            source_directory, destination_host, destination_directory)
-
-    elif data_sensor in valid_modis_sensors:
-        raise NotImplementedError ("Data sensor %s is not implemented" % \
-            data_sensor)
-
-    return filename
-#END - stage_input_data
-
-
 
