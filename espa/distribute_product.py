@@ -5,8 +5,15 @@ License:
   "NASA Open Source Agreement 1.3"
 
 Description:
-  See 'Description' under '__main__' for more details.
-  TODO TODO TODO
+  Distribute the specified package to the specified destination.  A checksum is
+  generated on the distributed file for validation by the calling routine.
+
+  See transfer for details about transfering files between systems.
+
+Notes:
+  It is assumed that ssh keys have been setup between the localhost and
+  destination systems.  Even if both systems are localhost, ssh is used for
+  generating the checksum on the distributed package.
 
 History:
   Original Development (cdr_ecv.py) by David V. Hill, USGS/EROS
@@ -27,8 +34,8 @@ from espa_constants import *
 from espa_logging import log, set_debug, debug
 
 # local objects and methods
-import common.parameters as parameters
-from common.transfer import transfer_data
+import parameters
+from transfer import transfer_data
 
 
 #==============================================================================
@@ -62,7 +69,7 @@ def build_argument_parser():
 def distribute_product (destination_host, destination_directory,
   product_filename, cksum_filename):
     '''
-    Descrription:
+    Description:
       Transfers the product and associated checksum to the specified directory
       on the destination host
 
@@ -86,13 +93,15 @@ def distribute_product (destination_host, destination_directory,
     transfer_data('localhost', cksum_filename, destination_host,
         destination_directory)
 
+    destination_full_path = "%s/%s" \
+        % (destination_directory, os.path.basename(product_filename))
+
     # Get the checksum value 
     cmd = ['ssh', '-o', 'StrictHostKeyChecking=no', '-q', destination_host,
-           'cksum', "%s/%s" % (destination_directory, \
-                               os.path.basename(product_filename))]
+           'cksum', "%s" % destination_full_path]
     cksum_value = subprocess.check_output (cmd)
 
-    return cksum_value
+    return (cksum_value, destination_full_path)
 # END - distribute_product
 
 
@@ -101,7 +110,7 @@ if __name__ == '__main__':
     '''
     Description:
       Read parameters from the command line and pass them to the main
-      packaging routine.
+      distribution routine.
     '''
 
     # Build the command line argument parser
@@ -115,10 +124,13 @@ if __name__ == '__main__':
 
     try:
         # Call the main processing routine
-        cksum_value = distribute_product (args.destination_host,
-            args.destination_directory, args.product_filename,
-            args.cksum_filename)
+        (cksum_value, destination_full_path) = \
+            distribute_product (args.destination_host,
+                args.destination_directory, args.product_filename,
+                args.cksum_filename)
 
+        print ("Delivered: %s:%s" \
+            % (args.destination_host, destination_full_path))
         print ("Checksum Value: %s" % cksum_value)
     except Exception, e:
         log ("Error: %s" % str(e))
