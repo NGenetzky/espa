@@ -24,9 +24,9 @@ from espa_constants import *
 from espa_logging import log, debug, set_debug
 
 # local objects and methods
-import common.parameters as parameters
+import parameters
 from cdr_ecv_landsat import process as process_landsat
-import common.util as util
+import util
 
 #=============================================================================
 if __name__ == '__main__':

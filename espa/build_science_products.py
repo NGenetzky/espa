@@ -5,8 +5,7 @@ License:
   "NASA Open Source Agreement 1.3"
 
 Description:
-  See 'Description' under '__main__' for more details.
-  TODO TODO TODO
+  Build science products from Landsat L4TM, L5TM, and L7ETM+ data.
 
 History:
   Original Development (cdr_ecv.py) by David V. Hill, USGS/EROS
@@ -26,10 +25,12 @@ from espa_constants import *
 from espa_logging import log, set_debug, debug
 
 # local objects and methods
-import common.parameters as parameters
-from common.metadata import get_metadata
-from products.solr import create_solr_index
-import common.util as util
+import cdr_ecv_exit_codes as exit_codes
+import parameters
+from landsat_metadata import get_metadata
+from solr import create_solr_index
+from make_sr_browse import make_sr_browse
+import util
 
 
 # Default values
@@ -118,18 +119,6 @@ def validate_build_landsat_parameters (parms):
 
 
 #==============================================================================
-def make_browse (scene, browse_resolution=default_browse_resolution):
-    '''
-    Description: TODO TODO TODO
-    '''
-    # TODO TODO TODO - Implement Me!!!!!!!!!!!!!!!!!!!!
-
-    log ("Browse Generation Not Implemented!!!!")
-    return SUCCESS
-# END - make_browse
-
-
-#==============================================================================
 def build_landsat_science_products (parms):
     '''
     Description:
@@ -141,6 +130,7 @@ def build_landsat_science_products (parms):
     scene = parms['scene']
 
     # Figure out the metadata filename
+    exit_codes.set_program_exit_code (exit_codes.metadata)
     metadata = get_metadata (options['sensor'], options['work_directory'])
     metadata_filename = metadata['metadata_filename']
 
@@ -154,6 +144,7 @@ def build_landsat_science_products (parms):
     solr_filename = '%s-index.xml' % scene
 
     # Change to the working directory
+    exit_codes.set_program_exit_code (exit_codes.environment)
     current_directory = os.curdir
     os.chdir(options['work_directory'])
 
@@ -172,6 +163,7 @@ def build_landsat_science_products (parms):
           or options['include_sr_evi'] \
           or options['include_snow_covered_area'] \
           or options['include_surface_water_extent']:
+            exit_codes.set_program_exit_code (exit_codes.ledaps)
             cmd = ['do_ledaps.py', '--metafile', metadata_filename]
             log ("LEDAPS COMMAND:%s" % ' '.join(cmd))
             output = subprocess.check_output (cmd, stderr=subprocess.STDOUT)
@@ -180,7 +172,8 @@ def build_landsat_science_products (parms):
         # ---------------------------------------------------------------------
         # Generate SR browse product
         if options['include_sr_browse']:
-            make_browse (scene, options['browse_resolution'])
+            exit_codes.set_program_exit_code (exit_codes.sr_browse)
+            make_sr_browse (sr_filename, scene, options['browse_resolution'])
 
         # ---------------------------------------------------------------------
         # Generate any specified indices
@@ -190,6 +183,7 @@ def build_landsat_science_products (parms):
           or options['include_sr_ndmi'] \
           or options['include_sr_savi'] \
           or options['include_sr_evi']:
+            exit_codes.set_program_exit_code (exit_codes.spectral_indices)
             cmd = ['do_spectral_indices.py']
 
             # Add the specified index options
@@ -219,6 +213,7 @@ def build_landsat_science_products (parms):
         if options['include_dem'] \
           or options['include_snow_covered_area'] \
           or options['include_surface_water_extent']:
+            exit_codes.set_program_exit_code (exit_codes.dem)
             cmd = ['do_create_dem.py', '--metafile', metadata_filename,
                    '--demfile', dem_filename]
 
@@ -229,18 +224,19 @@ def build_landsat_science_products (parms):
         # ---------------------------------------------------------------------
         # Generate SOLR index
         if options['include_solr_index']:
+            exit_codes.set_program_exit_code (exit_codes.solr)
             create_solr_index (metadata, scene, solr_filename,
                 options['collection_name'])
 
         # ---------------------------------------------------------------------
         # Generate CFMask product
         if options['include_cfmask'] or options['include_sr']:
+            exit_codes.set_program_exit_code (exit_codes.cfmask)
             # Verify lndcal file exists first
             if not os.path.isfile(toa_filename):
                 raise RuntimeError (("Could not find LEDAPS TOA reflectance"
                     " file in %s") % options['work_directory'])
 
-            # TODO TODO TODO - I wonder if this should be a 'do_cfmask.py'
             cmd = ['cfmask', '--verbose', '--toarefl=%s' % toa_filename]
 
             log ("CREATE CFMASK COMMAND:%s" % ' '.join(cmd))
@@ -250,6 +246,7 @@ def build_landsat_science_products (parms):
         # ---------------------------------------------------------------------
         # Append CFMask into the SR product if only SR was selected
         if options['include_sr'] and not options['include_cfmask']:
+            exit_codes.set_program_exit_code (exit_codes.cfmask_append)
             cmd = ['do_append_cfmask.py', '--sr_infile', sr_filename,
                    '--cfmask_infile', fmask_filename]
 
@@ -260,6 +257,7 @@ def build_landsat_science_products (parms):
         # ---------------------------------------------------------------------
         # Generate Surface Water Extent product
         if options['include_surface_water_extent']:
+            exit_codes.set_program_exit_code (exit_codes.swe)
             cmd = ['do_surface_water_extent.py', '--metafile',
                    metadata_filename, '--reflectance', sr_filename, '--dem',
                    dem_filename]
@@ -271,6 +269,7 @@ def build_landsat_science_products (parms):
         # ---------------------------------------------------------------------
         # Generate Snow Covered Area product
         if options['include_snow_covered_area']:
+            exit_codes.set_program_exit_code (exit_codes.sca)
             cmd = ['do_snow_cover.py', '--metafile', metadata_filename,
                    '--toa_infile', toa_filename, '--btemp_infile', th_filename,
                    '--sca_outfile', sca_filename, '--dem', dem_filename]
@@ -281,6 +280,7 @@ def build_landsat_science_products (parms):
 
         # ---------------------------------------------------------------------
         # Remove non-product (intermediate) files here
+        exit_codes.set_program_exit_code (exit_codes.cleanup_work_dir)
         non_products = glob.glob ('*sixs*')
         non_products += glob.glob ('*metadata*')
         non_products += glob.glob ('LogReport*')
@@ -314,6 +314,8 @@ def build_landsat_science_products (parms):
     finally:
         # Change back to the previous directory
         os.chdir(current_directory)
+
+    exit_codes.set_program_exit_code (exit_codes.exit_success)
 # END - build_landsat_science_products
 
 
