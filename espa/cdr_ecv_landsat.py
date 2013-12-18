@@ -4,10 +4,14 @@
 License:
   "NASA Open Source Agreement 1.3"
 
-Description: TODO TODO TODO
+Description:
+  Integration script for the EROS Science Processing Architecture (ESPA)
 
 History:
+  Original Development by David V. Hill, USGS/EROS
   Created Nov/2013 by Ron Dilley, USGS/EROS
+    - Gutted the original implementation and placed it in to several other
+      files that could be called manualy or from other scripts.
 '''
 
 import os
@@ -24,15 +28,15 @@ from espa_constants import *
 from espa_logging import log, debug
 
 # local objects and methods
-from common.directory_tools import initialize_processing_directory
-from common.transfer import stage_landsat_data
-from common.packaging import untar_data
-import common.parameters as parameters
+from directory_tools import initialize_processing_directory
+from transfer import stage_landsat_data
+from packaging import untar_data
+import parameters
 from build_science_products import build_landsat_science_products, \
     validate_build_landsat_parameters
 import warp_science_products as warp
 from deliver_product import deliver_product
-import common.util as util
+import util
 
 
 #==============================================================================
@@ -204,18 +208,24 @@ def process (parms):
     #cmd += cmd_options
 
     # Deliver the product files
-    # Attempt three times sleeping between each attempt
+    # Attempt five times sleeping between each attempt
+    sleep_seconds = 2
+    max_number_of_attempts = 5
     attempt = 0
     while True:
         try:
+            # Deliver product will also try each of its parts three times
+            # before failing, so we pass our sleep seconds down to them
             deliver_product (work_directory, package_directory, product_name,
-                options['destination_host'], options['destination_directory'])
+                options['destination_host'], options['destination_directory'],
+                sleep_seconds)
         except Exception, e:
             log ("An error occurred processing %s" % scene)
             log ("Error: %s" % str(e))
-            if attempt < 3:
-                sleep(15) # 15 seconds and try again
+            if attempt < max_number_of_attempts:
+                sleep(sleep_seconds) # sleep before trying again
                 attempt += 1
+                sleep_seconds = int(sleep_seconds * 1.5) # adjust for next set
                 continue
             else:
                 raise e

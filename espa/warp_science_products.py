@@ -28,8 +28,8 @@ from espa_constants import *
 from espa_logging import log, set_debug, debug
 
 # local objects and methods
-import common.parameters as parameters
-from common.metadata import get_metadata
+import parameters
+from landsat_metadata import get_metadata
 
 # This contains the valid sensors which are supported
 valid_landsat_sensors = ['LT', 'LE']
@@ -331,7 +331,6 @@ def warp_science_products (parms):
 
     try:
         # Include all HDF and TIF
-        # TODO - Later we will do whatever is in the binary format + the TIF
         what_to_warp = glob.glob('*.hdf')
         what_to_warp += glob.glob('*.TIF')
 
