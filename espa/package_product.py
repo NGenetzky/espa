@@ -5,8 +5,9 @@ License:
   "NASA Open Source Agreement 1.3"
 
 Description:
-  See 'Description' under '__main__' for more details.
-  TODO TODO TODO
+  Packages up the contents of a directory using tar and gzip to create the
+  package file.  The package is placed into the destination directory on the
+  local host, and a checksum file is generated from that package.
 
 History:
   Original Development (cdr_ecv.py) by David V. Hill, USGS/EROS
@@ -27,7 +28,7 @@ from espa_constants import *
 from espa_logging import log, set_debug, debug
 
 # local objects and methods
-import common.parameters as parameters
+import parameters
 
 
 #==============================================================================
@@ -62,7 +63,7 @@ def build_argument_parser():
 #==============================================================================
 def package_product (source_directory, destination_directory, product_name):
     '''
-    Descrription:
+    Description:
       Package the contents of the source directory into a gzipped tarball
       located in the destination directory and generate a checksum file
 
