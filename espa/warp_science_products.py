@@ -28,6 +28,7 @@ from espa_constants import *
 from espa_logging import log, set_debug, debug
 
 # local objects and methods
+from espa_exception import ErrorCodes, ESPAException
 import parameters
 from landsat_metadata import get_metadata
 
@@ -387,6 +388,9 @@ def warp_science_products (parms):
                 os.rename(output_filename, file)
             # END - GeoTIFF
         # END - for each file
+    except Exception, e:
+        raise ESPAException (ErrorCodes.warping, str(e)), \
+            None, sys.exc_info()[2]
     finally:
         # Change back to the previous directory
         os.chdir(current_directory)

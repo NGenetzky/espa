@@ -41,6 +41,7 @@ from espa_constants import *
 from espa_logging import log, set_debug, debug
 
 # local objects and methods
+from espa_exception import ErrorCodes, ESPAException
 import parameters
 from package_product import package_product
 from distribute_product import distribute_product
@@ -112,7 +113,8 @@ def deliver_product (work_directory, package_directory, product_name,
                 attempt += 1
                 continue
             else:
-                raise e
+                raise ESPAException (ErrorCodes.packaging_product, str(e)), \
+                    None, sys.exc_info()[2]
         break
 
     # Distribute the product
@@ -131,13 +133,15 @@ def deliver_product (work_directory, package_directory, product_name,
                 attempt += 1
                 continue
             else:
-                raise e
+                raise ESPAException (ErrorCodes.distributing_product, str(e)), \
+                    None, sys.exc_info()[2]
         break
 
     # Checksum validation
     if local_cksum_value.split()[0] != remote_cksum_value.split()[0]:
-        raise RuntimeError ("Failed checksum validation between %s and %s:%s" \
-            % (product_full_path, destination_host, destination_full_path))
+        raise ESPAException (ErrorCodes.verifing_checksum,
+            "Failed checksum validation between %s and %s:%s" \
+                % (product_full_path, destination_host, destination_full_path))
 
     log ("Distribution complete for %s:%s" % \
         (destination_host, destination_full_path))

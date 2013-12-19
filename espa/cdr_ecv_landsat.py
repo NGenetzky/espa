@@ -190,7 +190,11 @@ def process (parms):
         options['source_directory'], 'localhost', stage_directory)
 
     # Un-tar the input data to the work directory
-    untar_data (filename, work_directory)
+    try:
+        untar_data (filename, work_directory)
+    except Exception, e:
+        raise ESPAException (ErrorCodes.unpacking, str(e)), \
+            None, sys.exc_info()[2]
 
     # Build the requested science products
     build_landsat_science_products (parms)
@@ -228,7 +232,7 @@ def process (parms):
                 sleep_seconds = int(sleep_seconds * 1.5) # adjust for next set
                 continue
             else:
-                raise e
+                raise e # May already be an ESPAException so don't override that
         break
 # END - process
 

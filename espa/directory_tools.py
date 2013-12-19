@@ -22,7 +22,7 @@ from espa_constants import *
 from espa_logging import log
 
 # local objects and methods
-import cdr_ecv_exit_codes as exit_codes
+from espa_exception import ErrorCodes, ESPAException
 
 espa_base_working_dir_envvar = 'ESPA_WORK_DIR'
 
@@ -84,36 +84,21 @@ def initialize_processing_directory (orderid, scene):
     try:
         create_directory (stage_directory)
     except Exception, e:
-        sys.exit([exit_codes.creating_staging_dir, str(e)])
+        raise ESPAException (ErrorCodes.creating_stage_dir, str(e)), \
+            None, sys.exc_info()[2]
 
     try:
         create_directory (work_directory)
     except Exception, e:
-        sys.exit([exit_codes.creating_working_dir, str(e)])
+        raise ESPAException (ErrorCodes.creating_work_dir, str(e)), \
+            None, sys.exc_info()[2]
 
     try:
         create_directory (output_directory)
     except Exception, e:
-        sys.exit([exit_codes.creating_output_dir, str(e)])
+        raise ESPAException (ErrorCodes.creating_output_dir, str(e)), \
+            None, sys.exc_info()[2]
 
     return (scene_directory, stage_directory, work_directory, output_directory)
 # END - initialize_processing_directory
-
-
-#=============================================================================
-if __name__ == '__main__':
-    '''
-    Description:
-        For testing purposes only.
-    '''
-
-    try:
-        directory = initialize_processing_directory ('yyyyyy')
-    except Exception, e:
-        log ("Error: Unable to create processing directory")
-        sys.exit (EXIT_FAILURE)
-
-    print "Created directory %s" % directory
-
-    sys.exit (EXIT_SUCCESS)
 

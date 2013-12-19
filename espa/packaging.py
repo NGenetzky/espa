@@ -42,9 +42,10 @@ def untar_data (source_file, destination_directory):
     output = ''
     try:
         output = subprocess.check_output (cmd)
-    except subprocess.CalledProcessError, e:
-        log (output)
+    except Exception, e:
         log ("Error: Failed to unpack data")
-        raise
+        raise e
+    finally:
+        log (output)
 # END - untar_data
 

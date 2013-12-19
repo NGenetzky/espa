@@ -60,10 +60,11 @@ def transfer_data (source_host, source_file,
     output = ''
     try:
         output = subprocess.check_output (cmd)
-    except subprocess.CalledProcessError, e:
-        log (output)
+    except Exception, e:
         log ("Error: Failed to transfer data")
         raise e
+    finally:
+        log (output)
 # END - transfer_data
 
 
@@ -81,8 +82,12 @@ def stage_landsat_data (scene, source_host, source_directory, \
     source_filename = '%s/%s' % (source_directory, filename)
     destination_filename = '%s/%s' % (destination_directory, filename)
 
-    transfer_data (source_host, source_filename, destination_host,
-        destination_directory)
+    try:
+        transfer_data (source_host, source_filename, destination_host,
+            destination_directory)
+    except Exception, e:
+        raise ESPAException (ErrorCodes.staging_data, str(e)), \
+            None, sys.exc_info()[2]
 
     return destination_filename
 #END - stage_landsat_data

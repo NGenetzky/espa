@@ -24,6 +24,7 @@ from espa_constants import *
 from espa_logging import log, debug, set_debug
 
 # local objects and methods
+from espa_exception import ErrorCodes, ESPAException
 import parameters
 from cdr_ecv_landsat import process as process_landsat
 import util
@@ -88,15 +89,81 @@ if __name__ == '__main__':
             #   Add processing for another sensor here in an 'elif' section
             #------------------------------------------------------------------
 
-        except Exception, e:
+        except ESPAException, e:
+            # Log the error information
+            # Depending on the error_code do something different
+            # TODO TODO TODO - Added more and add the tings that are different or combine them into one if
+            if e.error_code == ErrorCodes.creating_stage_dir \
+              or e.error_code == ErrorCodes.creating_work_dir \
+              or e.error_code == ErrorCodes.creating_output_dir:
+
+                if server is not None:
+                    server.setSceneError(sceneid, orderid,
+                        processing_location, e)
+
+            elif e.error_code == ErrorCodes.staging_data \
+              or e.error_code == ErrorCodes.unpacking:
+
+                if server is not None:
+                    server.setSceneError(sceneid, orderid,
+                        processing_location, e)
+
+            elif e.error_code == ErrorCodes.metadata \
+              or e.error_code == ErrorCodes.ledaps \
+              or e.error_code == ErrorCodes.sr_browse \
+              or e.error_code == ErrorCodes.spectral_indices \
+              or e.error_code == ErrorCodes.create_dem \
+              or e.error_code == ErrorCodes.solr \
+              or e.error_code == ErrorCodes.cfmask \
+              or e.error_code == ErrorCodes.cfmask_append \
+              or e.error_code == ErrorCodes.swe \
+              or e.error_code == ErrorCodes.sca \
+              or e.error_code == ErrorCodes.cleanup_work_dir:
+
+                if server is not None:
+                    server.setSceneError(sceneid, orderid,
+                        processing_location, e)
+
+            elif e.error_code == ErrorCodes.warping:
+
+                if server is not None:
+                    server.setSceneError(sceneid, orderid,
+                        processing_location, e)
+
+            elif e.error_code == ErrorCodes.packaging_product \
+              or e.error_code == ErrorCodes.distributing_product \
+              or e.error_code == ErrorCodes.verifying_checksum:
+
+                if server is not None:
+                    server.setSceneError(sceneid, orderid,
+                        processing_location, e)
+
+            else:
+                if server is not None:
+                    server.setSceneError(sceneid, orderid,
+                        processing_location, e)
+
+            # Log the error information
             log ("An error occurred processing %s" % sceneid)
             log ("Error: %s" % str(e))
-            tb = traceback.format_exc()
-            log ("Traceback: [%s]" % tb)
+            if hasattr(e, 'output'):
+                log ("Error: Code [%s]" % str(e.error_code))
             if hasattr(e, 'output'):
                 log ("Error: Output [%s]" % e.output)
+            tb = traceback.format_exc()
+            log ("Error: Traceback [%s]" % tb)
+
+        except Exception, e:
             if server is not None:
                 server.setSceneError(sceneid, orderid, processing_location, e)
+
+            # Log the error information
+            log ("An error occurred processing %s" % sceneid)
+            log ("Error: %s" % str(e))
+            if hasattr(e, 'output'):
+                log ("Error: Output [%s]" % e.output)
+            tb = traceback.format_exc()
+            log ("Error: Traceback [%s]" % tb)
     # END - for line in STDIN
 
     sys.exit(EXIT_SUCCESS)

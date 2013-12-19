@@ -25,7 +25,7 @@ from espa_constants import *
 from espa_logging import log, set_debug, debug
 
 # local objects and methods
-import cdr_ecv_exit_codes as exit_codes
+from espa_exception import ErrorCodes, ESPAException
 import parameters
 from landsat_metadata import get_metadata
 from solr_index import do_solr_index
@@ -129,8 +129,11 @@ def build_landsat_science_products (parms):
     scene = parms['scene']
 
     # Figure out the metadata filename
-    exit_codes.set_program_exit_code (exit_codes.metadata)
-    metadata = get_metadata (options['sensor'], options['work_directory'])
+    try:
+        metadata = get_metadata (options['sensor'], options['work_directory'])
+    except Exception, e:
+        raise ESPAException (ErrorCodes.metadata, str(e)), \
+            None, sys.exc_info()[2]
     metadata_filename = metadata['metadata_filename']
 
     # Figure out filenames
@@ -143,7 +146,6 @@ def build_landsat_science_products (parms):
     solr_filename = '%s-index.xml' % scene
 
     # Change to the working directory
-    exit_codes.set_program_exit_code (exit_codes.environment)
     current_directory = os.curdir
     os.chdir(options['work_directory'])
 
@@ -162,17 +164,25 @@ def build_landsat_science_products (parms):
           or options['include_sr_evi'] \
           or options['include_snow_covered_area'] \
           or options['include_surface_water_extent']:
-            exit_codes.set_program_exit_code (exit_codes.ledaps)
             cmd = ['do_ledaps.py', '--metafile', metadata_filename]
             log ("LEDAPS COMMAND:%s" % ' '.join(cmd))
-            output = subprocess.check_output (cmd, stderr=subprocess.STDOUT)
-            log (output)
+
+            try:
+                output = subprocess.check_output (cmd, stderr=subprocess.STDOUT)
+            except Exception, e:
+                raise ESPAException (ErrorCodes.ledaps, str(e)), \
+                    None, sys.exc_info()[2]
+            finally:
+                log (output)
 
         # ---------------------------------------------------------------------
         # Generate SR browse product
         if options['include_sr_browse']:
-            exit_codes.set_program_exit_code (exit_codes.sr_browse)
-            do_sr_browse (sr_filename, scene, options['browse_resolution'])
+            try:
+                do_sr_browse (sr_filename, scene, options['browse_resolution'])
+            except Exception, e:
+                raise ESPAException (ErrorCodes.sr_browse, str(e)), \
+                    None, sys.exc_info()[2]
 
         # ---------------------------------------------------------------------
         # Generate any specified indices
@@ -182,7 +192,6 @@ def build_landsat_science_products (parms):
           or options['include_sr_ndmi'] \
           or options['include_sr_savi'] \
           or options['include_sr_evi']:
-            exit_codes.set_program_exit_code (exit_codes.spectral_indices)
             cmd = ['do_spectral_indices.py']
 
             # Add the specified index options
@@ -203,82 +212,110 @@ def build_landsat_science_products (parms):
             cmd += ['-i', sr_filename]
 
             log ("SPECTRAL INDICES COMMAND:%s" % ' '.join(cmd))
-            output = subprocess.check_output (cmd, stderr=subprocess.STDOUT)
-            log (output)
+            try:
+                output = subprocess.check_output (cmd, stderr=subprocess.STDOUT)
+            except Exception, e:
+                raise ESPAException (ErrorCodes.spectral_indices, str(e)), \
+                    None, sys.exc_info()[2]
+            finally:
+                log (output)
         # END - if indices
 
         # ---------------------------------------------------------------------
         # Create a DEM
         if options['include_snow_covered_area'] \
           or options['include_surface_water_extent']:
-            exit_codes.set_program_exit_code (exit_codes.dem)
             cmd = ['do_create_dem.py', '--metafile', metadata_filename,
                    '--demfile', dem_filename]
 
             log ("CREATE DEM COMMAND:%s" % ' '.join(cmd))
-            output = subprocess.check_output (cmd, stderr=subprocess.STDOUT)
-            log (output)
+            try:
+                output = subprocess.check_output (cmd, stderr=subprocess.STDOUT)
+            except Exception, e:
+                raise ESPAException (ErrorCodes.create_dem, str(e)), \
+                    None, sys.exc_info()[2]
+            finally:
+                log (output)
 
         # ---------------------------------------------------------------------
         # Generate SOLR index
         if options['include_solr_index']:
-            exit_codes.set_program_exit_code (exit_codes.solr)
-            do_solr_index (metadata, scene, solr_filename,
-                options['collection_name'])
+            try:
+                do_solr_index (metadata, scene, solr_filename,
+                    options['collection_name'])
+            except Exception, e:
+                raise ESPAException (ErrorCodes.solr, str(e)), \
+                    None, sys.exc_info()[2]
 
         # ---------------------------------------------------------------------
         # Generate CFMask product
         if options['include_cfmask'] or options['include_sr']:
-            exit_codes.set_program_exit_code (exit_codes.cfmask)
             # Verify lndcal file exists first
             if not os.path.isfile(toa_filename):
-                raise RuntimeError (("Could not find LEDAPS TOA reflectance"
-                    " file in %s") % options['work_directory'])
+                raise ESPAException (ErrorCodes.cfmask,
+                    ("Could not find LEDAPS TOA reflectance file in %s") \
+                     % options['work_directory'])
 
             cmd = ['cfmask', '--verbose', '--toarefl=%s' % toa_filename]
 
             log ("CREATE CFMASK COMMAND:%s" % ' '.join(cmd))
-            output = subprocess.check_output (cmd, stderr=subprocess.STDOUT)
-            log (output)
+            try:
+                output = subprocess.check_output (cmd, stderr=subprocess.STDOUT)
+            except Exception, e:
+                raise ESPAException (ErrorCodes.cfmask, str(e)), \
+                    None, sys.exc_info()[2]
+            finally:
+                log (output)
 
         # ---------------------------------------------------------------------
         # Append CFMask into the SR product if only SR was selected
         if options['include_sr'] and not options['include_cfmask']:
-            exit_codes.set_program_exit_code (exit_codes.cfmask_append)
             cmd = ['do_append_cfmask.py', '--sr_infile', sr_filename,
                    '--cfmask_infile', fmask_filename]
 
             log ("APPEND CFMASK COMMAND:%s" % ' '.join(cmd))
-            output = subprocess.check_output (cmd, stderr=subprocess.STDOUT)
-            log (output)
+            try:
+                output = subprocess.check_output (cmd, stderr=subprocess.STDOUT)
+            except Exception, e:
+                raise ESPAException (ErrorCodes.cfmask_append, str(e)), \
+                    None, sys.exc_info()[2]
+            finally:
+                log (output)
 
         # ---------------------------------------------------------------------
         # Generate Surface Water Extent product
         if options['include_surface_water_extent']:
-            exit_codes.set_program_exit_code (exit_codes.swe)
             cmd = ['do_surface_water_extent.py', '--metafile',
                    metadata_filename, '--reflectance', sr_filename, '--dem',
                    dem_filename]
 
             log ("CREATE SWE COMMAND:%s" % ' '.join(cmd))
-            output = subprocess.check_output (cmd, stderr=subprocess.STDOUT)
-            log (output)
+            try:
+                output = subprocess.check_output (cmd, stderr=subprocess.STDOUT)
+            except Exception, e:
+                raise ESPAException (ErrorCodes.swe, str(e)), \
+                    None, sys.exc_info()[2]
+            finally:
+                log (output)
 
         # ---------------------------------------------------------------------
         # Generate Snow Covered Area product
         if options['include_snow_covered_area']:
-            exit_codes.set_program_exit_code (exit_codes.sca)
             cmd = ['do_snow_cover.py', '--metafile', metadata_filename,
                    '--toa_infile', toa_filename, '--btemp_infile', th_filename,
                    '--sca_outfile', sca_filename, '--dem', dem_filename]
 
             log ("CREATE SCA COMMAND:%s" % ' '.join(cmd))
-            output = subprocess.check_output (cmd, stderr=subprocess.STDOUT)
-            log (output)
+            try:
+                output = subprocess.check_output (cmd, stderr=subprocess.STDOUT)
+            except Exception, e:
+                raise ESPAException (ErrorCodes.sca, str(e)), \
+                    None, sys.exc_info()[2]
+            finally:
+                log (output)
 
         # ---------------------------------------------------------------------
         # Remove non-product (intermediate) files here
-        exit_codes.set_program_exit_code (exit_codes.cleanup_work_dir)
         non_products = glob.glob ('*sixs*')
         non_products += glob.glob ('*metadata*')
         non_products += glob.glob ('LogReport*')
@@ -307,13 +344,15 @@ def build_landsat_science_products (parms):
 
         cmd = ['rm', '-rf'] + non_products
         log ("REMOVING INTERMEDIATE DATA COMMAND:%s" % ' '.join(cmd))
-        subprocess.check_output (cmd, stderr=subprocess.STDOUT)
+        try:
+            subprocess.check_output (cmd, stderr=subprocess.STDOUT)
+        except Exception, e:
+            raise ESPAException (ErrorCodes.cleanup_work_dir, str(e)), \
+                None, sys.exc_info()[2]
 
     finally:
         # Change back to the previous directory
         os.chdir(current_directory)
-
-    exit_codes.set_program_exit_code (exit_codes.exit_success)
 # END - build_landsat_science_products
 
 
