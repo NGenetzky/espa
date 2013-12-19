@@ -20,7 +20,7 @@ from espa_logging import log, debug
 
 
 #==============================================================================
-def create_solr_index (metadata, scene, solr_filename, collection_name,
+def do_solr_index (metadata, scene, solr_filename, collection_name,
     build_points = False):
     '''
     Description:
@@ -138,5 +138,5 @@ def create_solr_index (metadata, scene, solr_filename, collection_name,
     output_fd.close()
 
     solr_buffer.close()
-# END - create_solr_index
+# END - do_solr_index
 

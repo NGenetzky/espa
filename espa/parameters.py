@@ -133,10 +133,6 @@ def add_science_product_parameters (parser):
     parser.add_argument ('--include_solr_index',
         action='store_true', dest='include_solr_index', default=False,
         help="build SOLR index product")
-
-    parser.add_argument ('--include_dem',
-        action='store_true', dest='include_dem', default=False,
-        help="build DEM product")
 # END - add_science_product_parameters
 
 

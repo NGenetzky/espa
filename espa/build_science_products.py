@@ -28,8 +28,8 @@ from espa_logging import log, set_debug, debug
 import cdr_ecv_exit_codes as exit_codes
 import parameters
 from landsat_metadata import get_metadata
-from solr import create_solr_index
-from make_sr_browse import make_sr_browse
+from solr_index import do_solr_index
+from sr_browse import do_sr_browse
 import util
 
 
@@ -97,8 +97,7 @@ def validate_build_landsat_parameters (parms):
             'include_sr_browse', 'include_sr_nbr', 'include_sr_nbr2',
             'include_sr_ndvi', 'include_sr_ndmi', 'include_sr_savi',
             'include_sr_evi', 'include_snow_covered_area',
-            'include_surface_water_extent', 'include_solr_index',
-            'include_dem']
+            'include_surface_water_extent', 'include_solr_index']
 
     for key in keys:
         if not parameters.test_for_parameter (options, key):
@@ -173,7 +172,7 @@ def build_landsat_science_products (parms):
         # Generate SR browse product
         if options['include_sr_browse']:
             exit_codes.set_program_exit_code (exit_codes.sr_browse)
-            make_sr_browse (sr_filename, scene, options['browse_resolution'])
+            do_sr_browse (sr_filename, scene, options['browse_resolution'])
 
         # ---------------------------------------------------------------------
         # Generate any specified indices
@@ -210,8 +209,7 @@ def build_landsat_science_products (parms):
 
         # ---------------------------------------------------------------------
         # Create a DEM
-        if options['include_dem'] \
-          or options['include_snow_covered_area'] \
+        if options['include_snow_covered_area'] \
           or options['include_surface_water_extent']:
             exit_codes.set_program_exit_code (exit_codes.dem)
             cmd = ['do_create_dem.py', '--metafile', metadata_filename,
@@ -225,7 +223,7 @@ def build_landsat_science_products (parms):
         # Generate SOLR index
         if options['include_solr_index']:
             exit_codes.set_program_exit_code (exit_codes.solr)
-            create_solr_index (metadata, scene, solr_filename,
+            do_solr_index (metadata, scene, solr_filename,
                 options['collection_name'])
 
         # ---------------------------------------------------------------------
@@ -286,7 +284,9 @@ def build_landsat_science_products (parms):
         non_products += glob.glob ('LogReport*')
         non_products += glob.glob ('README*')
         non_products += glob.glob ('fmask*txt')
+        non_products += glob.glob ('dem*')
 
+        # Remove these only if they are not requested
         if not options['include_sourcefile']:
             non_products += glob.glob ('*TIF')
             non_products += glob.glob ('*gap_mask*')
@@ -302,8 +302,6 @@ def build_landsat_science_products (parms):
             non_products += glob.glob ('lndth*')
         if not options['include_sr_browse']:
             non_products += glob.glob ('*browse*')
-        if not options['include_dem']:
-            non_products += glob.glob ('dem*')
         if not options['include_cfmask']:
             non_products += glob.glob ('fmask*')
 

@@ -31,7 +31,7 @@ default_resolution = 50
 
 
 #==============================================================================
-def make_sr_browse (sr_filename, scene, resolution=default_resolution):
+def do_sr_browse (sr_filename, scene, resolution=default_resolution):
     '''
     Descrription:
       Creates a browse image from the surface relfectance file
@@ -118,5 +118,5 @@ def make_sr_browse (sr_filename, scene, resolution=default_resolution):
     log (output)
 
     log ("Browse product generation complete...")
-# END - make_browse
+# END - do_sr_browse
 

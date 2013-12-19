@@ -55,7 +55,6 @@
     \"include_snow_covered_area\": false,
     \"include_surface_water_extent\": true,
     \"include_solr_index\": false,
-    \"include_dem\": false,
     \"include_statistics\": true
   }"
 }
