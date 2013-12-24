@@ -200,9 +200,7 @@ def process (parms):
     build_landsat_science_products (parms)
 
     # Reproject the data for each science product, but only if necessary
-    # TODO TODO TODO - In the future the (image extents)tile processing
-    # should be capable of only containing the information contained
-    # within a requested polygon
+    # To generate statistics we must convert to GeoTIFF which warping does
     if options['reproject'] or options['resize'] or options['image_extents']:
         warp.warp_science_products (options)
 

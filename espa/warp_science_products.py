@@ -200,7 +200,7 @@ def validate_parameters (parms):
 #==============================================================================
 def build_warp_command (source_file, output_file,
   min_x=None, min_y=None, max_x=None, max_y=None,
-  pixel_size=None, projection=None, resample_method=None):
+  pixel_size=None, projection=None, resample_method=None, no_data_value=None):
     '''
     Description:
       Builds the GDAL warp command to convert the data
@@ -227,6 +227,10 @@ def build_warp_command (source_file, output_file,
     if resample_method is not None:
         cmd += ['-r', resample_method]
 
+    if no_data_value is not None:
+        cmd += ['-srcnodata', no_data_value]
+        cmd += ['-dstnodata', no_data_value]
+
     cmd += [source_file, output_file]
 
     return cmd
@@ -242,25 +246,51 @@ def parse_hdf_subdatasets (hdf_file):
 
     cmd = ['gdalinfo', hdf_file]
     output = subprocess.check_output (cmd)
+    name = ''
+    description = ''
     for line in output.split('\n'):
-        if str(line).strip().lower().startswith('subdataset') \
-          and str(line).strip().lower().find('_name') != -1:
+        line_lower = line.strip().lower()
+
+        # logic heavily based on the output order from gdalinfo
+        if line_lower.startswith('subdataset') \
+          and line_lower.find('_name') != -1:
             parts = line.split('=')
-            yield (parts[0], parts[1])
+            name = parts[1]
+        if line_lower.startswith('subdataset') \
+          and line_lower.find('_desc') != -1:
+            parts = line.split('=')
+            description = parts[1]
+            yield (description, name)
 # END - parse_hdf_subdatasets
+
+
+#==============================================================================
+def get_no_data_value (hdf_name):
+    cmd = ['gdalinfo', hdf_name]
+    output = subprocess.check_output (cmd)
+
+    no_data_value = None
+    for line in output.split('\n'):
+        line_lower = line.strip().lower()
+
+        if line_lower.startswith('nodata value'):
+            no_data_value = line_lower.split('=')[1] # take second element
+
+    return no_data_value
+# END - get_no_data_value
 
 
 #==============================================================================
 def run_warp (source_file, output_file,
   min_x=None, min_y=None, max_x=None, max_y=None,
-  pixel_size=None, projection=None, resample_method=None):
+  pixel_size=None, projection=None, resample_method=None, no_data_value=None):
     '''
     Description:
       Executes the warping command on the specified source file
     '''
 
     cmd = build_warp_command (source_file, output_file, min_x, min_y, max_x,
-        max_y, pixel_size, projection, resample_method)
+        max_y, pixel_size, projection, resample_method, no_data_value)
     log ("Warping %s with %s" % (source_file, ' '.join(cmd)))
     output = subprocess.check_output (cmd)
     log (output)
@@ -326,16 +356,14 @@ def warp_science_products (parms):
     pixel_size = parms['pixel_size']
     resample_method = parms['resample_method']
 
-    # TODO - If the gap_mask directory is present for L7 data then we also
-    #        need to figure out where and how to warp them ????
-    #        ???? WE ARE NOT DOING THIS TODAY, SHOULD WE ????
-
     try:
         # Include all HDF and TIF
         what_to_warp = glob.glob('*.hdf')
         what_to_warp += glob.glob('*.TIF')
+        what_to_warp += glob.glob('*.tif') # capture the browse
 
         for file in what_to_warp:
+            log ("Processing %s" % file)
             if file.endswith('hdf'):
                 hdf_name = file.split('.hdf')[0]
 
@@ -352,17 +380,33 @@ def warp_science_products (parms):
 
                 if has_subdatasets:
                     for (sds_desc, sds_name) in parse_hdf_subdatasets(file):
+                        # Split the name into parts to extract the subdata name
                         sds_parts = sds_name.split(':')
-                        output_filename = '%s-%s.tif' \
-                            % (hdf_name, sds_parts[len(sds_parts) - 1])
+                        subdata_name = sds_parts[len(sds_parts) - 1]
+                        no_data_value = get_no_data_value (sds_name)
+
+                        # Split the description into part to extract the string
+                        # which allows for determining the correct gdal data
+                        # data type, allowing specifying the correct no-data
+                        # value
+                        sds_parts = sds_desc.split('(')
+                        sds_parts = sds_parts[len(sds_parts) - 1].split(')')
+                        hdf_type = sds_parts[0]
+
+                        log ("Processing Subdataset %s" % sds_name)
+
+                        output_filename = '%s-%s.tif' % (hdf_name, subdata_name)
                         run_warp(sds_name, output_filename,
                             min_x, min_y, max_x, max_y,
-                            pixel_size, projection, resample_method)
+                            pixel_size, projection, resample_method,
+                            no_data_value)
                 else:
                     output_filename = '%s.tif' % hdf_name
+
+                    no_data_value = get_no_data_value (file)
                     run_warp(file, output_filename,
                         min_x, min_y, max_x, max_y,
-                        pixel_size, projection, resample_method)
+                        pixel_size, projection, resample_method, no_data_value)
 
                 # Remove the HDF file, it is not needed anymore
                 if os.path.exists(file):
@@ -375,10 +419,17 @@ def warp_science_products (parms):
             # END - HDF files
             else:
                 # Assuming GeoTIFF
-                output_filename = 'tmp-%s.tif' % file.split('.TIF')[0].lower()
+                if "TIF" in file:
+                    output_filename = 'tmp-%s.tif' \
+                        % file.split('.TIF')[0].lower()
+                    no_data_value = '0' # Assuming Landsat data
+                else:
+                    output_filename = 'tmp-%s' % file.lower()
+                    no_data_value = get_no_data_value (file)
+
                 run_warp(file, output_filename,
                     min_x, min_y, max_x, max_y,
-                    pixel_size, projection, resample_method)
+                    pixel_size, projection, resample_method, no_data_value)
 
                 # Remove the TIF file, it is not needed anymore
                 if os.path.exists(file):
