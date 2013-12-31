@@ -88,18 +88,11 @@ def validate_parameters (parms):
         if not parameters.test_for_parameter (parms, key):
             raise RuntimeError ("Missing required input parameter [%s]" % key)
 
-    options = parms['options']
-
-    # Test for presence of required option-level parameters
-    keys = ['source_host',
-            'destination_host']
-
-    for key in keys:
-        if not parameters.test_for_parameter (options, key):
-            raise RuntimeError ("Missing required input parameter [%s]" % key)
-
     # Validate the science product parameters
     validate_build_landsat_parameters (parms)
+
+    # Get a local pointer to the options
+    options = parms['options']
 
     # Validate the reprojection parameters
     parameters.validate_reprojection_parameters (options,
@@ -130,15 +123,23 @@ def validate_parameters (parms):
     base_source_path = '/data/standard_l1t'
     base_output_path = '/data2/LSRD'
 
+    # Verify or set the source host
+    if not parameters.test_for_parameter (options, 'source_host'):
+        options['source_host'] = 'localhost'
+
     # Verify or set the source directory
     if not parameters.test_for_parameter (options, 'source_directory'):
         options['source_directory'] = \
-            ("%s/%s/%s/%s/%s") % (base_source_path, sensor, path, row, year)
+            ('%s/%s/%s/%s/%s') % (base_source_path, sensor, path, row, year)
+
+    # Verify or set the destination host
+    if not parameters.test_for_parameter (options, 'destination_host'):
+        options['destination_host'] = 'localhost'
 
     # Verify or set the destination directory
     if not parameters.test_for_parameter (options, 'destination_directory'):
         options['destination_directory'] = \
-            ("%s/orders/%s") % (base_output_path, parms['orderid'])   
+            ('%s/orders/%s') % (base_output_path, parms['orderid'])   
 # END - validate_parameters
 
 
@@ -159,7 +160,7 @@ def build_product_name (scene):
     year = util.getYear(scene)
     doy = util.getDoy(scene)
 
-    product_name = "%s%s%s%s%s-SC%s%s%s%s%s%s" \
+    product_name = '%s%s%s%s%s-SC%s%s%s%s%s%s' \
         % (sensor_code, path.zfill(3), row.zfill(3), year.zfill(4),
            doy.zfill(3), str(ts.year).zfill(4), str(ts.month).zfill(2),
            str(ts.day).zfill(2), str(ts.hour).zfill(2),
