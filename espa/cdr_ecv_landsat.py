@@ -29,15 +29,15 @@ from espa_constants import *
 from espa_logging import log, debug
 
 # local objects and methods
-from transfer import stage_landsat_data
-from staging import initialize_processing_directory, untar_data
+import util
 import parameters
+from staging import initialize_processing_directory, untar_data
+from transfer import stage_landsat_data
 from build_science_products import build_landsat_science_products, \
     validate_build_landsat_parameters
 import warp
-from deliver_product import deliver_product
-import util
 from statistics import generate_statistics
+from distribution import deliver_product
 
 
 #==============================================================================
