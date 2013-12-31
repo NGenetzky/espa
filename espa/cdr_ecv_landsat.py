@@ -35,7 +35,7 @@ from packaging import untar_data
 import parameters
 from build_science_products import build_landsat_science_products, \
     validate_build_landsat_parameters
-import warp_science_products as warp
+import warp
 from deliver_product import deliver_product
 import util
 from statistics import generate_statistics
