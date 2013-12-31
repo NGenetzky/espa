@@ -4,7 +4,7 @@ License:
   "NASA Open Source Agreement 1.3"
 
 Description:
-  Provides routines for retrieving metadata.
+  Implements solr index generation.
 
 History:
   Created Dec/2013 by Ron Dilley, USGS/EROS
@@ -26,6 +26,7 @@ def do_solr_index (metadata, scene, solr_filename, collection_name,
     Description:
       Creates the solr index file from the metadata
     '''
+
     log ("Executing create_solr_index() for %s using collection %s " % \
         (scene, collection_name))
 

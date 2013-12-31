@@ -28,7 +28,7 @@ from espa_logging import log, set_debug, debug
 from espa_exception import ErrorCodes, ESPAException
 import parameters
 from landsat_metadata import get_metadata
-from solr_index import do_solr_index
+from solr import do_solr_index
 from sr_browse import do_sr_browse
 import util
 
