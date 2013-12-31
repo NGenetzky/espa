@@ -23,14 +23,78 @@ from argparse import ArgumentParser
 
 # espa-common objects and methods
 from espa_constants import *
-from espa_logging import log, debug
+from espa_logging import log, set_debug, debug
 
 # local objects and methods
 from espa_exception import ErrorCodes, ESPAException
+import parameters
 from transfer import transfer_data
 
 # Define the number of seconds to sleep between attempts
 default_sleep_seconds = 2
+
+
+#==============================================================================
+def build_argument_parser():
+    '''
+    Description:
+      Build the command line argument parser.
+    '''
+
+    # Create a command line argument parser
+    parser = ArgumentParser(usage="%(prog)s [options]")
+
+    # Parameters
+    parameters.add_debug_parameter (parser)
+
+    parser.add_argument ('--test_deliver_product',
+        action='store_true', dest='test_deliver_product', default=False,
+        help="test the delivery code which also tests package_product and" \
+             " distribute_product")
+    
+    parser.add_argument ('--test_package_product',
+        action='store_true', dest='test_package_product', default=False,
+        help="test the packaging code")
+    
+    parser.add_argument ('--test_distribute_product',
+        action='store_true', dest='test_distribute_product', default=False,
+        help="test the distributing code")
+    
+    # Used by package and deliver and distribute
+    parameters.add_destination_parameters (parser)
+
+    # Used by package and deliver
+    parser.add_argument ('--product_name',
+        action='store', dest='product_name', required=True,
+        help="basename of the product to distribute")
+
+    # Used by package
+    parser.add_argument ('--package_directory',
+        action='store', dest='package_directory', default=os.curdir,
+        help="directory to place the package on the localhost")
+
+    # Used by deliver
+    parameters.add_work_directory_parameter (parser)
+
+    parser.add_argument ('--sleep_seconds',
+        action='store', dest='sleep_seconds', default=default_sleep_seconds,
+        help="number of seconds to sleep after a failure before retrying")
+
+    parser.add_argument ('--extract_statistics',
+        action='store_true', dest='extract_statistics', default=False,
+        help="extract the statistics at the destination")
+
+    # Used by distribute
+    parser.add_argument ('--product_filename',
+        action='store', dest='product_filename', required=False,
+        help="basename of the product to distribute")
+
+    parser.add_argument ('--cksum_filename',
+        action='store', dest='cksum_filename', required=False,
+        help="basename of the checksum file to distribute and verify")
+
+    return parser
+# END - build_argument_parser
 
 
 #==============================================================================
@@ -231,4 +295,63 @@ def deliver_product (work_directory, package_directory, product_name,
     log ("Product delivery complete for %s:%s" % \
         (destination_host, destination_full_path))
 # END - deliver_product
+
+
+#==============================================================================
+if __name__ == '__main__':
+    '''
+    Description:
+      Read parameters from the command line and pass them to the main
+      delivery routine.
+    '''
+
+    # Build the command line argument parser
+    parser = build_argument_parser()
+
+    # Parse the command line arguments
+    args = parser.parse_args()
+
+    # Setup debug
+    set_debug (args.debug)
+
+    try:
+        # Test requested routine
+        if args.test_deliver_product:
+
+            if not args.product_name:
+                raise Exception("Missing required product_name argument")
+
+            deliver_product (args.work_directory, args.package_directory,
+                args.product_name, args.destination_host,
+                args.destination_directory, args.sleep_seconds,
+                args.extract_statistics)
+
+            print ("Succefully delivered product %s" % args.product_name)
+
+        elif args.test_package_product:
+            (product_full_path, cksum_full_path, cksum_value) = \
+                package_product (args.source_directory,
+                    args.destination_directory, args.product_name)
+
+            print ("Product Path: %s" % product_full_path)
+            print ("Checksum Path: %s" % cksum_full_path)
+            print ("Checksum Value: %s" % cksum_value)
+            print ("Succefully packaged product %s" % args.product_name)
+
+        elif args.test_distribute_product:
+            (cksum_value, destination_full_path) = \
+                distribute_product (args.destination_host,
+                    args.destination_directory, args.product_filename,
+                    args.cksum_filename)
+            print ("Succefully distributed product %s" % args.product_name)
+
+    except Exception, e:
+        log ("Error: %s" % str(e))
+        tb = traceback.format_exc()
+        log ("Traceback: [%s]" % tb)
+        if hasattr(e, 'output'):
+            log ("Error: Output [%s]" % e.output)
+        sys.exit (EXIT_FAILURE)
+
+    sys.exit (EXIT_SUCCESS)
 
