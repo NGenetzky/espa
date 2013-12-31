@@ -16,8 +16,9 @@ History:
 
 import os
 import sys
-import subprocess
 import glob
+import subprocess
+import traceback
 from argparse import ArgumentParser
 
 # espa-common objects and methods

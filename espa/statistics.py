@@ -15,8 +15,9 @@ History:
 import os
 import sys
 import glob
-import subprocess
 import errno
+import subprocess
+import traceback
 from cStringIO import StringIO
 
 from espa_constants import *
@@ -78,35 +79,40 @@ def generate_statistics(files):
     except OSError as exc: # Python >2.5
         if exc.errno == errno.EEXIST and os.path.isdir(stats_output_path):
             pass
-        else: raise
+        else:
+            raise ESPAException (ErrorCodes.statistics, str(e)), None, \
+                sys.exc_info()[2]
 
-    # Generate the requested statistics for each tile
-    for file in files:
+    try:
+        # Generate the requested statistics for each tile
+        for file in files:
 
-        (minimum, maximum, mean, stddev) = get_statistics(file)
+            (minimum, maximum, mean, stddev) = get_statistics(file)
 
-        # Drop the filename extention so we can replace it with 'stats'
-        base = os.path.splitext(file)[0]
+            # Drop the filename extention so we can replace it with 'stats'
+            base = os.path.splitext(file)[0]
 
-        # Figure out the filename
-        stats_output_file = '%s/%s.stats' % (stats_output_path, base)
+            # Figure out the filename
+            stats_output_file = '%s/%s.stats' % (stats_output_path, base)
 
-        # Buffer the stats
-        buffer = StringIO()
-        buffer.write("FILENAME=%s\n" % file)
-        buffer.write("MINIMUM=%f\n" % minimum)
-        buffer.write("MAXIMUM=%f\n" % maximum)
-        buffer.write("MEAN=%f\n" % mean)
-        buffer.write("STDDEV=%f\n" % stddev)
+            # Buffer the stats
+            buffer = StringIO()
+            buffer.write("FILENAME=%s\n" % file)
+            buffer.write("MINIMUM=%f\n" % minimum)
+            buffer.write("MAXIMUM=%f\n" % maximum)
+            buffer.write("MEAN=%f\n" % mean)
+            buffer.write("STDDEV=%f\n" % stddev)
 
-        # Create the stats file
-        fd = open(stats_output_file, 'w+')
-        data = buffer.getvalue()
-        fd.write(data)
-        fd.flush()
-        fd.close()
-    # END - for tile
-
+            # Create the stats file
+            fd = open(stats_output_file, 'w+')
+            data = buffer.getvalue()
+            fd.write(data)
+            fd.flush()
+            fd.close()
+        # END - for tile
+    except Exception, e:
+        raise ESPAException (ErrorCodes.statistics, str(e)), \
+            None, sys.exc_info()[2]
 # END - generate_statistics
 
 
@@ -124,8 +130,16 @@ if __name__ == '__main__':
     files_for_statistics += glob.glob('*-ndmi.tif')
     files_for_statistics += glob.glob('*-vi-*.tif')
 
-    generate_statistics(files_for_statistics)
+    try:
+        generate_statistics(files_for_statistics)
+    except Exception, e:
+        log ("Error: %s" % str(e))
+        tb = traceback.format_exc()
+        log ("Traceback: [%s]" % tb)
+        if hasattr(e, 'output'):
+            log ("Error: Output [%s]" % e.output)
+        sys.exit (EXIT_FAILURE)
 
-    sys.exit(EXIT_SUCCESS)
+    sys.exit (EXIT_SUCCESS)
 # END - __main__
 
