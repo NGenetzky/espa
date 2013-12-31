@@ -31,7 +31,7 @@ from espa_logging import log, debug
 # local objects and methods
 from directory_tools import initialize_processing_directory
 from transfer import stage_landsat_data
-from packaging import untar_data
+from staging import untar_data
 import parameters
 from build_science_products import build_landsat_science_products, \
     validate_build_landsat_parameters
