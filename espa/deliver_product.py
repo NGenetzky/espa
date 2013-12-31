@@ -34,6 +34,7 @@ import sys
 import glob
 import subprocess
 import traceback
+from time import sleep
 from argparse import ArgumentParser
 
 # espa-common objects and methods
@@ -70,7 +71,7 @@ def build_argument_parser():
         help="directory to place the package on the localhost")
 
     parser.add_argument ('--product_name',
-        action='store', dest='product_filename', required=True,
+        action='store', dest='product_name', required=True,
         help="basename of the product to distribute")
 
     parameters.add_destination_parameters (parser)
@@ -79,13 +80,18 @@ def build_argument_parser():
         action='store', dest='sleep_seconds', default=default_sleep_seconds,
         help="number of seconds to sleep after a failure before retrying")
 
+    parser.add_argument ('--extract_statistics',
+        action='store_true', dest='extract_statistics', default=False,
+        help="extract the statistics at the destination")
+
     return parser
 # END - build_argument_parser
 
 
 #==============================================================================
 def deliver_product (work_directory, package_directory, product_name,
-  destination_host, destination_directory, sleep_seconds=default_sleep_seconds):
+  destination_host, destination_directory, sleep_seconds=default_sleep_seconds,
+  extract_statistics=False):
     '''
     Description:
       Packages the product and distributes it to the destination.
@@ -106,7 +112,7 @@ def deliver_product (work_directory, package_directory, product_name,
                 package_product (work_directory, package_directory,
                     product_name)
         except Exception, e:
-            log ("An error occurred processing %s" % scene)
+            log ("An error occurred processing %s" % product_name)
             log ("Error: %s" % str(e))
             if attempt < max_number_of_attempts:
                 sleep(sleep_seconds) # sleep before trying again
@@ -126,7 +132,7 @@ def deliver_product (work_directory, package_directory, product_name,
                 distribute_product (destination_host, destination_directory,
                     product_full_path, cksum_full_path)
         except Exception, e:
-            log ("An error occurred processing %s" % scene)
+            log ("An error occurred processing %s" % product_name)
             log ("Error: %s" % str(e))
             if attempt < max_number_of_attempts:
                 sleep(sleep_seconds) # sleep before trying again
@@ -142,6 +148,12 @@ def deliver_product (work_directory, package_directory, product_name,
         raise ESPAException (ErrorCodes.verifing_checksum,
             "Failed checksum validation between %s and %s:%s" \
                 % (product_full_path, destination_host, destination_full_path))
+
+    if extract_statistics:
+        cmd = ['ssh', '-o', 'StrictHostKeyChecking=no', '-q', destination_host,
+               'cd', destination_directory, ';',
+               'tar', '-xf', destination_full_path, 'stats']
+        cksum_value = subprocess.check_output (cmd)
 
     log ("Distribution complete for %s:%s" % \
         (destination_host, destination_full_path))
@@ -168,8 +180,9 @@ if __name__ == '__main__':
     try:
         # Call the main processing routine
         deliver_product (args.work_directory, args.package_directory,
-            args.package_name, args.destination_host,
-            args.destination_directory, args.sleep_seconds)
+            args.product_name, args.destination_host,
+            args.destination_directory, args.sleep_seconds,
+            args.extract_statistics)
 
         print ("Succefully delivered product %s" % args.product_name)
     except Exception, e:

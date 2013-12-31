@@ -93,12 +93,12 @@ def distribute_product (destination_host, destination_directory,
     transfer_data('localhost', cksum_filename, destination_host,
         destination_directory)
 
-    destination_full_path = "%s/%s" \
+    destination_full_path = '%s/%s' \
         % (destination_directory, os.path.basename(product_filename))
 
     # Get the checksum value 
     cmd = ['ssh', '-o', 'StrictHostKeyChecking=no', '-q', destination_host,
-           'cksum', "%s" % destination_full_path]
+           'cksum', destination_full_path]
     cksum_value = subprocess.check_output (cmd)
 
     return (cksum_value, destination_full_path)

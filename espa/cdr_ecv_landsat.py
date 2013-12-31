@@ -17,6 +17,7 @@ History:
 import os
 import sys
 import re
+import glob
 import json
 from time import sleep
 from datetime import datetime
@@ -37,6 +38,7 @@ from build_science_products import build_landsat_science_products, \
 import warp_science_products as warp
 from deliver_product import deliver_product
 import util
+from statistics import generate_statistics
 
 
 #==============================================================================
@@ -90,9 +92,7 @@ def validate_parameters (parms):
 
     # Test for presence of required option-level parameters
     keys = ['source_host',
-            'source_directory',
-            'destination_host',
-            'destination_directory']
+            'destination_host']
 
     for key in keys:
         if not parameters.test_for_parameter (options, key):
@@ -113,8 +113,11 @@ def validate_parameters (parms):
         if not parameters.test_for_parameter (options, key):
             options[key] = False
 
-    # Extract the sensor from the scene string
+    # Extract information from the scene string
     sensor = util.getSensor(parms['scene'])
+    path = util.getPath(parms['scene'])
+    row = util.getRow(parms['scene'])
+    year = util.getYear(parms['scene'])
 
     if sensor not in parameters.valid_sensors:
         raise NotImplementedError ("Data sensor %s is not implemented" % \
@@ -122,6 +125,20 @@ def validate_parameters (parms):
 
     # Add the sensor to the options
     options['sensor'] = sensor
+
+    # TODO TODO TODO - Should move these into a config file
+    base_source_path = '/data/standard_l1t'
+    base_output_path = '/data2/LSRD'
+
+    # Verify or set the source directory
+    if not parameters.test_for_parameter (options, 'source_directory'):
+        options['source_directory'] = \
+            ("%s/%s/%s/%s/%s") % (base_source_path, sensor, path, row, year)
+
+    # Verify or set the destination directory
+    if not parameters.test_for_parameter (options, 'destination_directory'):
+        options['destination_directory'] = \
+            ("%s/orders/%s") % (base_output_path, parms['orderid'])   
 # END - validate_parameters
 
 
@@ -204,10 +221,16 @@ def process (parms):
     if options['reproject'] or options['resize'] or options['image_extents']:
         warp.warp_science_products (options)
 
-    # TODO TODO TODO - Generate the stats for each stat'able'
-    #                  science product
-    #cmd = ['generate_stats.py']
-    #cmd += cmd_options
+    # Generate the stats for each stat'able' science product
+    if options['include_statistics']:
+        # Find the files
+        files_for_statistics = glob.glob('*-band[0-9].tif')
+        files_for_statistics += glob.glob('*-nbr.tif')
+        files_for_statistics += glob.glob('*-nbr2.tif')
+        files_for_statistics += glob.glob('*-ndmi.tif')
+        files_for_statistics += glob.glob('*-vi-*.tif')
+        # Generate the stats for each file
+        generate_statistics(files_for_statistics)
 
     # Deliver the product files
     # Attempt five times sleeping between each attempt
@@ -220,7 +243,7 @@ def process (parms):
             # before failing, so we pass our sleep seconds down to them
             deliver_product (work_directory, package_directory, product_name,
                 options['destination_host'], options['destination_directory'],
-                sleep_seconds)
+                sleep_seconds, options['include_statistics'])
         except Exception, e:
             log ("An error occurred processing %s" % scene)
             log ("Error: %s" % str(e))
