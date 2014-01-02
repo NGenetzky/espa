@@ -65,7 +65,7 @@ def build_argument_parser():
 
 
 #==============================================================================
-def validate_build_landsat_parameters (parms):
+def validate_landsat_parameters (parms):
     '''
     Description:
       Make sure all the parameter options needed for this and called routines
@@ -115,7 +115,7 @@ def validate_build_landsat_parameters (parms):
     if options['include_solr_index']:
         if not parameters.test_for_parameter (options, 'collection_name'):
             options['collection_name'] = default_solr_collection_name
-# END - validate_build_landsat_parameters
+# END - validate_landsat_parameters
 
 
 #==============================================================================
@@ -392,7 +392,7 @@ if __name__ == '__main__':
     try:
         # Call the main processing routine
         if sensor in parameters.valid_landsat_sensors:
-            validate_build_landsat_parameters (parms)
+            validate_landsat_parameters (parms)
             build_landsat_science_products (parms)
         #elif sensor in parameters.valid_OTHER_sensors:
         #    build_OTHER_science_products (parms)

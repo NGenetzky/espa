@@ -33,8 +33,7 @@ import util
 import parameters
 from staging import initialize_processing_directory, untar_data
 from transfer import stage_landsat_data
-from build_science_products import build_landsat_science_products, \
-    validate_build_landsat_parameters
+from science import build_landsat_science_products, validate_landsat_parameters
 import warp
 from statistics import generate_statistics
 from distribution import deliver_product
@@ -88,7 +87,7 @@ def validate_parameters (parms):
             raise RuntimeError ("Missing required input parameter [%s]" % key)
 
     # Validate the science product parameters
-    validate_build_landsat_parameters (parms)
+    validate_landsat_parameters (parms)
 
     # Get a local pointer to the options
     options = parms['options']
