@@ -2,7 +2,7 @@
 
 setenv PYTHONDONTWRITEBYTECODE 1
 
-cat test.espa.job.json | ./lpvs_stats_mapper.py
+cat $1 | ./lpvs_stats_mapper.py
 
 echo
 echo
