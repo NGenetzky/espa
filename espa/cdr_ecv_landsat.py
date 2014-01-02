@@ -26,7 +26,7 @@ import traceback
 
 # espa-common objects and methods
 from espa_constants import *
-from espa_logging import log, debug
+from espa_logging import log, set_debug, debug
 
 # local objects and methods
 import util
