@@ -30,7 +30,6 @@ from espa_logging import log, set_debug, debug
 # local objects and methods
 from espa_exception import ErrorCodes, ESPAException
 import parameters
-from landsat_metadata import get_metadata
 
 # This contains the valid sensors which are supported
 valid_landsat_sensors = ['LT', 'LE']

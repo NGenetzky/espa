@@ -28,7 +28,7 @@ from espa_logging import log, set_debug, debug
 # local objects and methods
 from espa_exception import ErrorCodes, ESPAException
 import parameters
-from landsat_metadata import get_metadata
+from metadata import get_landsat_metadata
 from solr import do_solr_index
 from sr_browse import do_sr_browse
 import util
@@ -131,7 +131,7 @@ def build_landsat_science_products (parms):
 
     # Figure out the metadata filename
     try:
-        metadata = get_metadata (options['sensor'], options['work_directory'])
+        metadata = get_landsat_metadata (options['work_directory'])
     except Exception, e:
         raise ESPAException (ErrorCodes.metadata, str(e)), \
             None, sys.exc_info()[2]
