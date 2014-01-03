@@ -7,7 +7,7 @@ Description:
   Provides routines for interfacing with parameters in a dictionary.
 
 History:
-  Created Nov/2013 by Ron Dilley, USGS/EROS
+  Created Jan/2014 by Ron Dilley, USGS/EROS
 '''
 
 import os

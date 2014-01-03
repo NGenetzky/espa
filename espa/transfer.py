@@ -4,10 +4,11 @@
 License:
   "NASA Open Source Agreement 1.3"
 
-Description: TODO TODO TODO
+Description:
+  Provides routines for transfering files.
 
 History:
-  Created Nov/2013 by Ron Dilley, USGS/EROS
+  Created Jan/2014 by Ron Dilley, USGS/EROS
 '''
 
 import os

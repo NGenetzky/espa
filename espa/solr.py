@@ -7,7 +7,7 @@ Description:
   Implements solr index generation.
 
 History:
-  Created Dec/2013 by Ron Dilley, USGS/EROS
+  Created Jan/2014 by Ron Dilley, USGS/EROS
 '''
 
 import os

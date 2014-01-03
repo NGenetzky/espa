@@ -9,7 +9,7 @@ Description:
   This mapper performs the statistics portion of LPVS processing.
 
 History:
-  Created Nov/2013 by Ron Dilley, USGS/EROS
+  Created Jan/2014 by Ron Dilley, USGS/EROS
 '''
 
 import os

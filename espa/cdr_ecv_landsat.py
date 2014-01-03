@@ -9,7 +9,7 @@ Description:
 
 History:
   Original Development by David V. Hill, USGS/EROS
-  Created Nov/2013 by Ron Dilley, USGS/EROS
+  Created Jan/2014 by Ron Dilley, USGS/EROS
     - Gutted the original implementation and placed it in to several other
       files that could be called manualy or from other scripts.
 '''

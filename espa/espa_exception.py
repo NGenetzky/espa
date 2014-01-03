@@ -8,7 +8,7 @@ Description:
 
 History:
   Original Development (cdr_ecv.py) by David V. Hill, USGS/EROS
-  Created Nov/2013 by Ron Dilley, USGS/EROS
+  Created Jan/2014 by Ron Dilley, USGS/EROS
     - Gutted the original implementation from cdr_ecv.py and placed it in this
       file.
 '''
