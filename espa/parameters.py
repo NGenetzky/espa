@@ -177,6 +177,14 @@ def add_source_parameters (parser):
         action='store', dest='source_host', default='localhost',
         help="source host for the location of the data")
 
+    parser.add_argument("--source_username",
+        action="store", dest="source_username", default=None,
+        help="source ftp server username")
+
+    parser.add_argument("--source_pw",
+        action="store", dest="source_pw", default=None,
+        help="source ftp server password")
+
     parser.add_argument ('--source_directory',
         action='store', dest='source_directory', default=os.curdir,
         help="directory on the source host")
@@ -194,6 +202,14 @@ def add_destination_parameters (parser):
     parser.add_argument ('--destination_host',
         action='store', dest='destination_host', default='localhost',
         help="destination host for the location of the data")
+
+    parser.add_argument("--destination_username",
+        action="store", dest="destination_username", default=None,
+        help="destination ftp server username")
+
+    parser.add_argument("--destination_pw",
+        action="store", dest="destination_pw", default=None,
+        help="destination ftp server password")
 
     parser.add_argument ('--destination_directory',
         action='store', dest='destination_directory', default=os.curdir,

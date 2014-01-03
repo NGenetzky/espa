@@ -31,8 +31,8 @@ from espa_logging import log, set_debug, debug
 # local objects and methods
 import util
 import parameters
-from staging import initialize_processing_directory, untar_data
-from transfer import stage_landsat_data
+from staging import initialize_processing_directory, untar_data, \
+    stage_landsat_data
 from science import build_landsat_science_products, validate_landsat_parameters
 import warp
 from statistics import generate_statistics
@@ -121,20 +121,30 @@ def validate_parameters (parms):
     base_source_path = '/data/standard_l1t'
     base_output_path = '/data2/LSRD'
 
-    # Verify or set the source host
+    # Verify or set the source information
     if not parameters.test_for_parameter (options, 'source_host'):
         options['source_host'] = 'localhost'
 
-    # Verify or set the source directory
+    if not parameters.test_for_parameter (options, 'source_username'):
+        options['source_username'] = None
+
+    if not parameters.test_for_parameter (options, 'source_pw'):
+        options['source_pw'] = None
+
     if not parameters.test_for_parameter (options, 'source_directory'):
         options['source_directory'] = \
             ('%s/%s/%s/%s/%s') % (base_source_path, sensor, path, row, year)
 
-    # Verify or set the destination host
+    # Verify or set the destination information
     if not parameters.test_for_parameter (options, 'destination_host'):
         options['destination_host'] = 'localhost'
 
-    # Verify or set the destination directory
+    if not parameters.test_for_parameter (options, 'destination_username'):
+        options['destination_username'] = 'localhost'
+
+    if not parameters.test_for_parameter (options, 'destination_pw'):
+        options['destination_pw'] = 'localhost'
+
     if not parameters.test_for_parameter (options, 'destination_directory'):
         options['destination_directory'] = \
             ('%s/orders/%s') % (base_output_path, parms['orderid'])   
@@ -203,7 +213,8 @@ def process (parms):
 
     # Stage the landsat data
     filename = stage_landsat_data(scene, options['source_host'],
-        options['source_directory'], 'localhost', stage_directory)
+        options['source_directory'], 'localhost', stage_directory,
+        options['source_username'], options['source_pw'])
 
     # Un-tar the input data to the work directory
     try:
@@ -242,6 +253,7 @@ def process (parms):
             # before failing, so we pass our sleep seconds down to them
             deliver_product (work_directory, package_directory, product_name,
                 options['destination_host'], options['destination_directory'],
+                options['destination_username'], options['destination_pw'],
                 sleep_seconds, options['include_statistics'])
         except Exception, e:
             log ("An error occurred processing %s" % scene)

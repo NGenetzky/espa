@@ -24,6 +24,7 @@ from espa_logging import log
 
 # local objects and methods
 from espa_exception import ErrorCodes, ESPAException
+from transfer import transfer_file
 
 
 espa_base_working_dir_envvar = 'ESPA_WORK_DIR'
@@ -130,4 +131,31 @@ def initialize_processing_directory (orderid, scene):
 
     return (scene_directory, stage_directory, work_directory, output_directory)
 # END - initialize_processing_directory
+
+
+#=============================================================================
+def stage_landsat_data (scene, source_host, source_directory, \
+  destination_host, destination_directory,
+  source_username, source_pw):
+    '''
+    Description:
+      Stages landsat input data and places it on the localhost in the
+      specified destination directory
+    '''
+
+    filename = '%s.tar.gz' % scene
+
+    source_file = '%s/%s' % (source_directory, filename)
+    destination_file = '%s/%s' % (destination_directory, filename)
+
+    try:
+        transfer_file (source_host, source_file,
+            destination_host, destination_file,
+            source_username=source_username, source_pw=source_pw)
+    except Exception, e:
+        raise ESPAException (ErrorCodes.staging_data, str(e)), \
+            None, sys.exc_info()[2]
+
+    return destination_file
+# END - stage_landsat_data
 

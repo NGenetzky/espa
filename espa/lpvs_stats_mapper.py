@@ -92,7 +92,8 @@ if __name__ == '__main__':
         except ESPAException, e:
             # Log the error information
             # Depending on the error_code do something different
-            # TODO TODO TODO - Added more and add the tings that are different or combine them into one if
+            # TODO - Today we are failing everything, but some things can be
+            #        recovereable.
             if e.error_code == ErrorCodes.creating_stage_dir \
               or e.error_code == ErrorCodes.creating_work_dir \
               or e.error_code == ErrorCodes.creating_output_dir:
@@ -110,7 +111,7 @@ if __name__ == '__main__':
 
             elif e.error_code == ErrorCodes.metadata \
               or e.error_code == ErrorCodes.ledaps \
-              or e.error_code == ErrorCodes.sr_browse \
+              or e.error_code == ErrorCodes.browse \
               or e.error_code == ErrorCodes.spectral_indices \
               or e.error_code == ErrorCodes.create_dem \
               or e.error_code == ErrorCodes.solr \
@@ -125,6 +126,12 @@ if __name__ == '__main__':
                         processing_location, e)
 
             elif e.error_code == ErrorCodes.warping:
+
+                if server is not None:
+                    server.setSceneError(sceneid, orderid,
+                        processing_location, e)
+
+            elif e.error_code == ErrorCodes.statistics:
 
                 if server is not None:
                     server.setSceneError(sceneid, orderid,

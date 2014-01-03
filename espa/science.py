@@ -182,7 +182,7 @@ def build_landsat_science_products (parms):
             try:
                 do_sr_browse (sr_filename, scene, options['browse_resolution'])
             except Exception, e:
-                raise ESPAException (ErrorCodes.sr_browse, str(e)), \
+                raise ESPAException (ErrorCodes.browse, str(e)), \
                     None, sys.exc_info()[2]
 
         # ---------------------------------------------------------------------

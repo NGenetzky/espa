@@ -28,7 +28,7 @@ from espa_logging import log, set_debug, debug
 # local objects and methods
 from espa_exception import ErrorCodes, ESPAException
 import parameters
-from transfer import transfer_data
+from transfer import transfer_file
 
 # Define the number of seconds to sleep between attempts
 default_sleep_seconds = 2
@@ -183,6 +183,7 @@ def package_product (source_directory, destination_directory, product_name):
 
 #==============================================================================
 def distribute_product (destination_host, destination_directory,
+  destination_username, destination_pw,
   product_filename, cksum_filename):
     '''
     Description:
@@ -191,7 +192,7 @@ def distribute_product (destination_host, destination_directory,
 
     Returns:
       cksum_value - The check sum value from the destination
-      destination_full_path - The full path on the destination
+      destination_product_file - The full path on the destination
 
     Note:
       It is assumed ssh has been setup for access between the localhost
@@ -205,30 +206,34 @@ def distribute_product (destination_host, destination_directory,
            'mkdir', '-p', destination_directory]
     subprocess.check_output (cmd)
 
-    # Transfer the product file
-    transfer_data('localhost', product_filename, destination_host,
-        destination_directory)
-
     # Transfer the checksum file
-    transfer_data('localhost', cksum_filename, destination_host,
-        destination_directory)
+    destination_cksum_file = '%s/%s' \
+        % (destination_directory, os.path.basename(cksum_filename))
+    transfer_file('localhost', cksum_filename, destination_host,
+        destination_cksum_file, destination_username=destination_username,
+        destination_pw=destination_pw)
 
-    destination_full_path = '%s/%s' \
+    # Transfer the product file
+    destination_product_file = '%s/%s' \
         % (destination_directory, os.path.basename(product_filename))
+    transfer_file('localhost', product_filename, destination_host,
+        destination_product_file, destination_username=destination_username,
+        destination_pw=destination_pw)
 
-    # Get the checksum value 
+    # Get the remote checksum value 
     cmd = ['ssh', '-o', 'StrictHostKeyChecking=no', '-q', destination_host,
-           'cksum', destination_full_path]
+           'cksum', destination_product_file]
     cksum_value = subprocess.check_output (cmd)
 
-    return (cksum_value, destination_full_path)
+    return (cksum_value, destination_product_file)
 # END - distribute_product
 
 
 #==============================================================================
 def deliver_product (work_directory, package_directory, product_name,
-  destination_host, destination_directory, sleep_seconds=default_sleep_seconds,
-  extract_statistics=False):
+  destination_host, destination_directory,
+  destination_username, destination_pw,
+  sleep_seconds=default_sleep_seconds, extract_statistics=False):
     '''
     Description:
       Packages the product and distributes it to the destination.
@@ -265,8 +270,9 @@ def deliver_product (work_directory, package_directory, product_name,
     attempt = 0
     while True:
         try:
-            (remote_cksum_value, destination_full_path) = \
+            (remote_cksum_value, destination_product_file) = \
                 distribute_product (destination_host, destination_directory,
+                    destination_username, destination_pw,
                     product_full_path, cksum_full_path)
         except Exception, e:
             log ("An error occurred processing %s" % product_name)
@@ -284,16 +290,16 @@ def deliver_product (work_directory, package_directory, product_name,
     if local_cksum_value.split()[0] != remote_cksum_value.split()[0]:
         raise ESPAException (ErrorCodes.verifing_checksum,
             "Failed checksum validation between %s and %s:%s" \
-                % (product_full_path, destination_host, destination_full_path))
+                % (product_full_path, destination_host, destination_product_file))
 
     if extract_statistics:
         cmd = ['ssh', '-o', 'StrictHostKeyChecking=no', '-q', destination_host,
                'cd', destination_directory, ';',
-               'tar', '-xf', destination_full_path, 'stats']
+               'tar', '-xf', destination_product_file, 'stats']
         cksum_value = subprocess.check_output (cmd)
 
     log ("Product delivery complete for %s:%s" % \
-        (destination_host, destination_full_path))
+        (destination_host, destination_product_file))
 # END - deliver_product
 
 
@@ -321,6 +327,7 @@ if __name__ == '__main__':
             if not args.product_name:
                 raise Exception("Missing required product_name argument")
 
+# TODO TODO TODO - BROKEN
             deliver_product (args.work_directory, args.package_directory,
                 args.product_name, args.destination_host,
                 args.destination_directory, args.sleep_seconds,
@@ -329,6 +336,7 @@ if __name__ == '__main__':
             print ("Succefully delivered product %s" % args.product_name)
 
         elif args.test_package_product:
+# TODO TODO TODO - BROKEN
             (product_full_path, cksum_full_path, cksum_value) = \
                 package_product (args.source_directory,
                     args.destination_directory, args.product_name)
@@ -339,6 +347,7 @@ if __name__ == '__main__':
             print ("Succefully packaged product %s" % args.product_name)
 
         elif args.test_distribute_product:
+# TODO TODO TODO - BROKEN
             (cksum_value, destination_full_path) = \
                 distribute_product (args.destination_host,
                     args.destination_directory, args.product_filename,
