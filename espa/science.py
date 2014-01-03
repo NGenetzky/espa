@@ -30,7 +30,7 @@ from espa_exception import ErrorCodes, ESPAException
 import parameters
 from metadata import get_landsat_metadata
 from solr import do_solr_index
-from sr_browse import do_sr_browse
+from browse import do_sr_browse
 import util
 
 

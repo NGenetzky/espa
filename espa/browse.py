@@ -30,6 +30,9 @@ from espa_logging import log, debug
 default_resolution = 50
 
 
+# TODO - At some point in the future we should allow browse generation from
+#        L1T, and TOA as well.  Should also consider support for applying color
+#        ramps against indices.
 #==============================================================================
 def do_sr_browse (sr_filename, scene, resolution=default_resolution):
     '''
