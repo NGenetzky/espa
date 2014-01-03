@@ -18,6 +18,7 @@ import os
 import sys
 import glob
 import subprocess
+import traceback
 from time import sleep
 from argparse import ArgumentParser
 
@@ -65,33 +66,28 @@ def build_argument_parser():
 
     # Used by package and deliver
     parser.add_argument ('--product_name',
-        action='store', dest='product_name', required=True,
+        action='store', dest='product_name', required=False,
         help="basename of the product to distribute")
-
-    # Used by package
-    parser.add_argument ('--package_directory',
-        action='store', dest='package_directory', default=os.curdir,
-        help="directory to place the package on the localhost")
 
     # Used by deliver
     parameters.add_work_directory_parameter (parser)
+
+    parser.add_argument ('--package_directory',
+        action='store', dest='package_directory', default=os.curdir,
+        help="package directory on the localhost")
 
     parser.add_argument ('--sleep_seconds',
         action='store', dest='sleep_seconds', default=default_sleep_seconds,
         help="number of seconds to sleep after a failure before retrying")
 
-    parser.add_argument ('--extract_statistics',
-        action='store_true', dest='extract_statistics', default=False,
-        help="extract the statistics at the destination")
-
     # Used by distribute
-    parser.add_argument ('--product_filename',
-        action='store', dest='product_filename', required=False,
-        help="basename of the product to distribute")
+    parser.add_argument ('--product_file',
+        action='store', dest='product_file', required=False,
+        help="full path of the product to distribute")
 
-    parser.add_argument ('--cksum_filename',
-        action='store', dest='cksum_filename', required=False,
-        help="basename of the checksum file to distribute and verify")
+    parser.add_argument ('--cksum_file',
+        action='store', dest='cksum_file', required=False,
+        help="full path of the checksum file to distribute and verify")
 
     return parser
 # END - build_argument_parser
@@ -233,7 +229,7 @@ def distribute_product (destination_host, destination_directory,
 def deliver_product (work_directory, package_directory, product_name,
   destination_host, destination_directory,
   destination_username, destination_pw,
-  sleep_seconds=default_sleep_seconds, extract_statistics=False):
+  sleep_seconds=default_sleep_seconds):
     '''
     Description:
       Packages the product and distributes it to the destination.
@@ -292,12 +288,6 @@ def deliver_product (work_directory, package_directory, product_name,
             "Failed checksum validation between %s and %s:%s" \
                 % (product_full_path, destination_host, destination_product_file))
 
-    if extract_statistics:
-        cmd = ['ssh', '-o', 'StrictHostKeyChecking=no', '-q', destination_host,
-               'cd', destination_directory, ';',
-               'tar', '-xf', destination_product_file, 'stats']
-        cksum_value = subprocess.check_output (cmd)
-
     log ("Product delivery complete for %s:%s" % \
         (destination_host, destination_product_file))
 # END - deliver_product
@@ -327,18 +317,16 @@ if __name__ == '__main__':
             if not args.product_name:
                 raise Exception("Missing required product_name argument")
 
-# TODO TODO TODO - BROKEN
             deliver_product (args.work_directory, args.package_directory,
                 args.product_name, args.destination_host,
-                args.destination_directory, args.sleep_seconds,
-                args.extract_statistics)
+                args.destination_directory, args.destination_host,
+                args.destination_pw, args.sleep_seconds)
 
             print ("Succefully delivered product %s" % args.product_name)
 
         elif args.test_package_product:
-# TODO TODO TODO - BROKEN
             (product_full_path, cksum_full_path, cksum_value) = \
-                package_product (args.source_directory,
+                package_product (args.work_directory,
                     args.destination_directory, args.product_name)
 
             print ("Product Path: %s" % product_full_path)
@@ -347,12 +335,11 @@ if __name__ == '__main__':
             print ("Succefully packaged product %s" % args.product_name)
 
         elif args.test_distribute_product:
-# TODO TODO TODO - BROKEN
             (cksum_value, destination_full_path) = \
                 distribute_product (args.destination_host,
-                    args.destination_directory, args.product_filename,
-                    args.cksum_filename)
-            print ("Succefully distributed product %s" % args.product_name)
+                    args.destination_directory, args.destination_host,
+                    args.destination_pw, args.product_file, args.cksum_file)
+            print ("Succefully distributed product %s" % args.product_file)
 
     except Exception, e:
         log ("Error: %s" % str(e))

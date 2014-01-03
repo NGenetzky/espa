@@ -254,7 +254,7 @@ def process (parms):
             deliver_product (work_directory, package_directory, product_name,
                 options['destination_host'], options['destination_directory'],
                 options['destination_username'], options['destination_pw'],
-                sleep_seconds, options['include_statistics'])
+                sleep_seconds)
         except Exception, e:
             log ("An error occurred processing %s" % scene)
             log ("Error: %s" % str(e))

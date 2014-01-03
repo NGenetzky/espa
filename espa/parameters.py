@@ -342,6 +342,7 @@ def convert_to_command_line_options (parms):
     return cmd_line
 # END - convert_parms_to_command_line_options
 
+
 #==============================================================================
 def validate_reprojection_parameters (parms, projections, utm_values,
   pixel_units, resample_methods):

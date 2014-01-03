@@ -71,6 +71,10 @@ def generate_statistics(files):
     Description:
       Create the stats output directory and each output stats file for each
       file specified.
+
+    Notes:
+      The stats directory is created here because we only want it in the
+      product if we need statistics.
     '''
 
     stats_output_path = 'stats'
