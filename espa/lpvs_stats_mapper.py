@@ -5,8 +5,7 @@ License:
   "NASA Open Source Agreement 1.3"
 
 Description:
-  See 'Description' under '__main__' for more details.
-  This mapper performs the statistics portion of LPVS processing.
+  Read all lines from STDIN and process them.
 
 History:
   Created Jan/2014 by Ron Dilley, USGS/EROS
@@ -26,7 +25,7 @@ from espa_logging import log, debug, set_debug
 # local objects and methods
 from espa_exception import ErrorCodes, ESPAException
 import parameters
-from cdr_ecv_landsat import process as process_landsat
+from cdr_ecv_landsat import process
 import util
 
 #=============================================================================
@@ -36,7 +35,7 @@ if __name__ == '__main__':
       Read all lines from STDIN and process them.  Each line is converted to a
       JSON dictionary of the parameters for processing.  Validation is
       performed on the JSON dictionary to test if valid for this mapper.
-      After validation the generation of statistics for LPVS is performed.
+      After validation the generation of cdr_ecv products is performed.
     '''
 
     processing_location = socket.gethostname()
@@ -83,17 +82,13 @@ if __name__ == '__main__':
 
             # Process the landsat sensors
             if sensor in parameters.valid_landsat_sensors:
-                process_landsat (parms)
-            #------------------------------------------------------------------
-            # NOTE:
-            #   Add processing for another sensor here in an 'elif' section
-            #------------------------------------------------------------------
+                process (parms)
 
         except ESPAException, e:
             # Log the error information
             # Depending on the error_code do something different
-            # TODO - Today we are failing everything, but some things can be
-            #        recovereable.
+            # TODO - Today we are failing everything, but some things could be
+            #        made recovereable in the future.
             if e.error_code == ErrorCodes.creating_stage_dir \
               or e.error_code == ErrorCodes.creating_work_dir \
               or e.error_code == ErrorCodes.creating_output_dir:
