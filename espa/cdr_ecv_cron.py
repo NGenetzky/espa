@@ -3,195 +3,262 @@
 '''
     FILE: cdr_ecv_cron.py
 
-    PURPOSE: Master run script for new Hadoop jobs.  Queries the xmlrpc service to find
-             scenes that need to be processed and builds/executes a Hadoop job to process
-             them.
+    PURPOSE: Master run script for new Hadoop jobs.  Queries the xmlrpc service
+             to find scenes that need to be processed and builds/executes a
+             Hadoop job to process them.
 
-    PROJECT: Land Satellites Data Systems Science Research and Development (LSRD) at the
-             USGS EROS
+    PROJECT: Land Satellites Data Systems Science Research and Development
+             (LSRD) at the USGS EROS
 
     LICENSE: NASA Open Source Agreement 1.3
 
     HISTORY:
 
-    Date               Programmer               Reason
-    ------------------ ------------------------ ------------------------------------------
-   09/12/2013         David V. Hill            Initial addition of this header.
-
-    NOTES:
-
+    Date              Programmer               Reason
+    ----------------  ------------------------ --------------------------------
+    09/12/2013        David V. Hill            Initial addition of this header.
+    Jan/2014          Ron Dilley               Updated for recent processing
+                                               enhancements.
 '''
 
-import xmlrpclib
-import time
-import sys
 import os
-import commands
+import sys
+import time
 import json
-import util
+import xmlrpclib
+import subprocess
 from datetime import datetime
 
-
-#set required variables that this script should fail on if they are not defined
-required_vars = ('ESPA_XMLRPC', "ESPA_WORK_DIR", "ANC_PATH", "PATH", "HOME")
-for r in required_vars:
-    if not os.environ.has_key(r) or os.environ.get(r) is None or len(os.environ.get(r)) < 1:
-        util.log("CDR_ECV_CRON", "$%s is not defined... exiting" % r)
-        sys.exit(-1)
-
-rpcurl = os.environ.get("ESPA_XMLRPC")
+# espa-common objects and methods
+from espa_constants import *
+from espa_logging import log
 
 
+# Specify the buffer length for an order line in the order file.  Currently we
+# are setting a buffer of 2048.
+order_buffer_length = 2048
+# Define the hadoop timeouts to a ridiculous number so the jobs don't get
+# killed before they are done.... currently set to
+hadoop_timeout = 172800000 # which is 2 days
+
+
+#==============================================================================
 def runScenes():
-    '''Queries the xmlrpc service to see if there are any scenes that need to be processed.
-       If there are, this method builds and executes a hadoop job and updates the xmlrpc
-       service to flag all the scenes as "queued"
     '''
-    
-    home_dir = os.environ['HOME']
+    Description:
+      Queries the xmlrpc service to see if there are any scenes that need to be
+      processed.  If there are, this method builds and executes a hadoop job
+      and updates the xmlrpc service to flag all the scenes as "queued"
+    '''
+
+    rpcurl = os.environ.get('ESPA_XMLRPC')
+    home_dir = os.environ.get('HOME')
     server = xmlrpclib.ServerProxy(rpcurl)
     hadoop_executable = "%s/bin/hadoop/bin/hadoop" % home_dir
-    
+
     try:
-        util.log("CDR_ECV_CRON", "Checking for scenes to process...")
+        log ("Checking for scenes to process...")
         scenes = server.getScenesToProcess()
         if scenes:
+            # Figure out the name of the order file
             stamp = datetime.now()
-            year,month,day = stamp.year,stamp.month,stamp.day
-            hour,minute,second = stamp.hour,stamp.minute,stamp.second
-            ordername = ('%s_%s_%s_%s_%s_%s-espa_job.txt') % (str(month),str(day),str(year),str(hour),str(minute),str(second))
-            util.log("CDR_ECV_CRON", "Found scenes to process, generating job number:" + ordername)
+            ordername = ('%s_%s_%s_%s_%s_%s-espa_job.txt') \
+                % (str(stamp.month), str(stamp.day), str(stamp.year),
+                   str(stamp.hour), str(stamp.minute), str(stamp.second))
+
+            log ("Found scenes to process, generating job number:" + ordername)
             espaorderfile = '/tmp/' + ordername
-            
-            f = open(espaorderfile, 'w+')
-            for s in scenes:
-                line = json.loads(s)
-                orderid,sceneid,options = line['orderid'],line['scene'],line['options']
-                line['xmlrpcurl'] = rpcurl 
+
+            # Create the order file full of all the scenes requested
+            fd = open(espaorderfile, 'w+')
+            for scene in scenes:
+                line = json.loads(scene)
+                orderid, sceneid, options = \
+                    line['orderid'], line['scene'], line['options']
+                line['xmlrpcurl'] = rpcurl
                 line_entry = json.dumps(line)
-                               
-                #pad the entry to 1024 bytes so hadoop will properly split the jobs
+
+                # Pad the entry so hadoop will properly split the jobs
                 filler = ""
-                entry_length = len(line_entry)
+                filler_count = order_buffer_length - len(line_entry)
 
-
-
-                #have to start at 1 here because the \n will be part of the overall 1024 bytes.
-                #1025 is not a typo. The range function goes up to but does not include the 
-                #number specified
-                for i in range(1, 1025 - entry_length):
-                    filler = filler + "#"
+                # Have to start at 1 here because the \n will be part of the
+                # overall buffer bytes.
+                filler = ''.join(['#' for count in range(1, filler_count )])
                 order_line = line_entry + filler + '\n'
-                f.write(order_line)
-            f.close()
-    
-            #define executable to store the job file in hdfs
-            hdfs_target = ' requests/' + ordername
-            hadoop_store_command = hadoop_executable + ' dfs -copyFromLocal ' + espaorderfile + hdfs_target
+                fd.write(order_line)
+            fd.close()
 
-            #define the executable to execute the hadoop job
-            #had to define the timeouts to a ridiculous number os the jobs don't get killed before they are done.... currently set 
-            #to 172800000, which is 2 days
-            hadoop_run_command = hadoop_executable + ' jar %s/bin/hadoop/contrib/streaming/hadoop-streaming*.jar' % home_dir
-            hadoop_run_command = hadoop_run_command + ' -D mapred.task.timeout=172800000'
-            hadoop_run_command = hadoop_run_command + ' -D mapred.reduce.tasks=0'
-            hadoop_run_command = hadoop_run_command + ' -D mapred.job.queue.name=ondemand'
-            hadoop_run_command = hadoop_run_command + ' -D mapred.job.name="' + ordername + '"'
-            hadoop_run_command = hadoop_run_command + ' -file %s/espa-site/espa/cdr_ecv.py' % home_dir
-            hadoop_run_command = hadoop_run_command + ' -file %s/espa-site/espa/cdr_ecv_mapper.py' % home_dir
-            hadoop_run_command = hadoop_run_command + ' -file %s/espa-site/espa/util.py' % home_dir
-            hadoop_run_command = hadoop_run_command + ' -file %s/espa-site/espa/frange.py' % home_dir
-            hadoop_run_command = hadoop_run_command + ' -mapper %s/espa-site/espa/cdr_ecv_mapper.py' % home_dir
-            hadoop_run_command = hadoop_run_command + ' -cmdenv ESPA_WORK_DIR=$ESPA_WORK_DIR'
-            hadoop_run_command = hadoop_run_command + ' -cmdenv HOME=$HOME'
-            hadoop_run_command = hadoop_run_command + ' -cmdenv USER=$USER'
-            hadoop_run_command = hadoop_run_command + ' -cmdenv ANC_PATH=$ANC_PATH'
-            hadoop_run_commnad = hadoop_run_command + ' -cmdenv ESUN=$ESUN'
-            hadoop_run_command = hadoop_run_command + ' -input ' + hdfs_target
-            hadoop_run_command = hadoop_run_command + ' -output ' + hdfs_target + '-out'
-        
-            #define the executables to clean up hdfs
-            hadoop_delete_request_command1 = hadoop_executable + ' dfs -rmr ' + hdfs_target
-            hadoop_delete_request_command2 = hadoop_executable + ' dfs -rmr ' + hdfs_target + '-out'
+            # Specify the location of the order file on the hdfs
+            hdfs_target = 'requests/%s' % ordername
 
-            util.log("CDR_ECV_CRON", "Storing request file to hdfs...")
-            status,output = commands.getstatusoutput(hadoop_store_command)
-            if status != 0:
-                util.log("CDR_ECV_CRON", "Error storing files to HDFS... exiting")
-                util.log("CDR_ECV_CRON", output)
-                sys.exit(1)
-                     
-            #update the scene list as queued so they don't get pulled down again now that these jobs have been stored
-            #in hdfs
-            for s in scenes:
-                line = json.loads(s)
+            # Define command line to store the job file in hdfs
+            hadoop_store_command = [hadoop_executable, 'dfs', '-copyFromLocal',
+                espaorderfile, hdfs_target]
+
+            # Define command line to execute the hadoop job
+            hadoop_run_command = [hadoop_executable, 'jar',
+                '%s/bin/hadoop/contrib/streaming/hadoop-streaming*.jar' \
+                    % home_dir,
+                '-D', 'mapred.task.timeout=%s' % hadoop_timeout,
+                '-D', 'mapred.reduce.tasks=0',
+                '-D', 'mapred.job.queue.name=ondemand',
+                '-D', 'mapred.job.name="%s"' % ordername,
+                '-file', '%s/espa-site/espa/cdr_ecv.py' % home_dir,
+                '-file', '%s/espa-site/espa/cdr_ecv_mapper.py' % home_dir,
+                '-file', '%s/espa-site/espa/browse.py' % home_dir,
+                '-file', '%s/espa-site/espa/distribution.py' % home_dir,
+                '-file', '%s/espa-site/espa/espa_exception.py' % home_dir,
+                '-file', '%s/espa-site/espa/frange.py' % home_dir,
+                '-file', '%s/espa-site/espa/metadata.py' % home_dir,
+                '-file', '%s/espa-site/espa/parameters.py' % home_dir,
+                '-file', '%s/espa-site/espa/science.py' % home_dir,
+                '-file', '%s/espa-site/espa/solr.py' % home_dir,
+                '-file', '%s/espa-site/espa/staging.py' % home_dir,
+                '-file', '%s/espa-site/espa/statistics.py' % home_dir,
+                '-file', '%s/espa-site/espa/transfer.py' % home_dir,
+                '-file', '%s/espa-site/espa/util.py' % home_dir,
+                '-file', '%s/espa-site/espa/warp.py' % home_dir,
+                '-mapper', '%s/espa-site/espa/cdr_ecv_mapper.py' % home_dir,
+                '-cmdenv', 'ESPA_WORK_DIR=$ESPA_WORK_DIR',
+                '-cmdenv', 'HOME=$HOME',
+                '-cmdenv', 'USER=$USER',
+                '-cmdenv', 'ANC_PATH=$ANC_PATH',
+                '-cmdenv', 'ESUN=$ESUN',
+                '-input', hdfs_target,
+                '-output', hdfs_target, '-out']
+
+            # Define the executables to clean up hdfs
+            hadoop_delete_request_command1 = [hadoop_executable,
+                'dfs', '-rmr', hdfs_target]
+            hadoop_delete_request_command2 = [hadoop_executable,
+                'dfs', '-rmr', hdfs_target, '-out']
+
+            #------------------------------------------------------------------
+            log ("Storing request file to hdfs...")
+            try:
+                output = subprocess.check_output (hadoop_store_command,
+                    stderr=subprocess.STDOUT)
+            except Exception, e:
+                log ("Error storing files to HDFS... exiting")
+                sys.exit(EXIT_FAILURE)
+            finally:
+                log (output)
+
+            #------------------------------------------------------------------
+            # Update the scene list as queued so they don't get pulled down
+            # again now that these jobs have been stored in hdfs
+            for scene in scenes:
+                line = json.loads(scene)
                 orderid = line['orderid']
                 sceneid = line['scene']
-                util.log("CDR_ECV_CRON", "updating scene:%s orderid:%s to queued" % (sceneid, orderid))
-                server.updateStatus(sceneid, orderid,'cron driver', 'queued')
-                        
-            util.log("CDR_ECV_CRON", "Deleting local request file copy...")
+                log ("Updating scene:%s orderid:%s to queued" \
+                     % (sceneid, orderid))
+                server.updateStatus (sceneid, orderid, 'cron driver', 'queued')
+
+            log ("Deleting local request file copy...")
             os.unlink(espaorderfile)
 
-            util.log("CDR_ECV_CRON","Running hadoop job...")
-            status,output = commands.getstatusoutput(hadoop_run_command)
+            #------------------------------------------------------------------
+            log ("Running hadoop job...")
+            try:
+                output = subprocess.check_output (hadoop_run_command,
+                    stderr=subprocess.STDOUT)
+            except Exception, e:
+                log ("Error running Hadoop job...")
+            finally:
+                log (output)
 
-            util.log("CDR_ECV_CRON", output)
-            if status != 0:
-                util.log("CDR_ECV_CRON", "Error running Hadoop job...")
-                util.log("CDR_ECV_CRON", output)
-                
-            util.log("CDR_ECV_CRON", "Deleting hadoop job request file from hdfs....")
-            status,output = commands.getstatusoutput(hadoop_delete_request_command1)
-            if status != 0:
-                util.log("CDR_ECV_CRON", "Error deleting hadoop job request file")
-                util.log("CDR_ECV_CRON", output)
-                
-            util.log("CDR_ECV_CRON", "Deleting hadoop job output...")
-            status,output = commands.getstatusoutput(hadoop_delete_request_command2)
-            if status != 0:
-                util.log("CDR_ECV_CRON", "Error deleting hadoop job output")
-                util.log("CDR_ECV_CRON", output)
-                
+            #------------------------------------------------------------------
+            log ("Deleting hadoop job request file from hdfs....")
+            try:
+                output = subprocess.check_output (hadoop_delete_request_command1,
+                    stderr=subprocess.STDOUT)
+            except Exception, e:
+                log ("Error deleting hadoop job request file")
+            finally:
+                log (output)
+
+            #------------------------------------------------------------------
+            log ("Deleting hadoop job output...")
+            try:
+                output = subprocess.check_output (hadoop_delete_request_command2,
+                    stderr=subprocess.STDOUT)
+            except Exception, e:
+                log ("Error deleting hadoop job output")
+            finally:
+                log (output)
+
         else:
-            util.log("CDR_ECV_CRON", "No scenes to process....")
+            log ("No scenes to process....")
 
     except xmlrpclib.ProtocolError, err:
-        util.log("CDR_ECV_CRON", "A protocol error occurred:%s" % err)
+        log ("A protocol error occurred:%s" % err)
     finally:
         server = None
-        
 
+
+#==============================================================================
 def cleanDistroCache():
-    '''Removes completed orders from the ordering database
-       older than 15 days (since order completion) and places
-       entries for each order/scene into our data warehouse
     '''
+    Description:
+      Removes completed orders from the ordering database older than 15 days
+      (since order completion) and places entries for each order/scene into our
+      data warehouse
+    '''
+
+    rpcurl = os.environ.get('ESPA_XMLRPC')
     server = xmlrpclib.ServerProxy(rpcurl)
     scenes_with_paths = server.getScenesToPurge()
     if scenes_with_paths:
-        for s in scenes_with_paths:
+        for scene in scenes_with_paths:
             pass
             #clean it
             #server.updateStatus(scene, 'Purged')
     else:
-        print("No scenes to purge...")
+        log ("No scenes to purge...")
 
+
+#==============================================================================
 def usage():
-    print ("espa-cron.py run-scenes | clean-cache")
-    
+    '''
+    Description:
+      Display the usage string to the user
+    '''
+
+    print ("Usage:")
+    print ("\tespa-cron.py run-scenes | clean-cache")
+
+
+#==============================================================================
 if __name__ == '__main__':
+    '''
+    Description:
+      Read the command line and execute accordingly.
+    '''
+
     if len(sys.argv) != 2:
         usage()
-       
+        sys.exit(EXIT_FAILURE)
+
+    # Check required variables that this script should fail on if they are not
+    # defined
+    required_vars = ('ESPA_XMLRPC', "ESPA_WORK_DIR", "ANC_PATH", "PATH", "HOME")
+    for env_var in required_vars:
+        if not os.environ.has_key(env_var) or os.environ.get(env_var) is None \
+          or len(os.environ.get(env_var)) < 1:
+            log ("$%s is not defined... exiting" % env_var)
+            sys.exit(-1)
+
+    op = sys.argv[1]
+    if op == 'run-scenes':
+        runScenes()
+
+    elif op == 'clean-cache':
+        cleanDistroCache()
+
     else:
-        op = sys.argv[1]
-        if op == 'run-scenes':
-            runScenes()
-            
-        elif op == 'clean-cache':
-            cleanDistroCache()
-          
-        else:
-            usage()
-            
+        usage()
+
+    sys.exit(EXIT_SUCCESS)
+

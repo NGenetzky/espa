@@ -10,22 +10,6 @@ import datetime
 import commands
 from frange import frange
 
-def build_log_msg(module, msg):
-    """Builds a standardized log message"""
-    now = datetime.datetime.now()
-    return "%s-%s-%s %s:%s.%s [%s] %s" % (now.year,
-                                  str(now.month).zfill(2),
-                                  str(now.day).zfill(2),
-                                  str(now.hour).zfill(2),
-                                  str(now.minute).zfill(2),
-                                  str(now.second).zfill(2),
-                                  module,
-                                  msg)
-
-def log(module, msg):
-    """Logs a message in the ESPA standard log format"""
-    print (build_log_msg(module, msg))
-    
 
 def stripZeros(value):
     """Removes all leading zeros from a string"""
