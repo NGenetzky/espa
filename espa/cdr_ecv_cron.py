@@ -1,4 +1,4 @@
-#!/usr/local/bin/python
+#! /usr/bin/env python
 
 '''
     FILE: cdr_ecv_cron.py
@@ -227,7 +227,7 @@ def usage():
     '''
 
     print ("Usage:")
-    print ("\tespa-cron.py run-scenes | clean-cache")
+    print ("\tcdr_ecv_cron.py run-scenes | clean-cache")
 
 
 #==============================================================================
