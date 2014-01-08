@@ -25,7 +25,7 @@ from espa_logging import log, debug, set_debug
 # local objects and methods
 from espa_exception import ErrorCodes, ESPAException
 import parameters
-from cdr_ecv import process
+from cdr_ecv import process as process_landsat
 import util
 
 #=============================================================================
@@ -82,7 +82,12 @@ if __name__ == '__main__':
 
             # Process the landsat sensors
             if sensor in parameters.valid_landsat_sensors:
-                process (parms)
+                process_landsat (parms)
+#            elif sensor in parameters.valid_modis_sensors:
+#                process_modis (parms)
+            #------------------------------------------------------------------
+            # NOTE: Else process using another sensors processor
+            #------------------------------------------------------------------
 
         except ESPAException, e:
             # Log the error information
