@@ -19,7 +19,8 @@ from espa_logging import log
 
 # This contains the valid sensors and data types which are supported
 valid_landsat_sensors = ['LT', 'LE']
-valid_sensors = valid_landsat_sensors
+valid_modis_sensors = ['MOD', 'MYD']
+valid_sensors = valid_landsat_sensors + valid_modis_sensors
 valid_data_types = ['level1', 'sr', 'toa', 'th']
 
 
@@ -225,6 +226,10 @@ def add_reprojection_parameters (parser, projection_values, utm_values,
       Adds the reprojection parameters to the command line parameters
     '''
 
+    parser.add_argument ('--projection',
+        action='store', dest='projection', default=None,
+        help="proj.4 string for desired output product projection")
+
     parser.add_argument ('--reproject',
         action='store_true', dest='reproject', default=False,
         help="perform reprojection on the products")
@@ -350,6 +355,10 @@ def validate_reprojection_parameters (parms, projections, utm_values,
     Description:
       Perform a check on the possible reprojection parameters
     '''
+
+    # Create this and set to None
+    if not test_for_parameter (parms, 'projection'):
+        parms['projection'] = None
 
     if parms['reproject']:
         if not test_for_parameter (parms, 'target_projection'):

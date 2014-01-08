@@ -6,6 +6,7 @@ License:
 
 Description:
   Integration script for the EROS Science Processing Architecture (ESPA)
+  Processes Landsat TM(4,5), and ETM+(7) data.
 
 History:
   Original Development by David V. Hill, USGS/EROS
@@ -117,7 +118,7 @@ def validate_parameters (parms):
     # Add the sensor to the options
     options['sensor'] = sensor
 
-    # TODO TODO TODO - Should move these into a config file
+    # TODO - Should move these into a config file
     base_source_path = '/data/standard_l1t'
     base_output_path = '/data2/LSRD'
 
@@ -189,9 +190,6 @@ def process (parms):
     # Validate the parameters
     validate_parameters (parms)
 
-    # Convert to command line parameters
-    cmd_options = parameters.convert_to_command_line_options (parms)
-
     scene = parms['scene']
 
     # Create and retrieve the directories to use for processing
@@ -228,7 +226,8 @@ def process (parms):
 
     # Reproject the data for each science product, but only if necessary
     # To generate statistics we must convert to GeoTIFF which warping does
-    if options['reproject'] or options['resize'] or options['image_extents']:
+    if options['reproject'] or options['resize'] or options['image_extents'] \
+      or options['projection'] is not None:
         warp.warp_science_products (options)
 
     # Generate the stats for each stat'able' science product
