@@ -338,8 +338,11 @@ def warp_science_products (parms):
     validate_parameters (parms)
     debug (parms)
 
-    if parms['reproject']:
-        # Verify and create proj.4 reprojection information
+    if parms['projection'] is not None:
+        # Use the provided proj.4 projection information
+        projection = parms['projection']
+    elif parms['reproject']:
+        # Verify and create proj.4 projection information
         projection = convert_target_projection_to_proj4 (parms)
     else:
         projection = None
