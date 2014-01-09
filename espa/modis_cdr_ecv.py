@@ -6,13 +6,11 @@ License:
 
 Description:
   Integration script for the EROS Science Processing Architecture (ESPA)
-  Processes Landsat TM(4,5), and ETM+(7) data.
+  Processes MODIS (Terra and Aqua) data.
 
 History:
-  Original Development by David V. Hill, USGS/EROS
-  Created Jan/2014 by Ron Dilley, USGS/EROS
-    - Gutted the original implementation and placed it in to several other
-      files that could be called manualy or from other scripts.
+  Original Development Jan/2014 by Ron Dilley, USGS/EROS
+    - Used cdr_ecv.py as the template for this.
 '''
 
 import os
@@ -32,8 +30,8 @@ from espa_logging import log, set_debug, debug
 # local objects and methods
 import util
 import parameters
-from staging import initialize_processing_directory, untar_data, \
-    stage_landsat_data
+from transfer import copy_file_to_file
+from staging import initialize_processing_directory, stage_modis_data
 from science import build_landsat_science_products, validate_landsat_parameters
 import warp
 from statistics import generate_statistics
@@ -48,7 +46,7 @@ def build_argument_parser():
     '''
 
     # Create a command line argument parser
-    description = "Processes Landsat TM(4,5), and ETM+(7) data"
+    description = "Processes MODIS (Terra and Aqua) data"
     parser = ArgumentParser (description=description)
 
     # Parameters
@@ -58,7 +56,7 @@ def build_argument_parser():
 
     parameters.add_scene_parameter (parser)
 
-    parameters.add_data_type_parameter (parser, parameters.valid_data_types)
+#    parameters.add_data_type_parameter (parser, parameters.valid_data_types)
 
     parameters.add_source_parameters (parser)
     parameters.add_destination_parameters (parser)
@@ -66,7 +64,7 @@ def build_argument_parser():
     parameters.add_reprojection_parameters (parser, warp.valid_projections,
         warp.valid_utm, warp.valid_pixel_units, warp.valid_resample_methods)
 
-    parameters.add_science_product_parameters (parser)
+#    parameters.add_science_product_parameters (parser)
 
     parameters.add_include_statistics_parameter (parser)
 
@@ -88,8 +86,8 @@ def validate_parameters (parms):
         if not parameters.test_for_parameter (parms, key):
             raise RuntimeError ("Missing required input parameter [%s]" % key)
 
-    # Validate the science product parameters
-    validate_landsat_parameters (parms)
+#    # Validate the science product parameters
+#    validate_landsat_parameters (parms)
 
     # Get a local pointer to the options
     options = parms['options']
@@ -109,7 +107,7 @@ def validate_parameters (parms):
     # Extract information from the scene string
     sensor = util.getSensor(parms['scene'])
 
-    if sensor not in parameters.valid_landsat_sensors:
+    if sensor not in parameters.valid_modis_sensors:
         raise NotImplementedError ("Data sensor %s is not implemented" % \
             sensor)
 
@@ -117,7 +115,10 @@ def validate_parameters (parms):
     options['sensor'] = sensor
 
     # Setup the base paths
-    base_source_path = '/data/standard_l1t'
+    if sensor == 'MOD':
+        base_source_path = '/MOLT'
+    else:
+        base_source_path = '/MOLA'
     base_output_path = '/data2/LSRD'
 
     # Verify or set the source information
@@ -131,11 +132,11 @@ def validate_parameters (parms):
         options['source_pw'] = None
 
     if not parameters.test_for_parameter (options, 'source_directory'):
-        path = util.getPath(parms['scene'])
-        row = util.getRow(parms['scene'])
-        year = util.getYear(parms['scene'])
-        options['source_directory'] = \
-            ('%s/%s/%s/%s/%s') % (base_source_path, sensor, path, row, year)
+        short_name = util.getModisShortName(parms['scene'])
+        version = util.getModisVersion(parms['scene'])
+        archive_date = util.getModisArchiveDate(parms['scene'])
+        options['source_directory'] = ('%s/%s.%s/%s') \
+            % (base_source_path, short_name, version, archive_date)
 
     # Verify or set the destination information
     if not parameters.test_for_parameter (options, 'destination_host'):
@@ -164,14 +165,12 @@ def build_product_name (scene):
     ts = datetime.today()
 
     # Extract stuff from the scene
-    sensor_code = util.getSensorCode(scene)
-    path = util.getPath(scene)
-    row = util.getRow(scene)
-    year = util.getYear(scene)
-    doy = util.getDoy(scene)
+    short_name = util.getModisShortName(scene)
+    (horizontal, vertical) = util.getModisHorizontalVertical(scene)
+    (year, doy) = util.getModisSceneDate(scene)
 
     product_name = '%s%s%s%s%s-SC%s%s%s%s%s%s' \
-        % (sensor_code, path.zfill(3), row.zfill(3), year.zfill(4),
+        % (short_name, horizontal.zfill(3), vertical.zfill(3), year.zfill(4),
            doy.zfill(3), str(ts.year).zfill(4), str(ts.month).zfill(2),
            str(ts.day).zfill(2), str(ts.hour).zfill(2),
            str(ts.minute).zfill(2), str(ts.second).zfill(2))
@@ -208,20 +207,17 @@ def process (parms):
     product_name = build_product_name(scene)
 
     # Stage the landsat data
-    filename = stage_landsat_data(scene, options['source_host'],
-        options['source_directory'], 'localhost', stage_directory,
-        options['source_username'], options['source_pw'])
+    filename = stage_modis_data(scene, options['source_host'],
+        options['source_directory'], stage_directory)
+    log (filename)
 
-    # Un-tar the input data to the work directory
+    # Copy the staged data to the work directory
     try:
-        untar_data (filename, work_directory)
-        os.unlink(filename) 
+        copy_file_to_file (filename, work_directory)
+        os.unlink(filename)
     except Exception, e:
         raise ESPAException (ErrorCodes.unpacking, str(e)), \
             None, sys.exc_info()[2]
-
-    # Build the requested science products
-    build_landsat_science_products (parms)
 
     # Reproject the data for each science product, but only if necessary
     # To generate statistics we must convert to GeoTIFF which warping does
@@ -229,41 +225,41 @@ def process (parms):
       or options['projection'] is not None:
         warp.warp_science_products (options)
 
-    # Generate the stats for each stat'able' science product
-    if options['include_statistics']:
-        # Find the files
-        files_for_statistics = glob.glob('*-band[0-9].tif')
-        files_for_statistics += glob.glob('*-nbr.tif')
-        files_for_statistics += glob.glob('*-nbr2.tif')
-        files_for_statistics += glob.glob('*-ndmi.tif')
-        files_for_statistics += glob.glob('*-vi-*.tif')
-        # Generate the stats for each file
-        generate_statistics(files_for_statistics)
-
-    # Deliver the product files
-    # Attempt five times sleeping between each attempt
-    sleep_seconds = 2
-    max_number_of_attempts = 5
-    attempt = 0
-    while True:
-        try:
-            # Deliver product will also try each of its parts three times
-            # before failing, so we pass our sleep seconds down to them
-            deliver_product (work_directory, package_directory, product_name,
-                options['destination_host'], options['destination_directory'],
-                options['destination_username'], options['destination_pw'],
-                sleep_seconds)
-        except Exception, e:
-            log ("An error occurred processing %s" % scene)
-            log ("Error: %s" % str(e))
-            if attempt < max_number_of_attempts:
-                sleep(sleep_seconds) # sleep before trying again
-                attempt += 1
-                sleep_seconds = int(sleep_seconds * 1.5) # adjust for next set
-                continue
-            else:
-                raise e # May already be an ESPAException so don't override that
-        break
+#    # Generate the stats for each stat'able' science product
+#    if options['include_statistics']:
+#        # Find the files
+#        files_for_statistics = glob.glob('*-band[0-9].tif')
+#        files_for_statistics += glob.glob('*-nbr.tif')
+#        files_for_statistics += glob.glob('*-nbr2.tif')
+#        files_for_statistics += glob.glob('*-ndmi.tif')
+#        files_for_statistics += glob.glob('*-vi-*.tif')
+#        # Generate the stats for each file
+#        generate_statistics(files_for_statistics)
+#
+#    # Deliver the product files
+#    # Attempt five times sleeping between each attempt
+#    sleep_seconds = 2
+#    max_number_of_attempts = 5
+#    attempt = 0
+#    while True:
+#        try:
+#            # Deliver product will also try each of its parts three times
+#            # before failing, so we pass our sleep seconds down to them
+#            deliver_product (work_directory, package_directory, product_name,
+#                options['destination_host'], options['destination_directory'],
+#                options['destination_username'], options['destination_pw'],
+#                sleep_seconds)
+#        except Exception, e:
+#            log ("An error occurred processing %s" % scene)
+#            log ("Error: %s" % str(e))
+#            if attempt < max_number_of_attempts:
+#                sleep(sleep_seconds) # sleep before trying again
+#                attempt += 1
+#                sleep_seconds = int(sleep_seconds * 1.5) # adjust for next set
+#                continue
+#            else:
+#                raise e # May already be an ESPAException so don't override that
+#        break
 # END - process
 
 
@@ -276,7 +272,7 @@ if __name__ == '__main__':
     '''
 
     # Create the JSON dictionary to use
-    parms = dict()
+    json_parms = dict()
 
     # Build the command line argument parser
     parser = build_argument_parser()
@@ -302,7 +298,7 @@ if __name__ == '__main__':
     try:
         process (parms)
     except Exception, e:
-        log ("An error occurred processing %s" % scene)
+        log ("An error occurred processing %s" % sceneid)
         log ("Error: %s" % str(e))
         tb = traceback.format_exc()
         log ("Traceback: [%s]" % tb)

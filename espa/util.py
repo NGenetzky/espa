@@ -13,7 +13,9 @@ History:
 '''
 
 import datetime
+import calendar
 import subprocess
+
 from frange import frange
 
 
@@ -95,6 +97,67 @@ def getStation(scene_name):
       Returns the ground stations and version for a given scene
     '''
     return scene_name[16:21]
+
+
+def getModisShortName(scene_name):
+    '''
+    Description:
+      Returns the MODIS short name portion of the scene
+    '''
+    return scene_name.split('.')[0]
+
+
+def getModisVersion(scene_name):
+    '''
+    Description:
+      Returns the MODIS version portion of the scene
+    '''
+    return scene_name.split('.')[3]
+
+
+def getModisHorizontalVertical(scene_name):
+    '''
+    Description:
+      Returns the MODIS horizontal and vertical specifiers of the scene
+    '''
+
+    element =  scene_name.split('.')[2]
+    return (element[0:3], element[3:])
+
+
+def getModisSceneDate(scene_name):
+    '''
+    Description:
+      Returns the MODIS scene data portion of the scene
+    '''
+
+    date_element = scene_name.split('.')[4]
+    # Return the (year, doy)
+    return (date_element[0:4], date_element[4:7])
+
+
+def getModisArchiveDate(scene_name):
+    '''
+    Description:
+      Returns the MODIS archive date portion of the scene
+    '''
+    date_element = scene_name.split('.')[1]
+
+    year = date_element[1:5]
+    doy = date_element[5:]
+
+    # Convert DOY to month and day
+    month = 1
+    day = int(doy)
+    while month < 13:
+        month_days = calendar.monthrange(int(year), month)[1]
+        if day <= month_days:
+            return '%s.%s.%s' % (year.zfill(4), str(month).zfill(2),
+                                 str(day).zfill(2))
+        day -= month_days
+        month += 1
+
+    raise ValueError("Year %s does not have %s days" % (year, doy))
 
 
 def getPoints(startX, stopX, startY, stopY, step):

@@ -47,7 +47,9 @@ def build_argument_parser():
     '''
 
     # Create a command line argument parser
-    parser = ArgumentParser(usage="%(prog)s [options]")
+    desacription = "Build science products from Landsat L4TM, L5TM," \
+        " and L7ETM+ data"
+    parser = ArgumentParser(description=description)
 
     # Parameters
     parameters.add_debug_parameter (parser)

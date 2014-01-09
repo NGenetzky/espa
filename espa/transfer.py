@@ -19,13 +19,14 @@ import shutil
 import subprocess
 import ftplib
 import urllib
+import urllib2
 
 # espa-common objects and methods
 from espa_constants import *
 from espa_logging import log
 
 
-#=============================================================================
+#==============================================================================
 def copy_file_to_file (source_file, destination_file):
     '''
     Description:
@@ -48,7 +49,7 @@ def copy_file_to_file (source_file, destination_file):
 # END - copy_file_to_directory
 
 
-#=============================================================================
+#==============================================================================
 def remote_copy_file_to_file (source_host, source_file, destination_file):
     '''
     Description:
@@ -72,7 +73,7 @@ def remote_copy_file_to_file (source_host, source_file, destination_file):
 # END - remote_copy_file_to_directory
 
 
-#=============================================================================
+#==============================================================================
 def ftp_from_remote_location(username, pw, host, remotefile, localfile):
     '''
     Author: David Hill
@@ -123,7 +124,7 @@ def ftp_from_remote_location(username, pw, host, remotefile, localfile):
 # END - ftp_from_remote_location
 
 
-#=============================================================================
+#==============================================================================
 def ftp_to_remote_location(username, pw, localfile, host, remotefile):
     '''
     Author: David Hill
@@ -168,7 +169,7 @@ def ftp_to_remote_location(username, pw, localfile, host, remotefile):
 # END - ftp_to_remote_location
 
 
-#=============================================================================
+#==============================================================================
 def scp_transfer_file (source_host, source_file,
                        destination_host, destination_file):
     '''
@@ -206,7 +207,45 @@ def scp_transfer_file (source_host, source_file,
 # END - scp_transfer_file
 
 
-#=============================================================================
+# Define the number of bytes to read from the URL file
+BLOCK_SIZE = 16384
+#==============================================================================
+def http_transfer_file (source_host, source_file, destination_file):
+    '''
+    Description:
+      Using http transfer a file from a source location to a destination
+      file on the localhost.
+    '''
+
+    url_path = 'http://%s/%s' % (source_host, source_file)
+
+    url = urllib2.urlopen (url_path)
+    local_fd = open (destination_file, 'wb')
+
+    metadata = url.info()
+    file_size = int(metadata.getheaders("Content-Length")[0])
+    retrieved_bytes = 0
+
+    try:
+        while True:
+            buffer = url.read(BLOCK_SIZE)
+            if not buffer:
+                break
+
+            retrieved_bytes += len(buffer)
+            local_fd.write(buffer)
+
+    finally:
+        local_fd.close()
+
+    if retrieved_bytes != file_size:
+        raise Exception("Transfer Failed - HTTP")
+    else:
+        log ("Transfer complete - HTTP")
+# END - scp_transfer_file
+
+
+#==============================================================================
 def transfer_file (source_host, source_file,
                    destination_host, destination_file,
                    source_username=None, source_pw=None,

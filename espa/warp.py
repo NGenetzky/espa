@@ -169,7 +169,8 @@ def build_argument_parser():
     '''
 
     # Create a command line argument parser
-    parser = ArgumentParser (usage="%(prog)s [options]")
+    description = "Alters product extents, projections and pixel sizes"
+    parser = ArgumentParser (description=description)
 
     # Add parameters
     parameters.add_debug_parameter (parser)

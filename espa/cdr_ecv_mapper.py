@@ -16,7 +16,6 @@ import sys
 import socket
 import json
 import traceback
-from argparse import ArgumentParser
 
 # espa-common objects and methods
 from espa_constants import *
@@ -26,6 +25,7 @@ from espa_logging import log, debug, set_debug
 from espa_exception import ErrorCodes, ESPAException
 import parameters
 from cdr_ecv import process as process_landsat
+from modis_cdr_ecv import process as process_modis
 import util
 
 #=============================================================================
@@ -80,11 +80,19 @@ if __name__ == '__main__':
             #   The first thing process does is validate the input parameters
             #------------------------------------------------------------------
 
+            # Generate the command line that can be used with the specified
+            # application
+            cmd_line_options = parameters.convert_to_command_line_options (parms)
+
             # Process the landsat sensors
             if sensor in parameters.valid_landsat_sensors:
+                log ("Processing cdr_ecv with [%s]" \
+                    % ' '.join(cmd_line_options))
                 process_landsat (parms)
-#            elif sensor in parameters.valid_modis_sensors:
-#                process_modis (parms)
+            elif sensor in parameters.valid_modis_sensors:
+                log ("Processing modis with [%s]" \
+                    % ' '.join(cmd_line_options))
+                process_modis (parms)
             #------------------------------------------------------------------
             # NOTE: Else process using another sensors processor
             #------------------------------------------------------------------

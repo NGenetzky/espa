@@ -25,13 +25,13 @@ from espa_logging import log
 
 # local objects and methods
 from espa_exception import ErrorCodes, ESPAException
-from transfer import transfer_file
+from transfer import transfer_file, http_transfer_file
 
 
 espa_base_working_dir_envvar = 'ESPA_WORK_DIR'
 
 
-#=============================================================================
+#==============================================================================
 def create_directory (directory):
     '''
     Description:
@@ -49,7 +49,7 @@ def create_directory (directory):
 # END - create_directory
 
 
-#=============================================================================
+#==============================================================================
 def untar_data (source_file, destination_directory):
     '''
     Description:
@@ -76,7 +76,7 @@ def untar_data (source_file, destination_directory):
 # END - untar_data
 
 
-#=============================================================================
+#==============================================================================
 def initialize_processing_directory (orderid, scene):
     '''
     Description:
@@ -134,7 +134,7 @@ def initialize_processing_directory (orderid, scene):
 # END - initialize_processing_directory
 
 
-#=============================================================================
+#==============================================================================
 def stage_landsat_data (scene, source_host, source_directory, \
   destination_host, destination_directory,
   source_username, source_pw):
@@ -159,4 +159,28 @@ def stage_landsat_data (scene, source_host, source_directory, \
 
     return destination_file
 # END - stage_landsat_data
+
+
+#==============================================================================
+def stage_modis_data (scene, source_host, source_directory, \
+  destination_directory):
+    '''
+    Description:
+      Stages modis input data and places it on the localhost in the
+      specified destination directory
+    '''
+
+    filename = '%s.hdf' % scene
+
+    source_file = '%s/%s' % (source_directory, filename)
+    destination_file = '%s/%s' % (destination_directory, filename)
+
+    try:
+        http_transfer_file (source_host, source_file, destination_file)
+    except Exception, e:
+        raise ESPAException (ErrorCodes.staging_data, str(e)), \
+            None, sys.exc_info()[2]
+
+    return destination_file
+# END - stage_modis_data
 

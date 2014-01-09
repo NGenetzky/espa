@@ -43,7 +43,8 @@ def build_argument_parser():
     '''
 
     # Create a command line argument parser
-    parser = ArgumentParser(usage="%(prog)s [options]")
+    description = "Provides methods for creating and distributing products"
+    parser = ArgumentParser(description=description)
 
     # Parameters
     parameters.add_debug_parameter (parser)

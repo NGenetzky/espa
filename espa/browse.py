@@ -19,7 +19,6 @@ import os
 import sys
 import glob
 import subprocess
-from argparse import ArgumentParser
 
 # espa-common objects and methods
 from espa_constants import *

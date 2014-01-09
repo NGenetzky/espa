@@ -99,6 +99,10 @@ def add_science_product_parameters (parser):
         action='store_true', dest='include_sr_browse', default=False,
         help="build SR browse product")
 
+    parser.add_argument ('--include_cfmask',
+        action='store_true', dest='include_cfmask', default=False,
+        help="build cfmask product")
+
     parser.add_argument ('--include_sr_nbr',
         action='store_true', dest='include_sr_nbr', default=False,
         help="build SR NBR index")
@@ -134,6 +138,14 @@ def add_science_product_parameters (parser):
     parser.add_argument ('--include_solr_index',
         action='store_true', dest='include_solr_index', default=False,
         help="build SOLR index product")
+
+    parser.add_argument ('--include_sourcefile',
+        action='store_true', dest='include_sourcefile', default=False,
+        help="include source data in final product")
+
+    parser.add_argument ('--include_source_metadata',
+        action='store_true', dest='include_source_metadata', default=False,
+        help="include source metadata in final product")
 # END - add_science_product_parameters
 
 
@@ -339,9 +351,9 @@ def convert_to_command_line_options (parms):
     cmd_line += ['--scene', parms['scene']]
 
     for (key, value) in parms['options'].items():
-        if value == True or value == False:
+        if value == True:
             cmd_line += ['--%s' % key]
-        elif value != None:
+        elif value != False and value != None:
             cmd_line += ['--%s' % key, '%s' % value]
 
     return cmd_line
