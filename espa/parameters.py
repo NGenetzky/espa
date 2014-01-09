@@ -123,6 +123,10 @@ def add_science_product_parameters (parser):
         action='store_true', dest='include_sr_savi', default=False,
         help="build SR SAVI index")
 
+    parser.add_argument ('--include_sr_msavi',
+        action='store_true', dest='include_sr_msavi', default=False,
+        help="build SR MSAVI index")
+
     parser.add_argument ('--include_sr_evi',
         action='store_true', dest='include_sr_evi', default=False,
         help="build SR EVI index")

@@ -99,7 +99,7 @@ def validate_landsat_parameters (parms):
     keys = ['include_sr', 'include_sr_toa', 'include_sr_thermal',
             'include_sr_browse', 'include_sr_nbr', 'include_sr_nbr2',
             'include_sr_ndvi', 'include_sr_ndmi', 'include_sr_savi',
-            'include_sr_evi', 'include_snow_covered_area',
+            'include_sr_msavi', 'include_sr_evi', 'include_snow_covered_area',
             'include_surface_water_extent', 'include_solr_index']
 
     for key in keys:
@@ -164,6 +164,7 @@ def build_landsat_science_products (parms):
           or options['include_sr_ndvi'] \
           or options['include_sr_ndmi'] \
           or options['include_sr_savi'] \
+          or options['include_sr_msavi'] \
           or options['include_sr_evi'] \
           or options['include_snow_covered_area'] \
           or options['include_surface_water_extent']:
@@ -194,6 +195,7 @@ def build_landsat_science_products (parms):
           or options['include_sr_ndvi'] \
           or options['include_sr_ndmi'] \
           or options['include_sr_savi'] \
+          or options['include_sr_msavi'] \
           or options['include_sr_evi']:
             cmd = ['do_spectral_indices.py']
 
@@ -208,6 +210,8 @@ def build_landsat_science_products (parms):
                 cmd += ['--ndmi']
             if options['include_sr_savi']:
                 cmd += ['--savi']
+            if options['include_sr_msavi']:
+                cmd += ['--msavi']
             if options['include_sr_evi']:
                 cmd += ['--evi']
 
