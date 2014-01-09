@@ -25,7 +25,7 @@ from espa_logging import log, debug, set_debug
 from espa_exception import ErrorCodes, ESPAException
 import parameters
 from cdr_ecv import process as process_landsat
-from modis_cdr_ecv import process as process_modis
+from modis import process as process_modis
 import util
 
 #=============================================================================
