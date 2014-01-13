@@ -16,8 +16,6 @@ import datetime
 import calendar
 import subprocess
 
-from frange import frange
-
 
 def stripZeros(value):
     '''
