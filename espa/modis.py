@@ -32,7 +32,6 @@ import util
 import parameters
 from transfer import copy_file_to_file
 from staging import initialize_processing_directory, stage_modis_data
-from science import build_landsat_science_products, validate_landsat_parameters
 import warp
 from statistics import generate_statistics
 from distribution import deliver_product
@@ -56,15 +55,11 @@ def build_argument_parser():
 
     parameters.add_scene_parameter (parser)
 
-#    parameters.add_data_type_parameter (parser, parameters.valid_data_types)
-
     parameters.add_source_parameters (parser)
     parameters.add_destination_parameters (parser)
 
     parameters.add_reprojection_parameters (parser, warp.valid_projections,
         warp.valid_utm, warp.valid_pixel_units, warp.valid_resample_methods)
-
-#    parameters.add_science_product_parameters (parser)
 
     parameters.add_include_statistics_parameter (parser)
 
@@ -85,9 +80,6 @@ def validate_parameters (parms):
     for key in keys:
         if not parameters.test_for_parameter (parms, key):
             raise RuntimeError ("Missing required input parameter [%s]" % key)
-
-#    # Validate the science product parameters
-#    validate_landsat_parameters (parms)
 
     # Get a local pointer to the options
     options = parms['options']
@@ -225,41 +217,39 @@ def process (parms):
       or options['projection'] is not None:
         warp.warp_science_products (options)
 
-#    # Generate the stats for each stat'able' science product
-#    if options['include_statistics']:
-#        # Find the files
-#        files_for_statistics = glob.glob('*-band[0-9].tif')
-#        files_for_statistics += glob.glob('*-nbr.tif')
-#        files_for_statistics += glob.glob('*-nbr2.tif')
-#        files_for_statistics += glob.glob('*-ndmi.tif')
-#        files_for_statistics += glob.glob('*-vi-*.tif')
-#        # Generate the stats for each file
-#        generate_statistics(files_for_statistics)
-#
-#    # Deliver the product files
-#    # Attempt five times sleeping between each attempt
-#    sleep_seconds = 2
-#    max_number_of_attempts = 5
-#    attempt = 0
-#    while True:
-#        try:
-#            # Deliver product will also try each of its parts three times
-#            # before failing, so we pass our sleep seconds down to them
-#            deliver_product (work_directory, package_directory, product_name,
-#                options['destination_host'], options['destination_directory'],
-#                options['destination_username'], options['destination_pw'],
-#                sleep_seconds)
-#        except Exception, e:
-#            log ("An error occurred processing %s" % scene)
-#            log ("Error: %s" % str(e))
-#            if attempt < max_number_of_attempts:
-#                sleep(sleep_seconds) # sleep before trying again
-#                attempt += 1
-#                sleep_seconds = int(sleep_seconds * 1.5) # adjust for next set
-#                continue
-#            else:
-#                raise e # May already be an ESPAException so don't override that
-#        break
+    # Generate the stats for each stat'able' science product
+    if options['include_statistics']:
+        # Find the files
+        files_to_search_for = ['*-sur_refl_b*.tif']
+        files_to_search_for += ['*-LST*.tif']
+        files_to_search_for += ['*-Emis_*.tif']
+        # Generate the stats for each file
+        generate_statistics(options['work_directory'], files_to_search_for)
+
+    # Deliver the product files
+    # Attempt five times sleeping between each attempt
+    sleep_seconds = 2
+    max_number_of_attempts = 5
+    attempt = 0
+    while True:
+        try:
+            # Deliver product will also try each of its parts three times
+            # before failing, so we pass our sleep seconds down to them
+            deliver_product (work_directory, package_directory, product_name,
+                options['destination_host'], options['destination_directory'],
+                options['destination_username'], options['destination_pw'],
+                sleep_seconds)
+        except Exception, e:
+            log ("An error occurred processing %s" % scene)
+            log ("Error: %s" % str(e))
+            if attempt < max_number_of_attempts:
+                sleep(sleep_seconds) # sleep before trying again
+                attempt += 1
+                sleep_seconds = int(sleep_seconds * 1.5) # adjust for next set
+                continue
+            else:
+                raise e # May already be an ESPAException so don't override that
+        break
 # END - process
 
 
@@ -272,7 +262,7 @@ if __name__ == '__main__':
     '''
 
     # Create the JSON dictionary to use
-    json_parms = dict()
+    parms = dict()
 
     # Build the command line argument parser
     parser = build_argument_parser()
