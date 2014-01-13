@@ -82,7 +82,7 @@ if __name__ == '__main__':
 
             # Generate the command line that can be used with the specified
             # application
-            cmd_line_options = parameters.convert_to_command_line_options (parms)
+            cmd_line_options = parameters.convert_to_command_line_options(parms)
 
             # Process the landsat sensors
             if sensor in parameters.valid_landsat_sensors:
