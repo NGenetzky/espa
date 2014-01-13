@@ -66,7 +66,7 @@ def get_statistics(file):
 
 
 #=============================================================================
-def generate_statistics(files):
+def generate_statistics(work_directory, files_to_search_for):
     '''
     Description:
       Create the stats output directory and each output stats file for each
@@ -77,46 +77,60 @@ def generate_statistics(files):
       product if we need statistics.
     '''
 
-    stats_output_path = 'stats'
-    try:
-        os.makedirs(stats_output_path)
-    except OSError as exc: # Python >2.5
-        if exc.errno == errno.EEXIST and os.path.isdir(stats_output_path):
-            pass
-        else:
-            raise ESPAException (ErrorCodes.statistics, str(e)), None, \
-                sys.exc_info()[2]
+    # Change to the working directory
+    current_directory = os.getcwd()
+    os.chdir(work_directory)
 
     try:
-        # Generate the requested statistics for each tile
-        for file in files:
+        stats_output_path = 'stats'
+        try:
+            os.makedirs(stats_output_path)
+        except OSError as exc: # Python >2.5
+            if exc.errno == errno.EEXIST and os.path.isdir(stats_output_path):
+                pass
+            else:
+                raise ESPAException (ErrorCodes.statistics, str(e)), None, \
+                    sys.exc_info()[2]
 
-            (minimum, maximum, mean, stddev) = get_statistics(file)
+        try:
+            files = []
+            for search in files_to_search_for:
+                files += glob.glob(search)
 
-            # Drop the filename extention so we can replace it with 'stats'
-            base = os.path.splitext(file)[0]
+            # Generate the requested statistics for each tile
+            for file in files:
+                log ("Generating statistics for: %s" % file)
 
-            # Figure out the filename
-            stats_output_file = '%s/%s.stats' % (stats_output_path, base)
+                (minimum, maximum, mean, stddev) = get_statistics(file)
 
-            # Buffer the stats
-            buffer = StringIO()
-            buffer.write("FILENAME=%s\n" % file)
-            buffer.write("MINIMUM=%f\n" % minimum)
-            buffer.write("MAXIMUM=%f\n" % maximum)
-            buffer.write("MEAN=%f\n" % mean)
-            buffer.write("STDDEV=%f\n" % stddev)
+                # Drop the filename extention so we can replace it with 'stats'
+                base = os.path.splitext(file)[0]
 
-            # Create the stats file
-            fd = open(stats_output_file, 'w+')
-            data = buffer.getvalue()
-            fd.write(data)
-            fd.flush()
-            fd.close()
-        # END - for tile
-    except Exception, e:
-        raise ESPAException (ErrorCodes.statistics, str(e)), \
-            None, sys.exc_info()[2]
+                # Figure out the filename
+                stats_output_file = '%s/%s.stats' % (stats_output_path, base)
+
+                # Buffer the stats
+                buffer = StringIO()
+                buffer.write("FILENAME=%s\n" % file)
+                buffer.write("MINIMUM=%f\n" % minimum)
+                buffer.write("MAXIMUM=%f\n" % maximum)
+                buffer.write("MEAN=%f\n" % mean)
+                buffer.write("STDDEV=%f\n" % stddev)
+
+                # Create the stats file
+                fd = open(stats_output_file, 'w+')
+                data = buffer.getvalue()
+                fd.write(data)
+                fd.flush()
+                fd.close()
+            # END - for tile
+        except Exception, e:
+            raise ESPAException (ErrorCodes.statistics, str(e)), \
+                None, sys.exc_info()[2]
+
+    finally:
+        # Change back to the previous directory
+        os.chdir(current_directory)
 # END - generate_statistics
 
 
@@ -128,14 +142,19 @@ if __name__ == '__main__':
       It only provides stats for landsat data.
     '''
 
-    files_for_statistics = glob.glob('*-band[0-9].tif')
-    files_for_statistics += glob.glob('*-nbr.tif')
-    files_for_statistics += glob.glob('*-nbr2.tif')
-    files_for_statistics += glob.glob('*-ndmi.tif')
-    files_for_statistics += glob.glob('*-vi-*.tif')
+    # Landsat files
+    files_to_search_for = ['*-band[0-9].tif']
+    files_to_search_for += ['*-nbr.tif']
+    files_to_search_for += ['*-nbr2.tif']
+    files_to_search_for += ['*-ndmi.tif']
+    files_to_search_for += ['*-vi-*.tif']
+    # MODIS files
+    files_to_search_for += ['*-sur_refl_b*.tif']
+    files_to_search_for += ['*-LST*.tif']
+    files_to_search_for += ['*-Emis_*.tif']
 
     try:
-        generate_statistics(files_for_statistics)
+        generate_statistics('.', files_to_search_for)
     except Exception, e:
         log ("Error: %s" % str(e))
         tb = traceback.format_exc()

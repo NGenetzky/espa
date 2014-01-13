@@ -232,13 +232,13 @@ def process (parms):
     # Generate the stats for each stat'able' science product
     if options['include_statistics']:
         # Find the files
-        files_for_statistics = glob.glob('*-band[0-9].tif')
-        files_for_statistics += glob.glob('*-nbr.tif')
-        files_for_statistics += glob.glob('*-nbr2.tif')
-        files_for_statistics += glob.glob('*-ndmi.tif')
-        files_for_statistics += glob.glob('*-vi-*.tif')
+        files_to_search_for = ['*-band[0-9].tif']
+        files_to_search_for += ['*-nbr.tif']
+        files_to_search_for += ['*-nbr2.tif']
+        files_to_search_for += ['*-ndmi.tif']
+        files_to_search_for += ['*-vi-*.tif']
         # Generate the stats for each file
-        generate_statistics(files_for_statistics)
+        generate_statistics(options['work_directory'], files_to_search_for)
 
     # Deliver the product files
     # Attempt five times sleeping between each attempt
