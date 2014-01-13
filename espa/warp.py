@@ -349,7 +349,7 @@ def warp_science_products (parms):
         projection = None
 
     # Change to the working directory
-    current_directory = os.curdir
+    current_directory = os.getcwd()
     os.chdir(parms['work_directory'])
 
     min_x = parms['minx']

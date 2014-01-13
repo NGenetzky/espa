@@ -117,7 +117,7 @@ def package_product (source_directory, destination_directory, product_name):
         os.unlink(old_product)
 
     # Change to the source directory
-    current_directory = os.curdir
+    current_directory = os.getcwd()
     os.chdir(source_directory)
 
     try:

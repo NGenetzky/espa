@@ -44,34 +44,36 @@ def get_landsat_metadata (work_dir):
         return None
 
     # Save the current directory and change to the work directory
-    current_directory = os.curdir
+    current_directory = os.getcwd()
     os.chdir(work_dir)
 
-    # Backup the original file
-    copy_filename = metadata_filename + '.old'
-    shutil.copy(metadata_filename, copy_filename)
+    try:
+        # Backup the original file
+        copy_filename = metadata_filename + '.old'
+        shutil.copy(metadata_filename, copy_filename)
 
-    # Read in the file and write it back out to get rid of binary characters
-    # at the end of some of the GLS metadata files
-    file = open(metadata_filename, 'r')
-    file_data = file.readlines()
-    file.close()
+        # Read in the file and write it back out to get rid of binary
+        # characters at the end of some of the GLS metadata files
+        file = open(metadata_filename, 'r')
+        file_data = file.readlines()
+        file.close()
 
-    buffer = StringIO()
-    for line in file_data:
-        buffer.write(line)
+        buffer = StringIO()
+        for line in file_data:
+            buffer.write(line)
 
-    # Fix the stupid error where the filename has a bad extention
-    metadata_filename = metadata_filename.replace('.TIF', '.txt')
+        # Fix the stupid error where the filename has a bad extention
+        metadata_filename = metadata_filename.replace('.TIF', '.txt')
 
-    file = open(metadata_filename, 'w+')
-    fixed_data = buffer.getvalue()
-    file.write(fixed_data)
-    file.flush()
-    file.close()
+        file = open(metadata_filename, 'w+')
+        fixed_data = buffer.getvalue()
+        file.write(fixed_data)
+        file.flush()
+        file.close()
 
-    # Change back to the original directory
-    os.chdir(current_directory)
+    finally:
+        # Change back to the original directory
+        os.chdir(current_directory)
 
     metadata = dict()
     # First add the filename to the dictionary

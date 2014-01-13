@@ -149,7 +149,7 @@ def build_landsat_science_products (parms):
     solr_filename = '%s-index.xml' % scene
 
     # Change to the working directory
-    current_directory = os.curdir
+    current_directory = os.getcwd()
     os.chdir(options['work_directory'])
 
     try:
