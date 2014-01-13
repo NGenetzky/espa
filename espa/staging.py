@@ -100,11 +100,10 @@ def initialize_processing_directory (orderid, scene):
     # Specify a random directory using orderid
     order_directory += '/' + str(orderid)
 
-    # Just incase remove it, and we don't care about errors
-    shutil.rmtree (order_directory, ignore_errors=True)
-
     # Specify the scene sub-directory
     scene_directory = order_directory + '/' + scene
+    # Just incase remove it, and we don't care about errors
+    shutil.rmtree (scene_directory, ignore_errors=True)
 
     # Specify the sub-directories of a processing directory
     stage_directory = scene_directory + '/stage'
