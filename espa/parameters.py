@@ -351,14 +351,14 @@ def convert_to_command_line_options (parms):
       executables that will be called.
     '''
 
-    cmd_line = ['--orderid', parms['orderid']]
-    cmd_line += ['--scene', parms['scene']]
+    cmd_line = ['--orderid', '\"%s\"' % parms['orderid']]
+    cmd_line += ['--scene', '\"%s\"' % parms['scene']]
 
     for (key, value) in parms['options'].items():
         if value == True:
             cmd_line += ['--%s' % key]
         elif value != False and value != None:
-            cmd_line += ['--%s' % key, '%s' % value]
+            cmd_line += ['--%s' % key, '\"%s\"' % value]
 
     return cmd_line
 # END - convert_parms_to_command_line_options
