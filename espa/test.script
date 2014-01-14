@@ -1,12 +1,7 @@
-#!/bin/csh
+#!/bin/bash
 
-setenv PYTHONDONTWRITEBYTECODE 1
+export PYTHONDONTWRITEBYTECODE=1
+#export PYTHONUNBUFFERED=1
 
 cat $1 | ./cdr_ecv_mapper.py
-
-echo
-echo
-echo
-
-#./cdr_ecv.py --orderid french_toast --scene LE70290302013185EDC00 --source_directory /home/dilley/espa-data --data_source landsat --include_sr
 
