@@ -179,6 +179,7 @@ if __name__ == '__main__':
                 log ("Error: Output [%s]" % e.output)
             tb = traceback.format_exc()
             log ("Error: Traceback [%s]" % tb)
+            log ("Error: Line [%s]" % line)
     # END - for line in STDIN
 
     sys.exit(EXIT_SUCCESS)
