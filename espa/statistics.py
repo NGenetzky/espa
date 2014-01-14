@@ -23,6 +23,7 @@ from cStringIO import StringIO
 from espa_constants import *
 from espa_logging import log
 
+
 def get_statistics(file):
     '''
     Description:
@@ -41,7 +42,7 @@ def get_statistics(file):
     stddev = 0
 
     cmd = ['gdalinfo', '-stats', file]
-    output = subprocess.check_output (cmd)
+    output = subprocess.check_output (cmd, stderr=subprocess.STDOUT)
 
     for line in output.split('\n'):
         line_lower = line.strip().lower()
@@ -54,6 +55,8 @@ def get_statistics(file):
             mean = line_lower.split('=')[1] # take the second element
         if line_lower.startswith('statistics_stddev'):
             stddev = line_lower.split('=')[1] # take the second element
+        if 'no valid pixels found' in line_lower:
+            log ("Warning: No valid pixels found: Continuing with zeroed stats")
 
     # Cleanup the gdal generated xml file should be the only file
     # BUT...... *NOT* GUARANTEED
