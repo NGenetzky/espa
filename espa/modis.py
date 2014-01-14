@@ -198,7 +198,7 @@ def process (parms):
     # Figure out the product name
     product_name = build_product_name(scene)
 
-    # Stage the landsat data
+    # Stage the modis data
     filename = stage_modis_data(scene, options['source_host'],
         options['source_directory'], stage_directory)
     log (filename)
@@ -221,8 +221,13 @@ def process (parms):
     if options['include_statistics']:
         # Find the files
         files_to_search_for = ['*-sur_refl_b*.tif']
-        files_to_search_for += ['*-LST*.tif']
+        files_to_search_for += ['*-LST_Day_1km.tif']
+        files_to_search_for += ['*-LST_Night_1km.tif']
+        files_to_search_for += ['*-LST_Day_6km.tif']
+        files_to_search_for += ['*-LST_Night_6km.tif']
         files_to_search_for += ['*-Emis_*.tif']
+        files_to_search_for += ['*NDVI.tif']
+        files_to_search_for += ['*EVI.tif']
         # Generate the stats for each file
         generate_statistics(options['work_directory'], files_to_search_for)
 
