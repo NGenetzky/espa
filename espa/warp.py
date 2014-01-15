@@ -211,8 +211,8 @@ def build_warp_command (source_file, output_file,
     # Subset the image using the specified extents
     if (min_x is not None) and (min_y is not None) \
       and (max_x is not None) and (max_y is not None):
-        cmd += ['-te', float(minx.strip()), float(miny.strip()),
-                float(maxx.strip()), float(maxy.strip())]
+        cmd += ['-te', float(min_x.strip()), float(min_y.strip()),
+                float(max_x.strip()), float(max_y.strip())]
 
     # Resize the pixels
     if pixel_size is not None:
