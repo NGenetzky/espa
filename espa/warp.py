@@ -211,8 +211,9 @@ def build_warp_command (source_file, output_file,
     # Subset the image using the specified extents
     if (min_x is not None) and (min_y is not None) \
       and (max_x is not None) and (max_y is not None):
-        cmd += ['-te', float(min_x.strip()), float(min_y.strip()),
-                float(max_x.strip()), float(max_y.strip())]
+        debug ("Image Extents: %s, %s, %s, %s" % (min_x, min_y, max_x, max_y))
+        cmd += ['-te', min_x.strip(), min_y.strip(),
+                max_x.strip(), max_y.strip()]
 
     # Resize the pixels
     if pixel_size is not None:
@@ -355,7 +356,7 @@ def warp_science_products (parms):
     min_x = parms['minx']
     min_y = parms['miny']
     max_x = parms['maxx']
-    max_y = parms['maxy'],
+    max_y = parms['maxy']
     pixel_size = parms['pixel_size']
     resample_method = parms['resample_method']
 
