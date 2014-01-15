@@ -44,8 +44,11 @@ if __name__ == '__main__':
         # Reset these for each line
         (server, orderid, sceneid) = (None, None, None)
 
+        if line.startswith('#'):
+            continue # This line is commented so skip it
+
         try:
-            line = str(line).replace('#', '')
+            line = line.replace('#', '')
             parms = json.loads(line)
 
             if not parameters.test_for_parameter(parms, 'options'):
