@@ -28,8 +28,8 @@ from espa_constants import *
 from espa_logging import log, set_debug, debug
 
 # local objects and methods
-import util
 import parameters
+import util
 from transfer import copy_file_to_file
 from staging import initialize_processing_directory, stage_modis_data
 import warp
@@ -142,7 +142,7 @@ def validate_parameters (parms):
 
     if not parameters.test_for_parameter (options, 'destination_directory'):
         options['destination_directory'] = \
-            ('%s/orders/%s') % (base_output_path, parms['orderid'])   
+            ('%s/orders/%s') % (base_output_path, parms['orderid'])
 # END - validate_parameters
 
 
@@ -293,7 +293,7 @@ if __name__ == '__main__':
     try:
         process (parms)
     except Exception, e:
-        log ("An error occurred processing %s" % sceneid)
+        log ("An error occurred processing %s" % scene)
         log ("Error: %s" % str(e))
         tb = traceback.format_exc()
         log ("Traceback: [%s]" % tb)

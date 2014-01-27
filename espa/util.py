@@ -17,6 +17,42 @@ import calendar
 import subprocess
 
 
+def execute_cmd (cmd):
+    '''
+    Description:
+      Execute a command line and return SUCCESS or ERROR
+
+    Returns:
+        output - The stdout and/or stderr from the executed command.
+    '''
+
+    output = ''
+    proc = None
+    try:
+        proc = subprocess.Popen (cmd, stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
+        output = proc.communicate()[0]
+
+        if proc.returncode < 0:
+            message = "Application terminated by signal [%s]" % cmd
+            raise Exception (message)
+
+        if proc.returncode != 0:
+            message = "Application failed to execute [%s]" % cmd
+            raise Exception (message)
+
+        application_exitcode = proc.returncode >> 8
+        if application_exitcode != 0:
+            message = "Application [%s] returned error code [%d]" \
+                % (cmd, application_exitcode)
+            raise Exception (message)
+
+    finally:
+        del proc
+
+    return output
+
+
 def stripZeros(value):
     '''
     Description:
@@ -129,9 +165,9 @@ def getModisSceneDate(scene_name):
       Returns the MODIS scene data portion of the scene
     '''
 
-    date_element = scene_name.split('.')[4]
+    date_element = scene_name.split('.')[1]
     # Return the (year, doy)
-    return (date_element[0:4], date_element[4:7])
+    return (date_element[1:5], date_element[5:8])
 
 
 def getModisArchiveDate(scene_name):
@@ -142,7 +178,7 @@ def getModisArchiveDate(scene_name):
     date_element = scene_name.split('.')[1]
 
     year = date_element[1:5]
-    doy = date_element[5:]
+    doy = date_element[5:8]
 
     # Convert DOY to month and day
     month = 1

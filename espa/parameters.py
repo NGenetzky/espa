@@ -306,14 +306,14 @@ def add_reprojection_parameters (parser, projection_values, utm_values,
     parser.add_argument ('--minx',
         action='store', dest='minx',
         help="minimum X for the image subset")
-    parser.add_argument ('--minY',
-        action='store', dest='minY',
+    parser.add_argument ('--miny',
+        action='store', dest='miny',
         help="minimum Y for the image subset")
     parser.add_argument ('--maxx',
         action='store', dest='maxx',
         help="maximum X for the image subset")
-    parser.add_argument ('--maxY',
-        action='store', dest='maxY',
+    parser.add_argument ('--maxy',
+        action='store', dest='maxy',
         help="maximum Y for the image subset")
 
     parser.add_argument ('--resample_method',

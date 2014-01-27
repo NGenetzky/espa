@@ -16,12 +16,14 @@ import os
 import sys
 import glob
 import errno
-import subprocess
 import traceback
 from cStringIO import StringIO
 
 from espa_constants import *
 from espa_logging import log
+
+# local objects and methods
+import util
 
 
 def get_statistics(file):
@@ -42,7 +44,8 @@ def get_statistics(file):
     stddev = 0
 
     cmd = ['gdalinfo', '-stats', file]
-    output = subprocess.check_output (cmd, stderr=subprocess.STDOUT)
+    cmd = ' '.join(cmd)
+    output = util.execute_cmd (cmd)
 
     for line in output.split('\n'):
         line_lower = line.strip().lower()

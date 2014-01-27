@@ -17,7 +17,6 @@ History:
 import os
 import sys
 import glob
-import subprocess
 import traceback
 from argparse import ArgumentParser
 
@@ -28,10 +27,10 @@ from espa_logging import log, set_debug, debug
 # local objects and methods
 from espa_exception import ErrorCodes, ESPAException
 import parameters
+import util
 from metadata import get_landsat_metadata
 from solr import do_solr_index
 from browse import do_sr_browse
-import util
 
 
 # Default values
@@ -152,6 +151,7 @@ def build_landsat_science_products (parms):
     current_directory = os.getcwd()
     os.chdir(options['work_directory'])
 
+    output = ''
     try:
         # ---------------------------------------------------------------------
         # Generate LEDAPS products SR, TOA, TH
@@ -169,10 +169,11 @@ def build_landsat_science_products (parms):
           or options['include_snow_covered_area'] \
           or options['include_surface_water_extent']:
             cmd = ['do_ledaps.py', '--metafile', metadata_filename]
-            log ("LEDAPS COMMAND:%s" % ' '.join(cmd))
+            cmd = ' '.join(cmd)
+            log ('LEDAPS COMMAND:' + cmd)
 
             try:
-                output = subprocess.check_output (cmd, stderr=subprocess.STDOUT)
+                output = util.execute_cmd (cmd)
             except Exception, e:
                 raise ESPAException (ErrorCodes.ledaps, str(e)), \
                     None, sys.exc_info()[2]
@@ -217,10 +218,11 @@ def build_landsat_science_products (parms):
 
             # We are always generating indices off of surface reflectance
             cmd += ['-i', sr_filename]
+            cmd = ' '.join(cmd)
 
-            log ("SPECTRAL INDICES COMMAND:%s" % ' '.join(cmd))
+            log ('SPECTRAL INDICES COMMAND:' + cmd)
             try:
-                output = subprocess.check_output (cmd, stderr=subprocess.STDOUT)
+                output = util.execute_cmd (cmd)
             except Exception, e:
                 raise ESPAException (ErrorCodes.spectral_indices, str(e)), \
                     None, sys.exc_info()[2]
@@ -234,10 +236,11 @@ def build_landsat_science_products (parms):
           or options['include_surface_water_extent']:
             cmd = ['do_create_dem.py', '--metafile', metadata_filename,
                    '--demfile', dem_filename]
+            cmd = ' '.join(cmd)
 
-            log ("CREATE DEM COMMAND:%s" % ' '.join(cmd))
+            log ('CREATE DEM COMMAND:' + cmd)
             try:
-                output = subprocess.check_output (cmd, stderr=subprocess.STDOUT)
+                output = util.execute_cmd (cmd)
             except Exception, e:
                 raise ESPAException (ErrorCodes.create_dem, str(e)), \
                     None, sys.exc_info()[2]
@@ -264,10 +267,11 @@ def build_landsat_science_products (parms):
                      % options['work_directory'])
 
             cmd = ['cfmask', '--verbose', '--toarefl=%s' % toa_filename]
+            cmd = ' '.join(cmd)
 
-            log ("CREATE CFMASK COMMAND:%s" % ' '.join(cmd))
+            log ('CREATE CFMASK COMMAND:' + cmd)
             try:
-                output = subprocess.check_output (cmd, stderr=subprocess.STDOUT)
+                output = util.execute_cmd (cmd)
             except Exception, e:
                 raise ESPAException (ErrorCodes.cfmask, str(e)), \
                     None, sys.exc_info()[2]
@@ -279,10 +283,11 @@ def build_landsat_science_products (parms):
         if options['include_sr'] and not options['include_cfmask']:
             cmd = ['do_append_cfmask.py', '--sr_infile', sr_filename,
                    '--cfmask_infile', fmask_filename]
+            cmd = ' '.join(cmd)
 
-            log ("APPEND CFMASK COMMAND:%s" % ' '.join(cmd))
+            log ('APPEND CFMASK COMMAND:' + cmd)
             try:
-                output = subprocess.check_output (cmd, stderr=subprocess.STDOUT)
+                output = util.execute_cmd (cmd)
             except Exception, e:
                 raise ESPAException (ErrorCodes.cfmask_append, str(e)), \
                     None, sys.exc_info()[2]
@@ -295,10 +300,11 @@ def build_landsat_science_products (parms):
             cmd = ['do_surface_water_extent.py', '--metafile',
                    metadata_filename, '--reflectance', sr_filename, '--dem',
                    dem_filename]
+            cmd = ' '.join(cmd)
 
-            log ("CREATE SWE COMMAND:%s" % ' '.join(cmd))
+            log ('CREATE SWE COMMAND:' + cmd)
             try:
-                output = subprocess.check_output (cmd, stderr=subprocess.STDOUT)
+                output = util.execute_cmd (cmd)
             except Exception, e:
                 raise ESPAException (ErrorCodes.swe, str(e)), \
                     None, sys.exc_info()[2]
@@ -311,10 +317,11 @@ def build_landsat_science_products (parms):
             cmd = ['do_snow_cover.py', '--metafile', metadata_filename,
                    '--toa_infile', toa_filename, '--btemp_infile', th_filename,
                    '--sca_outfile', sca_filename, '--dem', dem_filename]
+            cmd = ' '.join(cmd)
 
-            log ("CREATE SCA COMMAND:%s" % ' '.join(cmd))
+            log ('CREATE SCA COMMAND:' + cmd)
             try:
-                output = subprocess.check_output (cmd, stderr=subprocess.STDOUT)
+                output = util.execute_cmd (cmd)
             except Exception, e:
                 raise ESPAException (ErrorCodes.sca, str(e)), \
                     None, sys.exc_info()[2]
@@ -350,12 +357,15 @@ def build_landsat_science_products (parms):
             non_products += glob.glob ('fmask*')
 
         cmd = ['rm', '-rf'] + non_products
-        log ("REMOVING INTERMEDIATE DATA COMMAND:%s" % ' '.join(cmd))
+        cmd = ' '.join(cmd)
+        log ('REMOVING INTERMEDIATE DATA COMMAND' + cmd)
         try:
-            subprocess.check_output (cmd, stderr=subprocess.STDOUT)
+            output = util.execute_cmd (cmd)
         except Exception, e:
             raise ESPAException (ErrorCodes.cleanup_work_dir, str(e)), \
                 None, sys.exc_info()[2]
+        finally:
+            log (output)
 
     finally:
         # Change back to the previous directory

@@ -24,9 +24,10 @@ from espa_logging import log, debug, set_debug
 # local objects and methods
 from espa_exception import ErrorCodes, ESPAException
 import parameters
+import util
 from cdr_ecv import process as process_landsat
 from modis import process as process_modis
-import util
+
 
 #=============================================================================
 if __name__ == '__main__':
@@ -40,12 +41,18 @@ if __name__ == '__main__':
 
     processing_location = socket.gethostname()
 
+    # make stdin a non-blocking file
+
+    # Have to read stdin all at once because something else is trashing it
+    # later on during one or more of the shell out executions.
+    bytes_read = 0
     for line in sys.stdin:
         # Reset these for each line
         (server, orderid, sceneid) = (None, None, None)
 
-        if line.startswith('#'):
-            continue # This line is commented so skip it
+        bytes_read += len(line)
+        debug ("#### BYTES READ ####################### %d ####" % bytes_read)
+        debug (line)
 
         try:
             line = line.replace('#', '')
@@ -96,6 +103,7 @@ if __name__ == '__main__':
                 log ("Processing modis with [%s]" \
                     % ' '.join(cmd_line_options))
                 process_modis (parms)
+
             #------------------------------------------------------------------
             # NOTE: Else process using another sensors processor
             #------------------------------------------------------------------

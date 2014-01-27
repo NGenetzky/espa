@@ -16,7 +16,6 @@ import errno
 import sys
 import uuid
 import shutil
-import subprocess
 import ftplib
 import urllib
 import urllib2
@@ -24,6 +23,9 @@ import urllib2
 # espa-common objects and methods
 from espa_constants import *
 from espa_logging import log
+
+# local objects and methods
+import util
 
 
 #==============================================================================
@@ -34,11 +36,12 @@ def copy_file_to_file (source_file, destination_file):
     '''
 
     cmd = ['cp', source_file, destination_file]
+    cmd = ' '.join(cmd)
 
     # Transfer the data and raise any errors
     output = ''
     try:
-        output = subprocess.check_output (cmd)
+        output = util.execute_cmd (cmd)
     except Exception, e:
         log ("Error: Failed to copy file")
         raise e
@@ -57,12 +60,14 @@ def remote_copy_file_to_file (source_host, source_file, destination_file):
       machine using ssh.
     '''
 
-    cmd = ['ssh', source_host, 'cp', source_file, destination_file]
+    cmd = ['ssh', '-q', '-o', 'StrictHostKeyChecking=no', source_host,
+           'cp', source_file, destination_file]
+    cmd = ' '.join(cmd)
 
     # Transfer the data and raise any errors
     output = ''
     try:
-        output = subprocess.check_output (cmd)
+        output = util.execute_cmd (cmd)
     except Exception, e:
         log ("Error: Failed to copy file")
         raise e
@@ -178,7 +183,7 @@ def scp_transfer_file (source_host, source_file,
       location.
     '''
 
-    cmd = ['scp', '-o', 'StrictHostKeyChecking=no', '-c', 'arcfour', '-C']
+    cmd = ['scp', '-q', '-o', 'StrictHostKeyChecking=no', '-c', 'arcfour', '-C']
 
     # Build the source portion of the command
     if source_host == 'localhost':
@@ -196,7 +201,7 @@ def scp_transfer_file (source_host, source_file,
     # Transfer the data and raise any errors
     output = ''
     try:
-        output = subprocess.check_output (cmd)
+        output = util.execute_cmd (cmd)
     except Exception, e:
         log ("Error: Failed to transfer data")
         raise e
@@ -218,6 +223,7 @@ def http_transfer_file (source_host, source_file, destination_file):
     '''
 
     url_path = 'http://%s/%s' % (source_host, source_file)
+    log (url_path)
 
     url = urllib2.urlopen (url_path)
     local_fd = open (destination_file, 'wb')

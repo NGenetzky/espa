@@ -30,8 +30,8 @@ from espa_constants import *
 from espa_logging import log, set_debug, debug
 
 # local objects and methods
-import util
 import parameters
+import util
 from staging import initialize_processing_directory, untar_data, \
     stage_landsat_data
 from science import build_landsat_science_products, validate_landsat_parameters

@@ -16,7 +16,6 @@ import errno
 import sys
 import uuid
 import shutil
-import subprocess
 import glob
 
 # espa-common objects and methods
@@ -26,6 +25,7 @@ from espa_logging import log
 # local objects and methods
 from espa_exception import ErrorCodes, ESPAException
 from transfer import transfer_file, http_transfer_file
+import util
 
 
 espa_base_working_dir_envvar = 'ESPA_WORK_DIR'
@@ -61,13 +61,14 @@ def untar_data (source_file, destination_directory):
 
     # If both source and destination are localhost we can just copy the data
     cmd = ['tar', '--directory', destination_directory, '-xvf', source_file]
+    cmd = ' '.join(cmd)
 
     log ("Unpacking [%s] to [%s]" % (source_file, destination_directory))
 
     # Unpack the data and raise any errors
     output = ''
     try:
-        output = subprocess.check_output (cmd)
+        output = util.execute_cmd (cmd)
     except Exception, e:
         log ("Error: Failed to unpack data")
         raise e

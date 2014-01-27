@@ -17,7 +17,6 @@ History:
 
 import os
 import sys
-import subprocess
 import traceback
 import glob
 from cStringIO import StringIO
@@ -30,6 +29,7 @@ from espa_logging import log, set_debug, debug
 # local objects and methods
 from espa_exception import ErrorCodes, ESPAException
 import parameters
+import util
 
 # This contains the valid sensors which are supported
 valid_landsat_sensors = ['LT', 'LE']
@@ -53,8 +53,8 @@ def build_sinu_proj4_string(central_meridian, false_easting, false_northing):
       +proj=sinu +lon_0=0 +x_0=0 +y_0=0 +a=6371007.181 +b=6371007.181
       +units=m +no_defs
     '''
-    proj4_string = "+proj=sinu +lon_0=%f +x_0=%f +y_0=%f +a=6371007.181" \
-        " +b=6371007.181 +units=m +no_defs" \
+    proj4_string = "'+proj=sinu +lon_0=%f +x_0=%f +y_0=%f +a=6371007.181" \
+        " +b=6371007.181 +units=m +no_defs'" \
         % (central_meridian, false_easting, false_northing)
 
     return proj4_string
@@ -73,8 +73,8 @@ def build_albers_proj4_string(std_parallel_1, std_parallel_2, origin_lat,
       +ellps=GRS80 +datum=NAD83 +units=m +no_defs
     '''
 
-    proj4_string = "+proj=aea +lat_1=%f +lat_2=%f +lat_0=%f +lon_0=%f" \
-        " +x_0=%f +y_0=%f +ellps=GRS80 +datum=%s +units=m +no_defs" \
+    proj4_string = "'+proj=aea +lat_1=%f +lat_2=%f +lat_0=%f +lon_0=%f" \
+        " +x_0=%f +y_0=%f +ellps=GRS80 +datum=%s +units=m +no_defs'" \
         % (std_parallel_1, std_parallel_2, origin_lat, central_meridian,
            false_easting, false_northing, datum)
 
@@ -95,11 +95,11 @@ def build_utm_proj4_string(utm_zone, utm_north_south):
 
     proj4_string = ''
     if str(utm_north_south).lower() == 'north':
-        proj4_string = "+proj=utm +zone=%i +ellps=WGS84 +datum=WGS84" \
-            " +units=m +no_defs" % utm_zone
+        proj4_string = "'+proj=utm +zone=%i +ellps=WGS84 +datum=WGS84" \
+            " +units=m +no_defs'" % utm_zone
     elif str(utm_north_south).lower() == 'south':
-        proj4_string = "+proj=utm +zone=%i +south +ellps=WGS72" \
-            " +towgs84=0,0,1.9,0,0,0.814,-0.38 +units=m +no_defs" % utm_zone
+        proj4_string = "'+proj=utm +zone=%i +south +ellps=WGS72" \
+            " +towgs84=0,0,1.9,0,0,0.814,-0.38 +units=m +no_defs'" % utm_zone
     else:
         raise ValueError("Invalid utm_north_south argument[%s]" \
             " Argument must be one of 'north' or 'south'" % utm_north_south)
@@ -115,7 +115,7 @@ def build_geographic_proj4_string():
       Builds a proj.4 string for geographic
     '''
 
-    return '+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs'
+    return "'+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs'"
 # END - build_geographic_proj4_string
 
 
@@ -246,7 +246,8 @@ def parse_hdf_subdatasets (hdf_file):
     '''
 
     cmd = ['gdalinfo', hdf_file]
-    output = subprocess.check_output (cmd)
+    cmd = ' '.join(cmd)
+    output = util.execute_cmd (cmd)
     name = ''
     description = ''
     for line in output.split('\n'):
@@ -268,7 +269,8 @@ def parse_hdf_subdatasets (hdf_file):
 #==============================================================================
 def get_no_data_value (hdf_name):
     cmd = ['gdalinfo', hdf_name]
-    output = subprocess.check_output (cmd)
+    cmd = ' '.join(cmd)
+    output = util.execute_cmd (cmd)
 
     no_data_value = None
     for line in output.split('\n'):
@@ -292,8 +294,9 @@ def run_warp (source_file, output_file,
 
     cmd = build_warp_command (source_file, output_file, min_x, min_y, max_x,
         max_y, pixel_size, projection, resample_method, no_data_value)
-    log ("Warping %s with %s" % (source_file, ' '.join(cmd)))
-    output = subprocess.check_output (cmd)
+    cmd = ' '.join(cmd)
+    log ("Warping %s with %s" % (source_file, cmd))
+    output = util.execute_cmd (cmd)
     log (output)
 # END - run_warp
 
@@ -306,7 +309,8 @@ def get_hdf_global_metadata(hdf_file):
     '''
 
     cmd = ['gdalinfo', hdf_file]
-    output = subprocess.check_output (cmd)
+    cmd = ' '.join(cmd)
+    output = util.execute_cmd (cmd)
 
     sb = StringIO()
     has_subdatasets = False

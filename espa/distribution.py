@@ -17,7 +17,6 @@ History:
 import os
 import sys
 import glob
-import subprocess
 import traceback
 from time import sleep
 from argparse import ArgumentParser
@@ -29,6 +28,7 @@ from espa_logging import log, set_debug, debug
 # local objects and methods
 from espa_exception import ErrorCodes, ESPAException
 import parameters
+import util
 from transfer import transfer_file
 
 # Define the number of seconds to sleep between attempts
@@ -123,20 +123,37 @@ def package_product (source_directory, destination_directory, product_name):
     try:
         # Tar the files
         log ("Packaging completed product to %s.tar.gz" % product_full_path)
+
+        output = ''
+
         product_files = glob.glob("*")
         cmd = ['tar', '-cf', '%s.tar' % product_full_path]
         cmd += product_files
-        subprocess.check_output (cmd)
+        cmd = ' '.join(cmd)
+        try:
+            output = util.execute_cmd (cmd)
+        except Exception, e:
+            raise ESPAException (ErrorCodes.packaging_product, str(e)), \
+                None, sys.exc_info()[2]
+        finally:
+            log (output)
 
         # It has the tar extension now
-        product_full_path = "%s.tar" % product_full_path
+        product_full_path = '%s.tar' % product_full_path
 
         # Compress the product tar
         cmd = ['gzip', product_full_path]
-        subprocess.check_output (cmd)
+        cmd = ' '.join(cmd)
+        try:
+            output = util.execute_cmd (cmd)
+        except Exception, e:
+            raise ESPAException (ErrorCodes.packaging_product, str(e)), \
+                None, sys.exc_info()[2]
+        finally:
+            log (output)
 
         # It has the gz extension now
-        product_full_path = "%s.gz" % product_full_path
+        product_full_path = '%s.gz' % product_full_path
 
         # Change file permissions 
         log ("Changing file permissions on %s to 0644" % (product_full_path))
@@ -144,11 +161,24 @@ def package_product (source_directory, destination_directory, product_name):
 
         # Verify that the archive is good
         cmd = ['tar', '-tf', product_full_path]
-        subprocess.check_output (cmd)
+        cmd = ' '.join(cmd)
+        try:
+            output = util.execute_cmd (cmd)
+        except Exception, e:
+            raise ESPAException (ErrorCodes.packaging_product, str(e)), \
+                None, sys.exc_info()[2]
+        finally:
+            log (output)
 
         # If it was good then create a checksum file
         cmd = ['cksum', product_full_path]
-        output = subprocess.check_output (cmd)
+        cmd = ' '.join(cmd)
+        try:
+            output = util.execute_cmd (cmd)
+        except Exception, e:
+            log (output)
+            raise ESPAException (ErrorCodes.packaging_product, str(e)), \
+                None, sys.exc_info()[2]
 
         # Name of the checksum file created
         cksum_filename = "%s.cksum" % product_name
@@ -158,6 +188,7 @@ def package_product (source_directory, destination_directory, product_name):
         debug ("Checksum file = %s" % cksum_filename)
         debug ("Checksum'd file = %s" % cksum_prod_filename)
 
+        # Make sure they are strings
         output = output.split()
         cksum_value = str("%s %s %s") \
             % (str(output[0]), str(output[1]), str(cksum_prod_filename))
@@ -199,9 +230,17 @@ def distribute_product (destination_host, destination_directory,
     # Create the destination directory on the destination host
     log ("Creating destination directory %s on %s" \
         % (destination_directory, destination_host))
-    cmd = ['ssh', '-o', 'StrictHostKeyChecking=no', destination_host,
+    cmd = ['ssh', '-q', '-o', 'StrictHostKeyChecking=no', destination_host,
            'mkdir', '-p', destination_directory]
-    subprocess.check_output (cmd)
+    cmd = ' '.join(cmd)
+    output = ''
+    try:
+        output = util.execute_cmd (cmd)
+    except Exception, e:
+        raise ESPAException (ErrorCodes.packaging_product, str(e)), \
+            None, sys.exc_info()[2]
+    finally:
+        log (output)
 
     # Transfer the checksum file
     destination_cksum_file = '%s/%s' \
@@ -218,9 +257,16 @@ def distribute_product (destination_host, destination_directory,
         destination_pw=destination_pw)
 
     # Get the remote checksum value 
-    cmd = ['ssh', '-o', 'StrictHostKeyChecking=no', '-q', destination_host,
+    cksum_value = ''
+    cmd = ['ssh', '-q', '-o', 'StrictHostKeyChecking=no', destination_host,
            'cksum', destination_product_file]
-    cksum_value = subprocess.check_output (cmd)
+    cmd = ' '.join(cmd)
+    try:
+        cksum_value = util.execute_cmd (cmd)
+    except Exception, e:
+        log (cksum_value)
+        raise ESPAException (ErrorCodes.packaging_product, str(e)), \
+            None, sys.exc_info()[2]
 
     return (cksum_value, destination_product_file)
 # END - distribute_product
