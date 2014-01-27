@@ -26,13 +26,14 @@ import sys
 import time
 import json
 import xmlrpclib
-import subprocess
 from datetime import datetime
 
 # espa-common objects and methods
 from espa_constants import *
 from espa_logging import log
 
+# local objects and methods
+import util
 
 # Specify the buffer length for an order line in the order file.  Currently we
 # are setting a buffer of 2048.
@@ -137,8 +138,8 @@ def runScenes():
             #------------------------------------------------------------------
             log ("Storing request file to hdfs...")
             try:
-                output = subprocess.check_output (hadoop_store_command,
-                    stderr=subprocess.STDOUT)
+                cmd = ' '.join(hadoop_store_command)
+                output = util.execute_cmd (cmd)
             except Exception, e:
                 log ("Error storing files to HDFS... exiting")
                 sys.exit(EXIT_FAILURE)
@@ -162,8 +163,8 @@ def runScenes():
             #------------------------------------------------------------------
             log ("Running hadoop job...")
             try:
-                output = subprocess.check_output (hadoop_run_command,
-                    stderr=subprocess.STDOUT)
+                cmd = ' '.join(hadoop_run_command)
+                output = util.execute_cmd (cmd)
             except Exception, e:
                 log ("Error running Hadoop job...")
             finally:
@@ -172,8 +173,8 @@ def runScenes():
             #------------------------------------------------------------------
             log ("Deleting hadoop job request file from hdfs....")
             try:
-                output = subprocess.check_output (hadoop_delete_request_command1,
-                    stderr=subprocess.STDOUT)
+                cmd = ' '.join(hadoop_delete_request_command1)
+                output = util.execute_cmd (cmd)
             except Exception, e:
                 log ("Error deleting hadoop job request file")
             finally:
@@ -182,8 +183,8 @@ def runScenes():
             #------------------------------------------------------------------
             log ("Deleting hadoop job output...")
             try:
-                output = subprocess.check_output (hadoop_delete_request_command2,
-                    stderr=subprocess.STDOUT)
+                cmd = ' '.join(hadoop_delete_request_command2)
+                output = util.execute_cmd (cmd)
             except Exception, e:
                 log ("Error deleting hadoop job output")
             finally:
