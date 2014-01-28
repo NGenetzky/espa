@@ -391,7 +391,10 @@ def warp_science_products (parms):
                         # Split the name into parts to extract the subdata name
                         sds_parts = sds_name.split(':')
                         subdata_name = sds_parts[len(sds_parts) - 1]
-                        no_data_value = get_no_data_value (sds_name)
+                        # Quote the sds name due to possible spaces
+                        # Must be single because have double quotes in sds name
+                        quoted_sds_name = "'" + sds_name + "'"
+                        no_data_value = get_no_data_value (quoted_sds_name)
 
                         # Split the description into part to extract the string
                         # which allows for determining the correct gdal data
@@ -401,10 +404,14 @@ def warp_science_products (parms):
                         sds_parts = sds_parts[len(sds_parts) - 1].split(')')
                         hdf_type = sds_parts[0]
 
-                        log ("Processing Subdataset %s" % sds_name)
+                        log ("Processing Subdataset %s" % quoted_sds_name)
 
+                        # Remove spaces from the subdataset name for the
+                        # final output name
+                        subdata_name = subdata_name.replace(' ', '_')
                         output_filename = '%s-%s.tif' % (hdf_name, subdata_name)
-                        run_warp(sds_name, output_filename,
+
+                        run_warp(quoted_sds_name, output_filename,
                             min_x, min_y, max_x, max_y,
                             pixel_size, projection, resample_method,
                             no_data_value)
