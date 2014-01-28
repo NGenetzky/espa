@@ -181,22 +181,28 @@ def scp_transfer_file (source_host, source_file,
     Description:
       Using SCP transfer a file from a source location to a destination
       location.
+
+    Note:
+      - It is assumed ssh has been setup for access between the localhost
+        and destination system
+      - If wild cards are to be used with the source, then the destination
+        file must be a directory.  ***No checking is performed in this code***
     '''
 
     cmd = ['scp', '-q', '-o', 'StrictHostKeyChecking=no', '-c', 'arcfour', '-C']
 
     # Build the source portion of the command
+    # Single quote the source to allow for wild cards
     if source_host == 'localhost':
         cmd += [source_file]
     elif source_host != destination_host:
         # Build the SCP command line
-        cmd += ['%s:%s' % (source_host, source_file)]
+        cmd += ["'%s:%s'" % (source_host, source_file)]
 
     # Build the destination portion of the command
-    if destination_host == 'localhost':
-        cmd += [destination_file]
-    elif source_host != destination_host:
-        cmd += ['%s:%s' % (destination_host, destination_file)]
+    cmd += ['%s:%s' % (destination_host, destination_file)]
+
+    cmd = ' '.join(cmd)
 
     # Transfer the data and raise any errors
     output = ''
