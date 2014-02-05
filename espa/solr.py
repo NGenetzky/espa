@@ -81,7 +81,7 @@ def do_solr_index (metadata, scene, solr_filename, collection_name,
 
     # this is a fix for the changes to landsat metadata...
     # currently have mixed versions on the cache
-    row = None        
+    row = None
     if metadata.has_key("WRS_ROW"):
         row = metadata['WRS_ROW']
     else:
@@ -101,7 +101,7 @@ def do_solr_index (metadata, scene, solr_filename, collection_name,
         metadata['STATION_ID'])
 
     # get the acquisition date... account for landsat changes
-    acquisition_date = None    
+    acquisition_date = None
     if metadata.has_key('DATE_ACQUIRED'):
         acquisition_date = metadata['DATE_ACQUIRED'] + 'T00:00:01Z'
     else:
@@ -132,7 +132,7 @@ def do_solr_index (metadata, scene, solr_filename, collection_name,
 
     solr_buffer.write("</doc></add>")
     solr_buffer.flush()
-       
+
     output_fd = open(solr_filename, 'w')
     output_fd.write(solr_buffer.getvalue())
     output_fd.flush()
