@@ -39,9 +39,9 @@ def do_sr_browse (sr_filename, scene, resolution=default_resolution):
     Descrription:
       Creates a browse image from the surface relfectance file
     '''
-    
+
     log ("Creating browse product")
-                    
+
     browse_filename = "%s-sr-browse.tif" % scene
 
     #-------------------------------------------------------------------------
