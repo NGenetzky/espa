@@ -90,7 +90,7 @@ def build_utm_proj4_string(utm_zone, utm_north_south):
     Example:
       +proj=utm +zone=60 +ellps=WGS84 +datum=WGS84 +units=m +no_defs
       +proj=utm +zone=39 +south +ellps=WGS72 +towgs84=0,0,1.9,0,0,0.814,-0.38
-      +units=m +no_defs 
+      +units=m +no_defs
     '''
 
     proj4_string = ''
@@ -324,7 +324,7 @@ def get_hdf_global_metadata(hdf_file):
             break
         if str(line).strip().lower().startswith('corner'):
             break
-        
+
     sb.flush()
     metadata = sb.getvalue()
     sb.close()
