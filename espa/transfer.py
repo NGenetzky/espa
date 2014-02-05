@@ -209,10 +209,9 @@ def scp_transfer_file (source_host, source_file,
     try:
         output = util.execute_cmd (cmd)
     except Exception, e:
+        log (output)
         log ("Error: Failed to transfer data")
         raise e
-    finally:
-        log (output)
 
     log ("Transfer complete - SCP")
 # END - scp_transfer_file
