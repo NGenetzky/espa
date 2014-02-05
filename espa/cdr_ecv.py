@@ -149,7 +149,7 @@ def validate_parameters (parms):
 
     if not parameters.test_for_parameter (options, 'destination_directory'):
         options['destination_directory'] = \
-            ('%s/orders/%s') % (base_output_path, parms['orderid'])   
+            ('%s/orders/%s') % (base_output_path, parms['orderid'])
 # END - validate_parameters
 
 
@@ -215,7 +215,7 @@ def process (parms):
     # Un-tar the input data to the work directory
     try:
         untar_data (filename, work_directory)
-        os.unlink(filename) 
+        os.unlink(filename)
     except Exception, e:
         raise ESPAException (ErrorCodes.unpacking, str(e)), \
             None, sys.exc_info()[2]
@@ -252,7 +252,7 @@ def process (parms):
             deliver_product (work_directory, package_directory, product_name,
                 options['destination_host'], options['destination_directory'],
                 options['destination_username'], options['destination_pw'],
-                sleep_seconds)
+                options['include_statistics'], sleep_seconds)
         except Exception, e:
             log ("An error occurred processing %s" % scene)
             log ("Error: %s" % str(e))
