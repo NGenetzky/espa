@@ -29,7 +29,7 @@ from espa_logging import log, set_debug, debug
 from espa_exception import ErrorCodes, ESPAException
 import parameters
 import util
-from transfer import transfer_file
+from transfer import transfer_file, scp_transfer_file
 
 # Define the number of seconds to sleep between attempts
 default_sleep_seconds = 2
@@ -53,15 +53,15 @@ def build_argument_parser():
         action='store_true', dest='test_deliver_product', default=False,
         help="test the delivery code which also tests package_product and" \
              " distribute_product")
-    
+
     parser.add_argument ('--test_package_product',
         action='store_true', dest='test_package_product', default=False,
         help="test the packaging code")
-    
+
     parser.add_argument ('--test_distribute_product',
         action='store_true', dest='test_distribute_product', default=False,
         help="test the distributing code")
-    
+
     # Used by package and deliver and distribute
     parameters.add_destination_parameters (parser)
 
@@ -92,6 +92,48 @@ def build_argument_parser():
 
     return parser
 # END - build_argument_parser
+
+
+#==============================================================================
+def tar_product (product_full_path, product_files):
+    '''
+    Description:
+      Create a tar ball of the specified files.
+    '''
+
+    #cmd = ['tar', '--exclude=stats', '-cf', '%s.tar' % product_full_path]
+    cmd = ['tar', '-cf', '%s.tar' % product_full_path]
+    cmd += product_files
+    cmd = ' '.join(cmd)
+
+    try:
+        output = util.execute_cmd (cmd)
+    except Exception, e:
+        raise ESPAException (ErrorCodes.packaging_product, str(e)), \
+            None, sys.exc_info()[2]
+    finally:
+        log (output)
+# END - tar_product
+
+
+#==============================================================================
+def gzip_product (product_full_path):
+    '''
+    Description:
+      Create a tar ball of the specified files.
+    '''
+
+    cmd = ['gzip', product_full_path]
+    cmd = ' '.join(cmd)
+
+    try:
+        output = util.execute_cmd (cmd)
+    except Exception, e:
+        raise ESPAException (ErrorCodes.packaging_product, str(e)), \
+            None, sys.exc_info()[2]
+    finally:
+        log (output)
+# END - tar_product
 
 
 #==============================================================================
@@ -127,35 +169,18 @@ def package_product (source_directory, destination_directory, product_name):
         output = ''
 
         product_files = glob.glob("*")
-        cmd = ['tar', '-cf', '%s.tar' % product_full_path]
-        cmd += product_files
-        cmd = ' '.join(cmd)
-        try:
-            output = util.execute_cmd (cmd)
-        except Exception, e:
-            raise ESPAException (ErrorCodes.packaging_product, str(e)), \
-                None, sys.exc_info()[2]
-        finally:
-            log (output)
+        tar_product (product_full_path, product_files)
 
         # It has the tar extension now
         product_full_path = '%s.tar' % product_full_path
 
         # Compress the product tar
-        cmd = ['gzip', product_full_path]
-        cmd = ' '.join(cmd)
-        try:
-            output = util.execute_cmd (cmd)
-        except Exception, e:
-            raise ESPAException (ErrorCodes.packaging_product, str(e)), \
-                None, sys.exc_info()[2]
-        finally:
-            log (output)
+        gzip_product (product_full_path)
 
         # It has the gz extension now
         product_full_path = '%s.gz' % product_full_path
 
-        # Change file permissions 
+        # Change file permissions
         log ("Changing file permissions on %s to 0644" % (product_full_path))
         os.chmod(product_full_path, 0644)
 
@@ -200,7 +225,7 @@ def package_product (source_directory, destination_directory, product_name):
         cksum_fd.write(cksum_value)
         cksum_fd.flush()
         cksum_fd.close()
- 
+
     finally:
         # Change back to the previous directory
         os.chdir(current_directory)
@@ -223,8 +248,8 @@ def distribute_product (destination_host, destination_directory,
       destination_product_file - The full path on the destination
 
     Note:
-      It is assumed ssh has been setup for access between the localhost
-      and destination system
+      - It is assumed ssh has been setup for access between the localhost
+        and destination system
     '''
 
     # Create the destination directory on the destination host
@@ -256,7 +281,7 @@ def distribute_product (destination_host, destination_directory,
         destination_product_file, destination_username=destination_username,
         destination_pw=destination_pw)
 
-    # Get the remote checksum value 
+    # Get the remote checksum value
     cksum_value = ''
     cmd = ['ssh', '-q', '-o', 'StrictHostKeyChecking=no', destination_host,
            'cksum', destination_product_file]
@@ -273,10 +298,95 @@ def distribute_product (destination_host, destination_directory,
 
 
 #==============================================================================
+def distribute_statistics (work_directory,
+  destination_host, destination_directory):
+    '''
+    Description:
+      Transfers the statistics to the specified directory on the destination
+      host
+
+    Returns:
+      cksum_value - The check sum value from the destination
+      destination_product_file - The full path on the destination
+
+    Note:
+      - It is assumed ssh has been setup for access between the localhost
+        and destination system
+      - It is assumed a stats directory exists under the current directory
+    '''
+
+    # Change to the source directory
+    current_directory = os.getcwd()
+    os.chdir(work_directory)
+
+    try:
+        # Create the stats directory on the destination host
+        stats_directory = destination_directory + "/stats"
+        log ("Creating stats directory %s on %s" \
+            % (stats_directory, destination_host))
+        cmd = ['ssh', '-q', '-o', 'StrictHostKeyChecking=no', destination_host,
+               'mkdir', '-p', stats_directory]
+        cmd = ' '.join(cmd)
+        output = ''
+        try:
+            output = util.execute_cmd (cmd)
+        except Exception, e:
+            raise ESPAException (ErrorCodes.packaging_product, str(e)), \
+                None, sys.exc_info()[2]
+        finally:
+            log (output)
+
+        stats_files = 'stats/*'
+
+        # Transfer the stats files
+        scp_transfer_file('localhost', stats_files, destination_host,
+            stats_directory)
+
+        log ("Verifying statistics transfers")
+        stats_files = glob.glob(stats_files)
+        for file in stats_files:
+            local_cksum_value = 'a b c'
+            remote_cksum_value = 'b c d'
+
+            # Generate a local checksum value
+            cmd = ['cksum', file]
+            cmd = ' '.join(cmd)
+            try:
+                local_cksum_value = util.execute_cmd (cmd)
+            except Exception, e:
+                log (local_cksum_value)
+                raise ESPAException (ErrorCodes.packaging_product, str(e)), \
+                    None, sys.exc_info()[2]
+
+            # Generate a remote checksum value
+            remote_file = destination_directory + '/' + file
+            cmd = ['ssh', '-q', '-o', 'StrictHostKeyChecking=no',
+                destination_host, 'cksum', remote_file]
+            cmd = ' '.join(cmd)
+            try:
+                remote_cksum_value = util.execute_cmd (cmd)
+            except Exception, e:
+                log (remote_cksum_value)
+                raise ESPAException (ErrorCodes.packaging_product, str(e)), \
+                    None, sys.exc_info()[2]
+
+            # Checksum validation
+            if local_cksum_value.split()[0] != remote_cksum_value.split()[0]:
+                raise ESPAException (ErrorCodes.verifing_checksum,
+                    "Failed checksum validation between %s and %s:%s" \
+                        % (file, destination_host, remote_file))
+
+    finally:
+        # Change back to the previous directory
+        os.chdir(current_directory)
+# END - distribute_statistics
+
+
+#==============================================================================
 def deliver_product (work_directory, package_directory, product_name,
   destination_host, destination_directory,
   destination_username, destination_pw,
-  sleep_seconds=default_sleep_seconds):
+  include_statistics=False, sleep_seconds=default_sleep_seconds):
     '''
     Description:
       Packages the product and distributes it to the destination.
@@ -325,15 +435,38 @@ def deliver_product (work_directory, package_directory, product_name,
                 attempt += 1
                 continue
             else:
-                raise ESPAException (ErrorCodes.distributing_product, str(e)), \
-                    None, sys.exc_info()[2]
+                raise ESPAException (ErrorCodes.distributing_product, \
+                    str(e)), None, sys.exc_info()[2]
         break
 
     # Checksum validation
     if local_cksum_value.split()[0] != remote_cksum_value.split()[0]:
         raise ESPAException (ErrorCodes.verifing_checksum,
             "Failed checksum validation between %s and %s:%s" \
-                % (product_full_path, destination_host, destination_product_file))
+                % (product_full_path, destination_host,
+                   destination_product_file))
+
+    # Distribute the statistics directory if they were generated
+    if include_statistics:
+        # Attempt three times sleeping between each attempt
+        attempt = 0
+        while True:
+            try:
+                distribute_statistics (work_directory,
+                    destination_host, destination_directory)
+            except Exception, e:
+                log ("An error occurred processing %s" % product_name)
+                log ("Error: %s" % str(e))
+                if attempt < max_number_of_attempts:
+                    sleep(sleep_seconds) # sleep before trying again
+                    attempt += 1
+                    continue
+                else:
+                    raise ESPAException (ErrorCodes.distributing_product, \
+                        str(e)), None, sys.exc_info()[2]
+            break
+
+        log ("Statistics distribution complete for %s" % product_name)
 
     log ("Product delivery complete for %s:%s" % \
         (destination_host, destination_product_file))
