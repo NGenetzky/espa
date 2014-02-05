@@ -343,6 +343,7 @@ def distribute_statistics (work_directory,
             stats_directory)
 
         log ("Verifying statistics transfers")
+        # NOTE - Re-purposing the stats_files variable
         stats_files = glob.glob(stats_files)
         for file in stats_files:
             local_cksum_value = 'a b c'
