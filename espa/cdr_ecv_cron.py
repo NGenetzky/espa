@@ -155,7 +155,8 @@ def runScenes():
                 sceneid = line['scene']
                 log ("Updating scene:%s orderid:%s to queued" \
                      % (sceneid, orderid))
-                server.updateStatus (sceneid, orderid, 'cron driver', 'queued')
+                server.updateStatus (sceneid, orderid,
+                    'CDR_ECV cron driver', 'queued')
 
             log ("Deleting local request file copy...")
             os.unlink(espaorderfile)
