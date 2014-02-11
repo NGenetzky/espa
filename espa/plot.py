@@ -803,6 +803,7 @@ def process(args):
         if not args.keep:
             shutil.rmtree(local_work_directory)
 
+    log ("Plot Processing Complete")
 # END - process
 
 
