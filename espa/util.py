@@ -193,3 +193,34 @@ def getModisArchiveDate(scene_name):
 
     raise ValueError("Year %s does not have %s days" % (year, doy))
 
+
+def getCacheHostname():
+    '''
+    Description:
+      Poor mans load balancer for accessing the online cache over the private
+      network
+    '''
+
+    #140 is here twice so the load is 2/3 + 1/3.  machines are mismatched
+    hostlist = ['edclxs67p', 'edclxs140p', 'edclxs140p']
+
+    def check_host_status(hostname):
+        cmd = "ping -q -c 1 %s" % hostname
+        status,output = commands.getstatusoutput(cmd)
+        return status
+
+    def get_hostname():  
+        hostname = random.choice(hostlist)
+        if check_host_status(hostname) == 0:
+            return hostname
+        else:
+            for x in hostlist:
+                if x == hostname:
+                    hostlist.remove(x)
+            if len(hostlist) > 0:
+                return get_hostname()
+            else:
+                raise Exception("No online cache hosts available...") 
+    
+    return get_hostname()
+

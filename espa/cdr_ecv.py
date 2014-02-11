@@ -122,7 +122,7 @@ def validate_parameters (parms):
 
     # Verify or set the source information
     if not parameters.test_for_parameter (options, 'source_host'):
-        options['source_host'] = 'localhost'
+        options['source_host'] = util.getCacheHostname()
 
     if not parameters.test_for_parameter (options, 'source_username'):
         options['source_username'] = None
@@ -139,7 +139,7 @@ def validate_parameters (parms):
 
     # Verify or set the destination information
     if not parameters.test_for_parameter (options, 'destination_host'):
-        options['destination_host'] = 'localhost'
+        options['destination_host'] = util.getCacheHostname()
 
     if not parameters.test_for_parameter (options, 'destination_username'):
         options['destination_username'] = 'localhost'
