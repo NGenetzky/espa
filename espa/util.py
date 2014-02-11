@@ -15,6 +15,7 @@ History:
 import datetime
 import calendar
 import subprocess
+import random
 
 
 def execute_cmd (cmd):
@@ -206,8 +207,12 @@ def getCacheHostname():
 
     def check_host_status(hostname):
         cmd = "ping -q -c 1 %s" % hostname
-        status,output = commands.getstatusoutput(cmd)
-        return status
+        output = ''
+        try:
+            output = execute_cmd (cmd)
+        except Exception, e:
+            return -1
+        return 0
 
     def get_hostname():  
         hostname = random.choice(hostlist)
