@@ -47,6 +47,8 @@ default_browse_resolution = 50
 
 default_solr_collection_name = 'DEFAULT_COLLECTION'
 
+cfmask_cloud_size_limit = 5000000
+
 
 # distribution.py ============================================================
 
