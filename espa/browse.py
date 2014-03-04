@@ -36,7 +36,7 @@ default_resolution = 50
 #=============================================================================
 def do_sr_browse (sr_filename, scene, resolution=default_resolution):
     '''
-    Descrription:
+    Description:
       Creates a browse image from the surface relfectance file
     '''
 

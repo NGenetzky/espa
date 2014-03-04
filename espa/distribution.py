@@ -26,10 +26,10 @@ from espa_constants import *
 from espa_logging import log, set_debug, debug
 
 # local objects and methods
-from espa_exception import ErrorCodes, ESPAException
+import espa_exception as ee
 import parameters
 import util
-from transfer import transfer_file, scp_transfer_file
+import transfer
 
 # Define the number of seconds to sleep between attempts
 default_sleep_seconds = 2
@@ -109,7 +109,7 @@ def tar_product (product_full_path, product_files):
     try:
         output = util.execute_cmd (cmd)
     except Exception, e:
-        raise ESPAException (ErrorCodes.packaging_product, str(e)), \
+        raise ee.ESPAException (ee.ErrorCodes.packaging_product, str(e)), \
             None, sys.exc_info()[2]
     finally:
         log (output)
@@ -129,7 +129,7 @@ def gzip_product (product_full_path):
     try:
         output = util.execute_cmd (cmd)
     except Exception, e:
-        raise ESPAException (ErrorCodes.packaging_product, str(e)), \
+        raise ee.ESPAException (ee.ErrorCodes.packaging_product, str(e)), \
             None, sys.exc_info()[2]
     finally:
         log (output)
@@ -190,7 +190,7 @@ def package_product (source_directory, destination_directory, product_name):
         try:
             output = util.execute_cmd (cmd)
         except Exception, e:
-            raise ESPAException (ErrorCodes.packaging_product, str(e)), \
+            raise ee.ESPAException (ee.ErrorCodes.packaging_product, str(e)), \
                 None, sys.exc_info()[2]
         finally:
             log (output)
@@ -202,7 +202,7 @@ def package_product (source_directory, destination_directory, product_name):
             output = util.execute_cmd (cmd)
         except Exception, e:
             log (output)
-            raise ESPAException (ErrorCodes.packaging_product, str(e)), \
+            raise ee.ESPAException (ee.ErrorCodes.packaging_product, str(e)), \
                 None, sys.exc_info()[2]
 
         # Name of the checksum file created
@@ -262,7 +262,7 @@ def distribute_product (destination_host, destination_directory,
     try:
         output = util.execute_cmd (cmd)
     except Exception, e:
-        raise ESPAException (ErrorCodes.packaging_product, str(e)), \
+        raise ee.ESPAException (ee.ErrorCodes.packaging_product, str(e)), \
             None, sys.exc_info()[2]
     finally:
         log (output)
@@ -270,14 +270,14 @@ def distribute_product (destination_host, destination_directory,
     # Transfer the checksum file
     destination_cksum_file = '%s/%s' \
         % (destination_directory, os.path.basename(cksum_filename))
-    transfer_file('localhost', cksum_filename, destination_host,
+    transfer.transfer_file('localhost', cksum_filename, destination_host,
         destination_cksum_file, destination_username=destination_username,
         destination_pw=destination_pw)
 
     # Transfer the product file
     destination_product_file = '%s/%s' \
         % (destination_directory, os.path.basename(product_filename))
-    transfer_file('localhost', product_filename, destination_host,
+    transfer.transfer_file('localhost', product_filename, destination_host,
         destination_product_file, destination_username=destination_username,
         destination_pw=destination_pw)
 
@@ -290,7 +290,7 @@ def distribute_product (destination_host, destination_directory,
         cksum_value = util.execute_cmd (cmd)
     except Exception, e:
         log (cksum_value)
-        raise ESPAException (ErrorCodes.packaging_product, str(e)), \
+        raise ee.ESPAException (ee.ErrorCodes.packaging_product, str(e)), \
             None, sys.exc_info()[2]
 
     return (cksum_value, destination_product_file)
@@ -331,7 +331,7 @@ def distribute_statistics (work_directory,
         try:
             output = util.execute_cmd (cmd)
         except Exception, e:
-            raise ESPAException (ErrorCodes.packaging_product, str(e)), \
+            raise ee.ESPAException (ee.ErrorCodes.packaging_product, str(e)), \
                 None, sys.exc_info()[2]
         finally:
             log (output)
@@ -339,7 +339,7 @@ def distribute_statistics (work_directory,
         stats_files = 'stats/*'
 
         # Transfer the stats files
-        scp_transfer_file('localhost', stats_files, destination_host,
+        transfer.scp_transfer_file('localhost', stats_files, destination_host,
             stats_directory)
 
         log ("Verifying statistics transfers")
@@ -356,8 +356,8 @@ def distribute_statistics (work_directory,
                 local_cksum_value = util.execute_cmd (cmd)
             except Exception, e:
                 log (local_cksum_value)
-                raise ESPAException (ErrorCodes.packaging_product, str(e)), \
-                    None, sys.exc_info()[2]
+                raise ee.ESPAException (ee.ErrorCodes.packaging_product,
+                    str(e)), None, sys.exc_info()[2]
 
             # Generate a remote checksum value
             remote_file = destination_directory + '/' + file
@@ -368,12 +368,12 @@ def distribute_statistics (work_directory,
                 remote_cksum_value = util.execute_cmd (cmd)
             except Exception, e:
                 log (remote_cksum_value)
-                raise ESPAException (ErrorCodes.packaging_product, str(e)), \
-                    None, sys.exc_info()[2]
+                raise ee.ESPAException (ee.ErrorCodes.packaging_product,
+                    str(e)), None, sys.exc_info()[2]
 
             # Checksum validation
             if local_cksum_value.split()[0] != remote_cksum_value.split()[0]:
-                raise ESPAException (ErrorCodes.verifing_checksum,
+                raise ee.ESPAException (ee.ErrorCodes.verifing_checksum,
                     "Failed checksum validation between %s and %s:%s" \
                         % (file, destination_host, remote_file))
 
@@ -415,8 +415,8 @@ def deliver_product (work_directory, package_directory, product_name,
                 attempt += 1
                 continue
             else:
-                raise ESPAException (ErrorCodes.packaging_product, str(e)), \
-                    None, sys.exc_info()[2]
+                raise ee.ESPAException (ee.ErrorCodes.packaging_product,
+                    str(e)), None, sys.exc_info()[2]
         break
 
     # Distribute the product
@@ -436,13 +436,13 @@ def deliver_product (work_directory, package_directory, product_name,
                 attempt += 1
                 continue
             else:
-                raise ESPAException (ErrorCodes.distributing_product, \
+                raise ee.ESPAException (ee.ErrorCodes.distributing_product,
                     str(e)), None, sys.exc_info()[2]
         break
 
     # Checksum validation
     if local_cksum_value.split()[0] != remote_cksum_value.split()[0]:
-        raise ESPAException (ErrorCodes.verifing_checksum,
+        raise ee.ESPAException (ee.ErrorCodes.verifing_checksum,
             "Failed checksum validation between %s and %s:%s" \
                 % (product_full_path, destination_host,
                    destination_product_file))
@@ -463,7 +463,7 @@ def deliver_product (work_directory, package_directory, product_name,
                     attempt += 1
                     continue
                 else:
-                    raise ESPAException (ErrorCodes.distributing_product, \
+                    raise ee.ESPAException (ee.ErrorCodes.distributing_product,
                         str(e)), None, sys.exc_info()[2]
             break
 
@@ -503,7 +503,7 @@ if __name__ == '__main__':
                 args.destination_directory, args.destination_host,
                 args.destination_pw, args.sleep_seconds)
 
-            print ("Succefully delivered product %s" % args.product_name)
+            print ("Successfully delivered product %s" % args.product_name)
 
         elif args.test_package_product:
             (product_full_path, cksum_full_path, cksum_value) = \
@@ -513,14 +513,14 @@ if __name__ == '__main__':
             print ("Product Path: %s" % product_full_path)
             print ("Checksum Path: %s" % cksum_full_path)
             print ("Checksum Value: %s" % cksum_value)
-            print ("Succefully packaged product %s" % args.product_name)
+            print ("Successfully packaged product %s" % args.product_name)
 
         elif args.test_distribute_product:
             (cksum_value, destination_full_path) = \
                 distribute_product (args.destination_host,
                     args.destination_directory, args.destination_host,
                     args.destination_pw, args.product_file, args.cksum_file)
-            print ("Succefully distributed product %s" % args.product_file)
+            print ("Successfully distributed product %s" % args.product_file)
 
     except Exception, e:
         log ("Error: %s" % str(e))

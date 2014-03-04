@@ -22,11 +22,11 @@ from espa_constants import *
 from espa_logging import log, debug, set_debug
 
 # local objects and methods
-from espa_exception import ErrorCodes, ESPAException
+import espa_exception as ee
 import parameters
 import util
-from cdr_ecv import process as process_landsat
-from modis import process as process_modis
+import cdr_ecv
+import modis
 
 
 #=============================================================================
@@ -98,67 +98,67 @@ if __name__ == '__main__':
             if sensor in parameters.valid_landsat_sensors:
                 log ("Processing cdr_ecv with [%s]" \
                     % ' '.join(cmd_line_options))
-                process_landsat (parms)
+                cdr_ecv.process (parms)
             elif sensor in parameters.valid_modis_sensors:
                 log ("Processing modis with [%s]" \
                     % ' '.join(cmd_line_options))
-                process_modis (parms)
+                modis.process (parms)
 
             #------------------------------------------------------------------
             # NOTE: Else process using another sensors processor
             #------------------------------------------------------------------
 
-        except ESPAException, e:
+        except ee.ESPAException, e:
             # Log the error information
             # Depending on the error_code do something different
             # TODO - Today we are failing everything, but some things could be
             #        made recovereable in the future.
-            if e.error_code == ErrorCodes.creating_stage_dir \
-              or e.error_code == ErrorCodes.creating_work_dir \
-              or e.error_code == ErrorCodes.creating_output_dir:
+            if e.error_code == ee.ErrorCodes.creating_stage_dir \
+              or e.error_code == ee.ErrorCodes.creating_work_dir \
+              or e.error_code == ee.ErrorCodes.creating_output_dir:
 
                 if server is not None:
                     server.setSceneError(sceneid, orderid,
                         processing_location, e)
 
-            elif e.error_code == ErrorCodes.staging_data \
-              or e.error_code == ErrorCodes.unpacking:
+            elif e.error_code == ee.ErrorCodes.staging_data \
+              or e.error_code == ee.ErrorCodes.unpacking:
 
                 if server is not None:
                     server.setSceneError(sceneid, orderid,
                         processing_location, e)
 
-            elif e.error_code == ErrorCodes.metadata \
-              or e.error_code == ErrorCodes.ledaps \
-              or e.error_code == ErrorCodes.browse \
-              or e.error_code == ErrorCodes.spectral_indices \
-              or e.error_code == ErrorCodes.create_dem \
-              or e.error_code == ErrorCodes.solr \
-              or e.error_code == ErrorCodes.cfmask \
-              or e.error_code == ErrorCodes.cfmask_append \
-              or e.error_code == ErrorCodes.swe \
-              or e.error_code == ErrorCodes.sca \
-              or e.error_code == ErrorCodes.cleanup_work_dir:
+            elif e.error_code == ee.ErrorCodes.metadata \
+              or e.error_code == ee.ErrorCodes.ledaps \
+              or e.error_code == ee.ErrorCodes.browse \
+              or e.error_code == ee.ErrorCodes.spectral_indices \
+              or e.error_code == ee.ErrorCodes.create_dem \
+              or e.error_code == ee.ErrorCodes.solr \
+              or e.error_code == ee.ErrorCodes.cfmask \
+              or e.error_code == ee.ErrorCodes.cfmask_append \
+              or e.error_code == ee.ErrorCodes.swe \
+              or e.error_code == ee.ErrorCodes.sca \
+              or e.error_code == ee.ErrorCodes.cleanup_work_dir:
 
                 if server is not None:
                     server.setSceneError(sceneid, orderid,
                         processing_location, e)
 
-            elif e.error_code == ErrorCodes.warping:
+            elif e.error_code == ee.ErrorCodes.warping:
 
                 if server is not None:
                     server.setSceneError(sceneid, orderid,
                         processing_location, e)
 
-            elif e.error_code == ErrorCodes.statistics:
+            elif e.error_code == ee.ErrorCodes.statistics:
 
                 if server is not None:
                     server.setSceneError(sceneid, orderid,
                         processing_location, e)
 
-            elif e.error_code == ErrorCodes.packaging_product \
-              or e.error_code == ErrorCodes.distributing_product \
-              or e.error_code == ErrorCodes.verifying_checksum:
+            elif e.error_code == ee.ErrorCodes.packaging_product \
+              or e.error_code == ee.ErrorCodes.distributing_product \
+              or e.error_code == ee.ErrorCodes.verifying_checksum:
 
                 if server is not None:
                     server.setSceneError(sceneid, orderid,

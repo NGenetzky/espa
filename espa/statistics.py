@@ -19,6 +19,7 @@ import errno
 import traceback
 from cStringIO import StringIO
 
+# espa-common objects and methods
 from espa_constants import *
 from espa_logging import log
 

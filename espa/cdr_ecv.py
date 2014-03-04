@@ -32,12 +32,11 @@ from espa_logging import log, set_debug, debug
 # local objects and methods
 import parameters
 import util
-from staging import initialize_processing_directory, untar_data, \
-    stage_landsat_data
-from science import build_landsat_science_products, validate_landsat_parameters
+import staging
+import science
 import warp
-from statistics import generate_statistics
-from distribution import deliver_product
+import statistics
+import distribution
 
 
 #==============================================================================
@@ -89,7 +88,7 @@ def validate_parameters (parms):
             raise RuntimeError ("Missing required input parameter [%s]" % key)
 
     # Validate the science product parameters
-    validate_landsat_parameters (parms)
+    science.validate_landsat_parameters (parms)
 
     # Get a local pointer to the options
     options = parms['options']
@@ -195,7 +194,7 @@ def process (parms):
 
     # Create and retrieve the directories to use for processing
     (scene_directory, stage_directory, work_directory, package_directory) = \
-        initialize_processing_directory (parms['orderid'], scene)
+        staging.initialize_processing_directory (parms['orderid'], scene)
 
     # Keep a local options for those apps that only need a few things
     options = parms['options']
@@ -208,20 +207,20 @@ def process (parms):
     product_name = build_product_name(scene)
 
     # Stage the landsat data
-    filename = stage_landsat_data(scene, options['source_host'],
+    filename = staging.stage_landsat_data(scene, options['source_host'],
         options['source_directory'], 'localhost', stage_directory,
         options['source_username'], options['source_pw'])
 
     # Un-tar the input data to the work directory
     try:
-        untar_data (filename, work_directory)
+        staging.untar_data (filename, work_directory)
         os.unlink(filename)
     except Exception, e:
         raise ESPAException (ErrorCodes.unpacking, str(e)), \
             None, sys.exc_info()[2]
 
     # Build the requested science products
-    build_landsat_science_products (parms)
+    science.build_landsat_science_products (parms)
 
     # Reproject the data for each science product, but only if necessary
     # To generate statistics we must convert to GeoTIFF which warping does
@@ -238,7 +237,8 @@ def process (parms):
         files_to_search_for += ['*-ndmi.tif']
         files_to_search_for += ['*-vi-*.tif']
         # Generate the stats for each file
-        generate_statistics(options['work_directory'], files_to_search_for)
+        statistics.generate_statistics(options['work_directory'],
+            files_to_search_for)
 
     # Deliver the product files
     # Attempt five times sleeping between each attempt
@@ -249,7 +249,8 @@ def process (parms):
         try:
             # Deliver product will also try each of its parts three times
             # before failing, so we pass our sleep seconds down to them
-            deliver_product (work_directory, package_directory, product_name,
+            distribution.deliver_product (work_directory, package_directory,
+                product_name,
                 options['destination_host'], options['destination_directory'],
                 options['destination_username'], options['destination_pw'],
                 options['include_statistics'], sleep_seconds)

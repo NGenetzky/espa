@@ -30,11 +30,11 @@ from espa_logging import log, set_debug, debug
 # local objects and methods
 import parameters
 import util
-from transfer import copy_file_to_file
-from staging import initialize_processing_directory, stage_modis_data
+import transfer
+import staging
 import warp
-from statistics import generate_statistics
-from distribution import deliver_product
+import statistics
+import distribution
 
 
 #==============================================================================
@@ -186,7 +186,7 @@ def process (parms):
 
     # Create and retrieve the directories to use for processing
     (scene_directory, stage_directory, work_directory, package_directory) = \
-        initialize_processing_directory (parms['orderid'], scene)
+        staging.initialize_processing_directory (parms['orderid'], scene)
 
     # Keep a local options for those apps that only need a few things
     options = parms['options']
@@ -199,13 +199,13 @@ def process (parms):
     product_name = build_product_name(scene)
 
     # Stage the modis data
-    filename = stage_modis_data(scene, options['source_host'],
+    filename = staging.stage_modis_data(scene, options['source_host'],
         options['source_directory'], stage_directory)
     log (filename)
 
     # Copy the staged data to the work directory
     try:
-        copy_file_to_file (filename, work_directory)
+        transfer.copy_file_to_file (filename, work_directory)
         os.unlink(filename)
     except Exception, e:
         raise ESPAException (ErrorCodes.unpacking, str(e)), \
@@ -229,7 +229,8 @@ def process (parms):
         files_to_search_for += ['*NDVI.tif']
         files_to_search_for += ['*EVI.tif']
         # Generate the stats for each file
-        generate_statistics(options['work_directory'], files_to_search_for)
+        statistics.generate_statistics(options['work_directory'],
+            files_to_search_for)
 
     # Deliver the product files
     # Attempt five times sleeping between each attempt
@@ -240,7 +241,8 @@ def process (parms):
         try:
             # Deliver product will also try each of its parts three times
             # before failing, so we pass our sleep seconds down to them
-            deliver_product (work_directory, package_directory, product_name,
+            distribution.deliver_product (work_directory, package_directory,
+                product_name,
                 options['destination_host'], options['destination_directory'],
                 options['destination_username'], options['destination_pw'],
                 options['include_statistics'], sleep_seconds)

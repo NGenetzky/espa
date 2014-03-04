@@ -25,12 +25,12 @@ from espa_constants import *
 from espa_logging import log, set_debug, debug
 
 # local objects and methods
-from espa_exception import ErrorCodes, ESPAException
+import espa_exception as ee
 import parameters
 import util
-from metadata import get_landsat_metadata
-from solr import do_solr_index
-from browse import do_sr_browse
+import metadata
+import solr
+import browse
 
 
 # Default values
@@ -132,11 +132,12 @@ def build_landsat_science_products (parms):
 
     # Figure out the metadata filename
     try:
-        metadata = get_landsat_metadata (options['work_directory'])
+        landsat_metadata = \
+            metadata.get_landsat_metadata (options['work_directory'])
     except Exception, e:
-        raise ESPAException (ErrorCodes.metadata, str(e)), \
+        raise ee.ESPAException (ee.ErrorCodes.metadata, str(e)), \
             None, sys.exc_info()[2]
-    metadata_filename = metadata['metadata_filename']
+    metadata_filename = landsat_metadata['metadata_filename']
 
     # Figure out filenames
     sr_filename = 'lndsr.%s.hdf' % scene
@@ -175,7 +176,7 @@ def build_landsat_science_products (parms):
             try:
                 output = util.execute_cmd (cmd)
             except Exception, e:
-                raise ESPAException (ErrorCodes.ledaps, str(e)), \
+                raise ee.ESPAException (ee.ErrorCodes.ledaps, str(e)), \
                     None, sys.exc_info()[2]
             finally:
                 log (output)
@@ -184,9 +185,10 @@ def build_landsat_science_products (parms):
         # Generate SR browse product
         if options['include_sr_browse']:
             try:
-                do_sr_browse (sr_filename, scene, options['browse_resolution'])
+                browse.do_sr_browse (sr_filename, scene,
+                    options['browse_resolution'])
             except Exception, e:
-                raise ESPAException (ErrorCodes.browse, str(e)), \
+                raise ee.ESPAException (ee.ErrorCodes.browse, str(e)), \
                     None, sys.exc_info()[2]
 
         # ---------------------------------------------------------------------
@@ -224,8 +226,8 @@ def build_landsat_science_products (parms):
             try:
                 output = util.execute_cmd (cmd)
             except Exception, e:
-                raise ESPAException (ErrorCodes.spectral_indices, str(e)), \
-                    None, sys.exc_info()[2]
+                raise ee.ESPAException (ee.ErrorCodes.spectral_indices,
+                    str(e)), None, sys.exc_info()[2]
             finally:
                 log (output)
         # END - if indices
@@ -242,7 +244,7 @@ def build_landsat_science_products (parms):
             try:
                 output = util.execute_cmd (cmd)
             except Exception, e:
-                raise ESPAException (ErrorCodes.create_dem, str(e)), \
+                raise ee.ESPAException (ee.ErrorCodes.create_dem, str(e)), \
                     None, sys.exc_info()[2]
             finally:
                 log (output)
@@ -251,10 +253,10 @@ def build_landsat_science_products (parms):
         # Generate SOLR index
         if options['include_solr_index']:
             try:
-                do_solr_index (metadata, scene, solr_filename,
+                solr.do_solr_index (landsat_metadata, scene, solr_filename,
                     options['collection_name'])
             except Exception, e:
-                raise ESPAException (ErrorCodes.solr, str(e)), \
+                raise ee.ESPAException (ee.ErrorCodes.solr, str(e)), \
                     None, sys.exc_info()[2]
 
         # ---------------------------------------------------------------------
@@ -262,7 +264,7 @@ def build_landsat_science_products (parms):
         if options['include_cfmask'] or options['include_sr']:
             # Verify lndcal file exists first
             if not os.path.isfile(toa_filename):
-                raise ESPAException (ErrorCodes.cfmask,
+                raise ee.ESPAException (ee.ErrorCodes.cfmask,
                     ("Could not find LEDAPS TOA reflectance file in %s") \
                      % options['work_directory'])
 
@@ -273,7 +275,7 @@ def build_landsat_science_products (parms):
             try:
                 output = util.execute_cmd (cmd)
             except Exception, e:
-                raise ESPAException (ErrorCodes.cfmask, str(e)), \
+                raise ee.ESPAException (ee.ErrorCodes.cfmask, str(e)), \
                     None, sys.exc_info()[2]
             finally:
                 log (output)
@@ -289,7 +291,7 @@ def build_landsat_science_products (parms):
             try:
                 output = util.execute_cmd (cmd)
             except Exception, e:
-                raise ESPAException (ErrorCodes.cfmask_append, str(e)), \
+                raise ee.ESPAException (ee.ErrorCodes.cfmask_append, str(e)), \
                     None, sys.exc_info()[2]
             finally:
                 log (output)
@@ -306,7 +308,7 @@ def build_landsat_science_products (parms):
             try:
                 output = util.execute_cmd (cmd)
             except Exception, e:
-                raise ESPAException (ErrorCodes.swe, str(e)), \
+                raise ee.ESPAException (ee.ErrorCodes.swe, str(e)), \
                     None, sys.exc_info()[2]
             finally:
                 log (output)
@@ -323,7 +325,7 @@ def build_landsat_science_products (parms):
             try:
                 output = util.execute_cmd (cmd)
             except Exception, e:
-                raise ESPAException (ErrorCodes.sca, str(e)), \
+                raise ee.ESPAException (ee.ErrorCodes.sca, str(e)), \
                     None, sys.exc_info()[2]
             finally:
                 log (output)
@@ -358,11 +360,11 @@ def build_landsat_science_products (parms):
 
         cmd = ['rm', '-rf'] + non_products
         cmd = ' '.join(cmd)
-        log ('REMOVING INTERMEDIATE DATA COMMAND' + cmd)
+        log ('REMOVING INTERMEDIATE DATA COMMAND:' + cmd)
         try:
             output = util.execute_cmd (cmd)
         except Exception, e:
-            raise ESPAException (ErrorCodes.cleanup_work_dir, str(e)), \
+            raise ee.ESPAException (ee.ErrorCodes.cleanup_work_dir, str(e)), \
                 None, sys.exc_info()[2]
         finally:
             log (output)

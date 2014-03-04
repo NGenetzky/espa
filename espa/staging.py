@@ -23,8 +23,8 @@ from espa_constants import *
 from espa_logging import log
 
 # local objects and methods
-from espa_exception import ErrorCodes, ESPAException
-from transfer import transfer_file, http_transfer_file
+import espa_exception as ee
+import transfer
 import util
 
 
@@ -115,19 +115,19 @@ def initialize_processing_directory (orderid, scene):
     try:
         create_directory (stage_directory)
     except Exception, e:
-        raise ESPAException (ErrorCodes.creating_stage_dir, str(e)), \
+        raise ee.ESPAException (ee.ErrorCodes.creating_stage_dir, str(e)), \
             None, sys.exc_info()[2]
 
     try:
         create_directory (work_directory)
     except Exception, e:
-        raise ESPAException (ErrorCodes.creating_work_dir, str(e)), \
+        raise ee.ESPAException (ee.ErrorCodes.creating_work_dir, str(e)), \
             None, sys.exc_info()[2]
 
     try:
         create_directory (output_directory)
     except Exception, e:
-        raise ESPAException (ErrorCodes.creating_output_dir, str(e)), \
+        raise ee.ESPAException (ee.ErrorCodes.creating_output_dir, str(e)), \
             None, sys.exc_info()[2]
 
     return (scene_directory, stage_directory, work_directory, output_directory)
@@ -150,11 +150,11 @@ def stage_landsat_data (scene, source_host, source_directory, \
     destination_file = '%s/%s' % (destination_directory, filename)
 
     try:
-        transfer_file (source_host, source_file,
+        transfer.transfer_file (source_host, source_file,
             destination_host, destination_file,
             source_username=source_username, source_pw=source_pw)
     except Exception, e:
-        raise ESPAException (ErrorCodes.staging_data, str(e)), \
+        raise ee.ESPAException (ee.ErrorCodes.staging_data, str(e)), \
             None, sys.exc_info()[2]
 
     return destination_file
@@ -176,9 +176,9 @@ def stage_modis_data (scene, source_host, source_directory, \
     destination_file = '%s/%s' % (destination_directory, filename)
 
     try:
-        http_transfer_file (source_host, source_file, destination_file)
+        transfer.http_transfer_file (source_host, source_file, destination_file)
     except Exception, e:
-        raise ESPAException (ErrorCodes.staging_data, str(e)), \
+        raise ee.ESPAException (ee.ErrorCodes.staging_data, str(e)), \
             None, sys.exc_info()[2]
 
     return destination_file

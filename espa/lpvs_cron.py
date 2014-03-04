@@ -14,7 +14,7 @@
     HISTORY:
 
     Date              Programmer               Reason
-    ----------------  ------------------------ --------------------------------
+    ----------------  ------------------------ -------------------------------
     Feb/2014          Ron Dilley               Initial implementation
 '''
 
@@ -33,7 +33,7 @@ from espa_logging import log
 # local objects and methods
 import util
 
-#==============================================================================
+#=============================================================================
 def usage():
     '''
     Description:
@@ -44,11 +44,13 @@ def usage():
     print ("\tlpvs_cron.py run-orders | clean-cache")
 # END - usage
 
-#==============================================================================
+#=============================================================================
 def run_orders():
     '''
     Description:
-      TODO TODO TODO
+      Queries the xmlrpc service to see if there are any scenes that need to
+      be processed.  If there are, this method builds and executes a plot job
+      and updates the status in the database through the xmlrpc service.
     '''
 
     rpc_url = os.environ.get('ESPA_XMLRPC')
@@ -104,18 +106,16 @@ def run_orders():
                 # TODO TODO TODO
                 server.updateOrderStatus (order, 'LPVS cron driver', 'SUCC')
 
-
-
     finally:
         server = None
 
 # END - run_orders
 
-#==============================================================================
+#=============================================================================
 if __name__ == '__main__':
     '''
     Description:
-      TODO TODO TODO
+      Read the command line and execute accordingly.
     '''
 
     if len(sys.argv) != 2:
@@ -136,6 +136,7 @@ if __name__ == '__main__':
         run_orders()
 
     elif op == 'clean-cache':
+        # TODO TODO TODO
         #cleanDistroCache()
         pass
 

@@ -3,9 +3,9 @@
 '''
     FILE: cdr_ecv_cron.py
 
-    PURPOSE: Master run script for new Hadoop jobs.  Queries the xmlrpc service
-             to find scenes that need to be processed and builds/executes a
-             Hadoop job to process them.
+    PURPOSE: Master run script for new Hadoop jobs.  Queries the xmlrpc
+             service to find scenes that need to be processed and
+             builds/executes a Hadoop job to process them.
 
     PROJECT: Land Satellites Data Systems Science Research and Development
              (LSRD) at the USGS EROS
@@ -43,13 +43,13 @@ order_buffer_length = 2048
 hadoop_timeout = 172800000 # which is 2 days
 
 
-#==============================================================================
+#=============================================================================
 def runScenes():
     '''
     Description:
-      Queries the xmlrpc service to see if there are any scenes that need to be
-      processed.  If there are, this method builds and executes a hadoop job
-      and updates the xmlrpc service to flag all the scenes as "queued"
+      Queries the xmlrpc service to see if there are any scenes that need to
+      be processed.  If there are, this method builds and executes a hadoop
+      job and updates the xmlrpc service to flag all the scenes as "queued"
     '''
 
     rpcurl = os.environ.get('ESPA_XMLRPC')
@@ -135,7 +135,7 @@ def runScenes():
             hadoop_delete_request_command2 = [hadoop_executable,
                 'dfs', '-rmr', hdfs_target, '-out']
 
-            #------------------------------------------------------------------
+            #-----------------------------------------------------------------
             log ("Storing request file to hdfs...")
             try:
                 cmd = ' '.join(hadoop_store_command)
@@ -146,7 +146,7 @@ def runScenes():
             finally:
                 log (output)
 
-            #------------------------------------------------------------------
+            #-----------------------------------------------------------------
             # Update the scene list as queued so they don't get pulled down
             # again now that these jobs have been stored in hdfs
             for scene in scenes:
@@ -161,7 +161,7 @@ def runScenes():
             log ("Deleting local request file copy...")
             os.unlink(espaorderfile)
 
-            #------------------------------------------------------------------
+            #-----------------------------------------------------------------
             log ("Running hadoop job...")
             try:
                 cmd = ' '.join(hadoop_run_command)
@@ -171,7 +171,7 @@ def runScenes():
             finally:
                 log (output)
 
-            #------------------------------------------------------------------
+            #-----------------------------------------------------------------
             log ("Deleting hadoop job request file from hdfs....")
             try:
                 cmd = ' '.join(hadoop_delete_request_command1)
@@ -181,7 +181,7 @@ def runScenes():
             finally:
                 log (output)
 
-            #------------------------------------------------------------------
+            #-----------------------------------------------------------------
             log ("Deleting hadoop job output...")
             try:
                 cmd = ' '.join(hadoop_delete_request_command2)
@@ -200,13 +200,13 @@ def runScenes():
         server = None
 
 
-#==============================================================================
+#=============================================================================
 def cleanDistroCache():
     '''
     Description:
       Removes completed orders from the ordering database older than 15 days
-      (since order completion) and places entries for each order/scene into our
-      data warehouse
+      (since order completion) and places entries for each order/scene into
+      our data warehouse
     '''
 
     rpcurl = os.environ.get('ESPA_XMLRPC')
@@ -221,7 +221,7 @@ def cleanDistroCache():
         log ("No scenes to purge...")
 
 
-#==============================================================================
+#=============================================================================
 def usage():
     '''
     Description:
@@ -232,7 +232,7 @@ def usage():
     print ("\tcdr_ecv_cron.py run-scenes | clean-cache")
 
 
-#==============================================================================
+#=============================================================================
 if __name__ == '__main__':
     '''
     Description:

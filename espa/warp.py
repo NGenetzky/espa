@@ -27,7 +27,7 @@ from espa_constants import *
 from espa_logging import log, set_debug, debug
 
 # local objects and methods
-from espa_exception import ErrorCodes, ESPAException
+import espa_exception as ee
 import parameters
 import util
 
@@ -455,7 +455,7 @@ def warp_science_products (parms):
             # END - GeoTIFF
         # END - for each file
     except Exception, e:
-        raise ESPAException (ErrorCodes.warping, str(e)), \
+        raise ee.ESPAException (ee.ErrorCodes.warping, str(e)), \
             None, sys.exc_info()[2]
     finally:
         # Change back to the previous directory
