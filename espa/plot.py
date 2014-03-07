@@ -29,6 +29,22 @@ from espa_constants import *
 from espa_logging import log, set_debug, debug
 
 
+# Setup the default colors
+# Can override them from the command line
+SENSOR_COLORS = dict()
+SENSOR_COLORS['Terra'] = '#996600' # Some Brown kinda like dirt
+SENSOR_COLORS['Aqua']  = '#00cccc' # Some cyan like blue color
+SENSOR_COLORS['LT4']   = '#cc3333' # A nice Red
+SENSOR_COLORS['LT5']   = '#0066cc' # A nice Blue
+SENSOR_COLORS['LE7']   = '#00cc33' # An ok Green
+BG_COLOR               = '#f3f3f3' # A light gray
+
+# Setup the default marker
+# Can override them from the command line
+MARKER = (1, 3, 0) # Better circle than 'o'
+MARKER_SIZE = 5.0  # A good size for the circle or diamond
+
+
 #=============================================================================
 def execute_cmd (cmd):
     '''
@@ -137,9 +153,37 @@ def build_argument_parser():
         action='store', dest='stats_directory', default=os.curdir,
         help="directory containing the statistics")
 
-    parser.add_argument ('--plot_directory',
-        action='store', dest='plot_directory', default=os.curdir,
-        help="directory to place the plots")
+    parser.add_argument ('--terra_color',
+        action='store', dest='terra_color', default=SENSOR_COLORS['Terra'],
+        help="color specification for Terra data")
+
+    parser.add_argument ('--aqua_color',
+        action='store', dest='aqua_color', default=SENSOR_COLORS['Aqua'],
+        help="color specification for Aqua data")
+
+    parser.add_argument ('--lt4_color',
+        action='store', dest='lt4_color', default=SENSOR_COLORS['LT4'],
+        help="color specification for LT4 data")
+
+    parser.add_argument ('--lt5_color',
+        action='store', dest='lt5_color', default=SENSOR_COLORS['LT5'],
+        help="color specification for LT5 data")
+
+    parser.add_argument ('--le7_color',
+        action='store', dest='le7_color', default=SENSOR_COLORS['LE7'],
+        help="color specification for LE7 data")
+
+    parser.add_argument ('--bg_color',
+        action='store', dest='bg_color', default=BG_COLOR,
+        help="color specification for plot and legend background")
+
+    parser.add_argument ('--marker',
+        action='store', dest='marker', default=MARKER,
+        help="marker specification for plotted points")
+
+    parser.add_argument ('--marker_size',
+        action='store', dest='marker_size', default=MARKER_SIZE,
+        help="marker size specification for plotted points")
 
     parser.add_argument ('--keep',
         action='store_true', dest='keep', default=False,
@@ -190,55 +234,54 @@ def get_mdom_from_ydoy(year, day_of_year):
 
 
 #=============================================================================
-def get_ymdl_from_filename(filename):
+def get_ymds_from_filename(filename):
     '''
     Description:
-      Determine the year, month, and day_of_month from the scene name
+      Determine the year, month, day_of_month, and sensor from the scene name
     '''
 
     year = 0
     month = 0
     day_of_month = 0
-    symbol = 'rx'
-    label = 'unk'
+    sensor = 'unk'
 
     if filename.startswith('MOD'):
         date_element = filename.split('.')[1]
         year = int(date_element[1:5])
         day_of_year = int(date_element[5:8])
         (month, day_of_month) = get_mdom_from_ydoy(year, day_of_year)
-        label = 'Terra'
+        sensor = 'Terra'
 
     elif filename.startswith('MYD'):
         date_element = filename.split('.')[1]
         year = int(date_element[1:5])
         day_of_year = int(date_element[5:8])
         (month, day_of_month) = get_mdom_from_ydoy(year, day_of_year)
-        label = 'Aqua'
+        sensor = 'Aqua'
 
     elif 'LT4' in filename:
         date_element = filename.split('.')[1]
         year = int(date_element[9:13])
         day_of_year = int(date_element[13:16])
         (month, day_of_month) = get_mdom_from_ydoy(year, day_of_year)
-        label = 'LT4'
+        sensor = 'LT4'
 
     elif 'LT5' in filename:
         date_element = filename.split('.')[1]
         year = int(date_element[9:13])
         day_of_year = int(date_element[13:16])
         (month, day_of_month) = get_mdom_from_ydoy(year, day_of_year)
-        label = 'LT5'
+        sensor = 'LT5'
 
     elif 'LE7' in filename:
         date_element = filename.split('.')[1]
         year = int(date_element[9:13])
         day_of_year = int(date_element[13:16])
         (month, day_of_month) = get_mdom_from_ydoy(year, day_of_year)
-        label = 'LE7'
+        sensor = 'LE7'
 
-    return (year, month, day_of_month, label)
-# END - get_ymdl_from_filename
+    return (year, month, day_of_month, sensor)
+# END - get_ymds_from_filename
 
 
 #=============================================================================
@@ -264,7 +307,7 @@ def generate_sensor_stats(stat_name, stat_files):
     for filename, obj in stats.items():
         debug (filename)
         # Figure out the date for stats record
-        (year, month, day_of_month, label) = get_ymdl_from_filename(filename)
+        (year, month, day_of_month, sensor) = get_ymds_from_filename(filename)
         date = '%04d-%02d-%02d' % (int(year), int(month), int(day_of_month))
         debug (date)
 
@@ -302,27 +345,32 @@ def generate_sensor_stats(stat_name, stat_files):
 # This helps keep data points from being placed on the plot border lines
 TIME_DELTA_5_DAYS = datetime.timedelta(days=5)
 #=============================================================================
-def generate_plot(plot_name, subject, stats):
+def generate_plot(plot_name, subjects, stats, type="Value"):
     '''
     Description:
       Builds a plot and then generates a png formatted image of the plot. 
     '''
 
+    # Test for a valid type parameter
+    # For us 'Range' mean min, max, and mean
+    if type not in ('Range', 'Value'):
+        error = "Error type='%s' must be one of ('Range', 'Value')" % type
+        raise ValueError (error)
+
+    # Configuration for the dates
     auto_date_locator = mpl_dates.AutoDateLocator()
     aut_date_formatter = mpl_dates.AutoDateFormatter(auto_date_locator)
 
-    lower_subject = subject.lower()
-
     # Create the subplot objects
-    #(fig, min_plot) = mpl_plot.subplots()
     fig = mpl_plot.figure()
-    min_plot = mpl_plot.subplot(111)
 
     # Adjust the figure size
     fig.set_size_inches(11, 8.5)
 
+    min_plot = mpl_plot.subplot(111, axisbg=BG_COLOR)
+
     #-------------------------------------------------------------------------
-    # Build a dictionary of labels which contains lists of the values, while
+    # Build a dictionary of sensors which contains lists of the values, while
     # determining the minimum and maximum values to be displayed
     plot_y_min = 99999 # Our data is 16bit so this should be good enough
     plot_y_max = -99999 # Our data is 16bit so this should be good enough
@@ -331,55 +379,98 @@ def generate_plot(plot_name, subject, stats):
     # Doubt if we have any this old
     plot_date_max = datetime.date(1900, 01, 01)
 
-    label_dict = defaultdict(list)
+    sensor_dict = defaultdict(list)
+    sensors = list()
+
+    if type == "Range":
+        lower_subject = 'mean' # Since Range force to the mean
+    else:
+        lower_subject = subjects[0].lower()
+
+    # Convert the list of stats read from the file into a list of stats
+    # organized by the sensor and contains a python date element
     for filename, obj in stats.items():
         debug (filename)
         # Figure out the date for plotting
-        (year, month, day_of_month, label) = get_ymdl_from_filename(filename)
-        debug (' '.join([str(year), str(month), str(day_of_month)]))
+        (year, month, day_of_month, sensor) = \
+            get_ymds_from_filename(filename)
+
         date = datetime.date(year, month, day_of_month)
+        min = float(obj['minimum'])
+        max = float(obj['maximum'])
+        mean = float(obj['mean'])
+        stddev = float(obj['stddev'])
 
-        value = float(obj[lower_subject])
-        debug (value)
+        # Date must be first in the list for later sorting to work
+        sensor_dict[sensor].append((date, min, max, mean, stddev))
 
-        label_dict[label].append((date, value))
+        # While we are here figure out the following...
+        # Figure out the min and max range for the Y-Axis value
+        if type == "Range":
+            if min < plot_y_min:
+                plot_y_min = min
+            if max > plot_y_max:
+                plot_y_max = max
+        else:
+            value = float(obj[lower_subject])
+            if value < plot_y_min:
+                plot_y_min = value
+            if value > plot_y_max:
+                plot_y_max = value
 
-        if value < plot_y_min:
-            plot_y_min = value
-        if value > plot_y_max:
-            plot_y_max = value
-
+        # Figure out the min and max range for the X-Axis value
         if date < plot_date_min:
             plot_date_min = date
         if date > plot_date_max:
             plot_date_max = date
+    # END - for filename
+
+    # Process through the sensor organized dictionary
+    for sensor in sensor_dict.keys():
+        dates = list()
+        min_values = list()
+        max_values = list()
+        mean_values = list()
+        stddev_values = list()
+
+        # Gather the unique sensors for the legend
+        if sensor not in sensors:
+            sensors.append(sensor)
+
+        # Collect all for a specific sensor
+        # Sorted only works because we have date first in the list
+        for date, min, max, mean, stddev in sorted(sensor_dict[sensor]):
+            dates.append(date)
+            mean_values.append(mean)
+            min_values.append(min)
+            max_values.append(max)
+            stddev_values.append(stddev)
+
+        # Draw the min to max line for these dates
+        if type == "Range":
+            min_plot.vlines(dates, min_values, max_values,
+                colors=SENSOR_COLORS[sensor], linestyles='solid',
+                linewidths=1)
+
+        # Plot the lists of dates and values for the subject
+        values = list()
+        if lower_subject == 'minimum':
+            values = min_values;
+        if lower_subject == 'maximum':
+            values = max_values;
+        if lower_subject == 'mean':
+            values = mean_values;
+        if lower_subject == 'stddev':
+            values = stddev_values;
+
+        # Draw thw marker for these dates
+        min_plot.plot(dates, values, marker=MARKER,
+            color=SENSOR_COLORS[sensor], linestyle='None',
+            markersize=float(MARKER_SIZE), label=sensor)
+    # END - for sensor
+
 
     #-------------------------------------------------------------------------
-    # Convert the label dictionary values into lists appropriate for the plot
-    for label, obj in label_dict.items():
-        dates = list()
-        values = list()
-        symbol = 'rx'
-
-        if label == 'Terra':
-            symbol = 'mo'
-        elif label == 'Aqua':
-            symbol = 'co'
-        elif label == 'LT4':
-            symbol = 'rD'
-        elif label == 'LT5':
-            symbol = 'gD'
-        elif label == 'LE7':
-            symbol = 'bD'
-
-        for date, value in obj:
-            debug (' '.join([label, str(date), str(value), symbol]))
-            dates.append(date)
-            values.append(value)
-
-        # Finally plot the lists of dates and values
-        min_plot.plot(dates, values, symbol, markersize=4.0, label=label)
-
     # Adjust the y range to help move them from the edge of the plot
     y_diff = plot_y_max - plot_y_min
     if y_diff < 2:
@@ -422,16 +513,22 @@ def generate_plot(plot_name, subject, stats):
 
     # Y Axis - Label
     # We are going to make the Y Axis Label the title for now (See Title)
-    #mpl_plot.ylabel(subject)
+    #mpl_plot.ylabel(' '.join(subjects))
 
     # Plot - Title
-    plot_name += ' - ' + subject
+    plot_name += ' - ' + ' '.join(subjects)
     #mpl_plot.title(plot_name)
     # The Title gets covered up by the legend so use the Y Axis Label
     mpl_plot.ylabel(plot_name)
 
-    mpl_plot.legend(bbox_to_anchor=(0.0, 1.01, 1.0, 0.5), loc=3, ncol=5,
+    # Configure the legend
+    legend = mpl_plot.legend(sensors,
+        bbox_to_anchor=(0.0, 1.01, 1.0, 0.5), loc=3, ncol=5,
         mode="expand", borderaxespad=0.0, numpoints=1, prop={'size':12})
+
+    # Change the legend background color to match the plot background color
+    frame = legend.get_frame()
+    frame.set_facecolor(BG_COLOR)
 
     # Fix the filename and save the plot
     filename = plot_name.replace('- ', '').lower()
@@ -465,10 +562,11 @@ def generate_plots(plot_name, stat_files):
         stats[stat_file] = \
             dict((key, value) for (key, value) in read_stats(stat_file))
 
-    generate_plot(plot_name, 'Minimum', stats)
-    generate_plot(plot_name, 'Maximum', stats)
-    generate_plot(plot_name, 'Mean', stats)
-    generate_plot(plot_name, 'StdDev', stats)
+    plot_subjects = ['Minimum', 'Maximum', 'Mean']
+    generate_plot(plot_name, plot_subjects, stats, "Range")
+
+    plot_subjects = ['StdDev']
+    generate_plot(plot_name, plot_subjects, stats)
 # END - generate_plots
 
 
@@ -823,6 +921,18 @@ if __name__ == '__main__':
 
     # Setup debug
     set_debug (args.debug)
+
+    # Override the colors if they were specified
+    SENSOR_COLORS['Terra'] = args.terra_color
+    SENSOR_COLORS['Aqua'] = args.aqua_color
+    SENSOR_COLORS['LT4'] = args.lt4_color
+    SENSOR_COLORS['LT5'] = args.lt5_color
+    SENSOR_COLORS['LE7'] = args.le7_color
+    BG_COLOR = args.bg_color
+
+    # Override the marker if they were specified
+    MARKER = args.marker
+    MARKER_SIZE = args.marker_size
 
     try:
         # Call the main processing routine
