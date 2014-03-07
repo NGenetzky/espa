@@ -268,7 +268,8 @@ def build_landsat_science_products (parms):
                     ("Could not find LEDAPS TOA reflectance file in %s") \
                      % options['work_directory'])
 
-            cmd = ['cfmask', '--verbose', '--toarefl=%s' % toa_filename]
+            cmd = ['cfmask', '--verbose', '--toarefl=%s' % toa_filename,
+                   '--max_cloud_pixels=%d' % 5000000]
             cmd = ' '.join(cmd)
 
             log ('CREATE CFMASK COMMAND:' + cmd)
