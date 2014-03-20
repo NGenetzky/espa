@@ -145,6 +145,9 @@ import logging
 import keyword
 import StringIO
 import textwrap
+# ESPA - Added collections so that the order of the attributes can be
+#        maintained
+import collections
 
 # Default logger configuration
 logging.basicConfig(
@@ -240,6 +243,9 @@ OutputDirectory = None
 ModuleSuffix = ""
 
 SchemaToPythonTypeMap = {}
+# ESPA - Used to define some ESPA XML simpleType floats so that proper/our
+#        format of output occurs
+ESPA_FLOAT_SchemaToPythonTypeMap = {}
 
 # Initialize constants.
 CurrentNamespacePrefix = None
@@ -452,6 +458,14 @@ def set_type_constants(nameSpace):
     }
     SchemaToPythonTypeMap.update(dict((x, 'int') for x in IntegerType))
 
+    # ESPA - Define the ESPA XML simpleType floats
+    global ESPA_FLOAT_SchemaToPythonTypeMap
+    ESPA_FLOAT_SchemaToPythonTypeMap = {
+        'angleType': 'float',
+        'latAngleType': 'float',
+        'longAngleType': 'float',
+    }
+
 #
 # For debugging.
 #
@@ -625,8 +639,10 @@ class XschemaElement(XschemaElementBase):
         self.base = None
         self.mixedExtensionError = 0
         self.collapseWhiteSpace = 0
-        # Attribute definitions for the currect element.
-        self.attributeDefs = {}
+        # Attribute definitions for the current element.
+        # ESPA - Changed to be an ordered dictionary to maintain the order of
+        #        the attributes
+        self.attributeDefs = collections.OrderedDict()
         # Attribute definitions for the current attributeGroup, if
         #   there is one.
         self.attributeGroup = None
@@ -2417,7 +2433,10 @@ def generateExportAttributes(wrt, element, hasAttributes):
                     '''self.gds_format_boolean(''' \
                     '''self.%s, input_name='%s'))\n''' % (
                         indent, orig_name, cleanName, name, )
-            elif attrDefType == FloatType or attrDefType == DecimalType:
+            # ESPA - Added ESPA_FLOAT_SchemaToPythonTypeMap
+            elif (attrDefType == FloatType or
+                    attrDefType == DecimalType or
+                    attrDefType in ESPA_FLOAT_SchemaToPythonTypeMap):
                 s1 = '''%s        outfile.write(' %s="%%s"' %% self.''' \
                     '''gds_format_float(self.%s, input_name='%s'))\n''' % (
                         indent, orig_name, cleanName, name)
@@ -2538,17 +2557,36 @@ def generateExportFn(wrt, prefix, element, namespace, nameSpacesDef):
     wrt("    def export(self, outfile, level, namespace_='%s', "
         "name_='%s', namespacedef_='%s', pretty_print=True):\n" %
         (namespace, name, nameSpacesDef))
+    # ESPA - Added the following level check so that the XML header can be
+    #        output to the ESPA XML file
+    wrt("        # Check if we are at the root level and output the XML header\n")
+    wrt("        if level == 0:\n")
+    wrt("            outfile.write('<?xml version=\"1.0\" encoding=\"%s\"?>\\n' % ExternalEncoding)\n")
+    wrt("            outfile.write('\\n')\n")
+
     wrt('        if pretty_print:\n')
     wrt("            eol_ = '\\n'\n")
     wrt('        else:\n')
     wrt("            eol_ = ''\n")
     wrt('        showIndent(outfile, level, pretty_print)\n')
-    wrt("        outfile.write('<%s%s%s' % (namespace_, name_, "
+    # ESPA - Added the following level check so that our ESPA metadata version
+    #        can be output in front of the namespacedef only for the top level
+    #        element
+    wrt("        # Check if we are at the root level and output attributes first before namespacedef\n")
+    wrt("        if level == 0:\n")
+    wrt("            outfile.write('<%s%s' % (namespace_, name_))\n")
+    wrt("            already_processed = set()\n")
+    wrt("            self.exportAttributes(outfile, level, "
+        "already_processed, namespace_, name_='%s')\n" % (name, ))
+    wrt("            outfile.write('%s' % "
+        "(namespacedef_ and ' ' + namespacedef_ or ''))\n")
+    wrt('        else:\n')
+
+    wrt("            outfile.write('<%s%s%s' % (namespace_, name_, "
         "namespacedef_ and ' ' + namespacedef_ or '', ))\n")
-    wrt("        already_processed = set()\n")
-    wrt("        self.exportAttributes(outfile, level, "
-        "already_processed, namespace_, name_='%s')\n" %
-        (name, ))
+    wrt("            already_processed = set()\n")
+    wrt("            self.exportAttributes(outfile, level, "
+        "already_processed, namespace_, name_='%s')\n" % (name, ))
     # fix_abstract
     if base and base in ElementDict:
         base_element = ElementDict[base]
@@ -3834,6 +3872,11 @@ def generateCtor(wrt, element):
             wrt("        self.%s = initvalue_\n" % (name, ))
         else:
             pythonType = SchemaToPythonTypeMap.get(attrDef.getType())
+            # ESPA - If it wasn't found in the above dictionary, then maybe it
+            #        is in our ESPA_FLOAT_... dictionary
+            #        Added the check and assignment
+            if pythonType == None:
+                pythonType = ESPA_FLOAT_SchemaToPythonTypeMap.get(attrDef.getType())
             attrVal = "_cast(%s, %s)" % (pythonType, name, )
             wrt('        self.%s = %s\n' % (name, attrVal, ))
         member = 1
@@ -4378,7 +4421,8 @@ except ImportError, exp:
                     raise_parse_error(node, 'Requires sequence of integers')
             return input_data
         def gds_format_float(self, input_data, input_name=''):
-            return ('%%.15f' %% input_data).rstrip('0')
+            # ESPA - Changed the float output format to ours
+            return ('%%.6f' %% input_data)
         def gds_validate_float(self, input_data, node, input_name=''):
             return input_data
         def gds_format_float_list(self, input_data, input_name=''):
@@ -4392,7 +4436,8 @@ except ImportError, exp:
                     raise_parse_error(node, 'Requires sequence of floats')
             return input_data
         def gds_format_double(self, input_data, input_name=''):
-            return '%%e' %% input_data
+            # ESPA - Changed the double output format to ours
+            return '%%.6lf' %% input_data
         def gds_validate_double(self, input_data, node, input_name=''):
             return input_data
         def gds_format_double_list(self, input_data, input_name=''):
@@ -4538,7 +4583,8 @@ except ImportError, exp:
                     input_data.second,
                 )
             else:
-                _svalue = '%%02d:%%02d:%%02d.%%s' %% (
+                # ESPA - We output a Z with this time so added it
+                _svalue = '%%02d:%%02d:%%02d.%%sZ' %% (
                     input_data.hour,
                     input_data.minute,
                     input_data.second,
@@ -4993,6 +5039,13 @@ def parseLiteral(inFileName, silence=False):
 #silence#        rootObj.exportLiteral(sys.stdout, 0, name_=rootTag)
 #silence#        sys.stdout.write(')\\n')
     return rootObj
+
+# ESPA - Added a module method to allow exporting from the module level
+def export(inFileName, rootObj, namespacedef):
+    rootObj.export(
+        inFileName, 0,
+        namespacedef_=namespacedef,
+        pretty_print=True)
 
 
 def main():
