@@ -4310,12 +4310,18 @@ TEMPLATE_HEADER = """\
 #
 # Generated %s by generateDS.py%s.
 #
+# Generated with the ESPA modified version of generateDS.py
+# See espa google code project.
+# See directory ../tools/generateDS
+#
 
 import sys
 import getopt
 import re as re_
 import base64
+import StringIO
 import datetime as datetime_
+from lxml import etree
 
 etree_ = None
 Verbose_import_ = False
@@ -4915,6 +4921,11 @@ def _cast(typ, value):
         return value
     return typ(value)
 
+# ESPA XML Schema for validation
+ESPA_SCHEMA = '''
+%s
+'''
+    
 #
 # Data representation classes.
 #
@@ -4924,14 +4935,14 @@ def _cast(typ, value):
 # Fool (and straighten out) the syntax highlighting.
 # DUMMY = """
 
-
-def generateHeader(wrt, prefix, externalImports):
+# ESPA - added schema_xml for validation
+def generateHeader(wrt, prefix, externalImports, schema_xml):
     tstamp = (not NoDates and time.ctime()) or ''
     if NoVersion:
         version = ''
     else:
         version = ' version %s' % VERSION
-    s1 = TEMPLATE_HEADER % (tstamp, version, ExternalEncoding, )
+    s1 = TEMPLATE_HEADER % (tstamp, version, ExternalEncoding, schema_xml)
     wrt(s1)
     for externalImport in externalImports:
         wrt(externalImport + "\n")
@@ -5041,11 +5052,35 @@ def parseLiteral(inFileName, silence=False):
     return rootObj
 
 # ESPA - Added a module method to allow exporting from the module level
-def export(inFileName, rootObj, namespacedef):
+def export(outFile, rootObj, namespacedef):
     rootObj.export(
-        inFileName, 0,
+        outFile, 0,
         namespacedef_=namespacedef,
         pretty_print=True)
+
+# ESPA - Added a module method to allow validation of the proposed output
+def validate_xml(rootObj, namespacedef):
+    try:
+        # Create the schema object to validate against
+        schema_root = etree.fromstring(ESPA_SCHEMA)
+        schema = etree.XMLSchema(schema_root)
+
+        # Create the lxml etree object to validate
+        xml_io = StringIO.StringIO()
+        rootObj.export(
+            xml_io, 0,
+            namespacedef_=namespacedef,
+            pretty_print=True)
+        xml_io.flush()
+        xml_text = xml_io.getvalue()
+        xml_io.close()
+        xml = etree.fromstring(xml_text)
+
+        # Validate the etree against the schema 
+        schema.assertValid(xml)
+
+    except Exception, e:
+        print "Validation Error: " + str(e)
 
 
 def main():
@@ -5711,7 +5746,7 @@ def getImportsForExternalXsds(root):
 
 
 def generate(outfileName, subclassFilename, behaviorFilename,
-             prefix, root, superModule):
+             prefix, root, superModule, schema_xml):
     global DelayedElements, DelayedElements_subclass, AlreadyGenerated
     # Create an output file.
     # Note that even if the user does not request an output file,
@@ -5730,7 +5765,7 @@ def generate(outfileName, subclassFilename, behaviorFilename,
 
     externalImports = getImportsForExternalXsds(root)
 
-    generateHeader(wrt, prefix, externalImports)
+    generateHeader(wrt, prefix, externalImports, schema_xml)
     #generateSimpleTypes(outfile, prefix, SimpleTypeDict)
     DelayedElements = []
     DelayedElements_subclass = []
@@ -5936,6 +5971,10 @@ def parseAndGenerate(
             outfile.seek(0)
             infile = outfile
         parser.parse(infile)
+
+        infile.seek(0)
+        schema_xml = infile.read()
+
         root = dh.getRoot()
         root.annotate()
 
@@ -5945,7 +5984,7 @@ def parseAndGenerate(
     #debug_show_elements(root)
         generate(
             outfileName, subclassFilename, behaviorFilename,
-            prefix, root, superModule)
+            prefix, root, superModule, schema_xml)
         # Generate __all__.  When using the parser as a module it is useful
         # to isolate important classes from internal ones. This way one
         # can do a reasonably safe "from parser import *"

@@ -40,6 +40,11 @@ band.set_production_date (production_date)
 
 bands.add_band(band)
 
+try:
+    espa_metadata.validate_xml(xml, 'xmlns="http://espa.cr.usgs.gov/v1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://espa.cr.usgs.gov/v1.0 http://espa.cr.usgs.gov/static/schema/espa_internal_metadata_v1_0.xsd"')
+except Exception, e:
+   print "espa_metadata Validation Error: %s" % e
+
 f = open('exported_1.xml', 'w')
 # Create the file and specify the namespace/schema
 espa_metadata.export(f, xml, 'xmlns="http://espa.cr.usgs.gov/v1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://espa.cr.usgs.gov/v1.0 http://espa.cr.usgs.gov/static/schema/espa_internal_metadata_v1_0.xsd"')
@@ -52,7 +57,7 @@ f.close()
 
 # LXML
 try:
-    f = open ('espa_internal_metadata_v1_0.xsd')
+    f = open ('../../../htdocs/schema/espa_internal_metadata_v1_0.xsd')
     schema_root = etree.parse (f)
     f.close()
     schema = etree.XMLSchema (schema_root)
