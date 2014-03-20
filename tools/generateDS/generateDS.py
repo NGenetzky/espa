@@ -4315,11 +4315,13 @@ TEMPLATE_HEADER = """\
 # See directory ../tools/generateDS
 #
 
+import os
 import sys
 import getopt
 import re as re_
 import base64
 import StringIO
+import urllib2
 import datetime as datetime_
 from lxml import etree
 
@@ -4921,11 +4923,6 @@ def _cast(typ, value):
         return value
     return typ(value)
 
-# ESPA XML Schema for validation
-ESPA_SCHEMA = '''
-%s
-'''
-    
 #
 # Data representation classes.
 #
@@ -4935,14 +4932,13 @@ ESPA_SCHEMA = '''
 # Fool (and straighten out) the syntax highlighting.
 # DUMMY = """
 
-# ESPA - added schema_xml for validation
-def generateHeader(wrt, prefix, externalImports, schema_xml):
+def generateHeader(wrt, prefix, externalImports):
     tstamp = (not NoDates and time.ctime()) or ''
     if NoVersion:
         version = ''
     else:
         version = ' version %s' % VERSION
-    s1 = TEMPLATE_HEADER % (tstamp, version, ExternalEncoding, schema_xml)
+    s1 = TEMPLATE_HEADER % (tstamp, version, ExternalEncoding, )
     wrt(s1)
     for externalImport in externalImports:
         wrt(externalImport + "\n")
@@ -5051,26 +5047,69 @@ def parseLiteral(inFileName, silence=False):
 #silence#        sys.stdout.write(')\\n')
     return rootObj
 
-# ESPA - Added a module method to allow exporting from the module level
-def export(outFile, rootObj, namespacedef):
-    rootObj.export(
-        outFile, 0,
-        namespacedef_=namespacedef,
-        pretty_print=True)
+
+# ESPA - Added a module method to build a namespace from its parts
+def build_ns_def(xmlns=None, xmlns_xsi=None, schema_uri=None):
+    if xmlns == None:
+        raise ValueError("xmlns must be specified")
+
+    if xmlns_xsi == None:
+        raise ValueError("xmlns_xsi must be specified")
+
+    if schema_uri == None:
+        raise ValueError("schema_uri must be specified")
+
+    ns_def = ('xmlns="%(string)s" xmlns:xsi="%(string)s"'
+        ' xsi:schemaLocation="%(string)s %(string)s"') \\
+        %% (xmlns, xmlns_xsi, xmlns, schema_uri)
+
+    return ns_def
+
 
 # ESPA - Added a module method to allow validation of the proposed output
-def validate_xml(rootObj, namespacedef):
+def validate_xml(rootObj, xmlns=None, xmlns_xsi=None, schema_uri=None):
+
     try:
+        ns_def = build_ns_def(xmlns, xmlns_xsi, schema_uri)
+
+        schema_root = None
+
+        # Search for the environment variable and use that if valid
+        schema_path = os.getenv('ESPA_SCHEMA') 
+        try:
+            schema_root = etree.parse(schema_path)
+        except Exception, e:
+            print "Failed reading schema from ESPA_SCHEMA=" + schema_path
+            print "Attempting espa-common installation directory"
+
+        # Use the espa-common installation directory
+        if schema_root == None:
+            schema_name = schema_uri.split('/')[-1]
+            schema_path = '/usr/local/espa-common/schema/%(string)s' \\
+                %% schema_name
+            try:
+                schema_root = etree.parse(schema_path)
+            except Exception, e:
+                print "Failed reading schema from " + schema_path
+                print "Attempting schema_uri"
+
+        # Use the schema_uri
+        if schema_root == None:
+            schema_source = urllib2.urlopen(schema_uri)
+            schema_text = schema_source.read()
+            schema_source.close()
+            print "Using schema source %(string)s for validation" %% schema_uri
+            schema_root = etree.fromstring(schema_text)
+
+        if schema_root == None:
+            raise RuntimeError("Failed to find ESPA XML schema")
+
         # Create the schema object to validate against
-        schema_root = etree.fromstring(ESPA_SCHEMA)
         schema = etree.XMLSchema(schema_root)
 
         # Create the lxml etree object to validate
         xml_io = StringIO.StringIO()
-        rootObj.export(
-            xml_io, 0,
-            namespacedef_=namespacedef,
-            pretty_print=True)
+        rootObj.export(xml_io, 0, namespacedef_=ns_def, pretty_print=True)
         xml_io.flush()
         xml_text = xml_io.getvalue()
         xml_io.close()
@@ -5080,7 +5119,23 @@ def validate_xml(rootObj, namespacedef):
         schema.assertValid(xml)
 
     except Exception, e:
-        print "Validation Error: " + str(e)
+        print "metadata_api Validation Error: " + str(e)
+
+
+# ESPA - Added a module method to allow exporting from the module level with
+#        validation
+def export(outFile, rootObj, xmlns=None, xmlns_xsi=None, schema_uri=None):
+    ns_def = build_ns_def(xmlns, xmlns_xsi, schema_uri)
+
+    try:
+        validate_xml(rootObj, xmlns, xmlns_xsi, schema_uri)
+    except Exception, e:
+        raise
+
+    try:
+        rootObj.export(outFile, 0, namespacedef_=ns_def, pretty_print=True)
+    except Exception, e:
+        raise Exception("metadata_api Export Error: " + str(e))
 
 
 def main():
@@ -5143,6 +5198,7 @@ def generateMain(outfile, prefix, root):
         'module_name': os.path.splitext(os.path.basename(outfile.name))[0],
         'root': rootElement,
         'namespacedef': namespace,
+        'string': "%s"
     }
     s1 = TEMPLATE_MAIN % params
     outfile.write(s1)
@@ -5746,7 +5802,7 @@ def getImportsForExternalXsds(root):
 
 
 def generate(outfileName, subclassFilename, behaviorFilename,
-             prefix, root, superModule, schema_xml):
+             prefix, root, superModule):
     global DelayedElements, DelayedElements_subclass, AlreadyGenerated
     # Create an output file.
     # Note that even if the user does not request an output file,
@@ -5765,7 +5821,7 @@ def generate(outfileName, subclassFilename, behaviorFilename,
 
     externalImports = getImportsForExternalXsds(root)
 
-    generateHeader(wrt, prefix, externalImports, schema_xml)
+    generateHeader(wrt, prefix, externalImports)
     #generateSimpleTypes(outfile, prefix, SimpleTypeDict)
     DelayedElements = []
     DelayedElements_subclass = []
@@ -5972,9 +6028,6 @@ def parseAndGenerate(
             infile = outfile
         parser.parse(infile)
 
-        infile.seek(0)
-        schema_xml = infile.read()
-
         root = dh.getRoot()
         root.annotate()
 
@@ -5984,7 +6037,7 @@ def parseAndGenerate(
     #debug_show_elements(root)
         generate(
             outfileName, subclassFilename, behaviorFilename,
-            prefix, root, superModule, schema_xml)
+            prefix, root, superModule)
         # Generate __all__.  When using the parser as a module it is useful
         # to isolate important classes from internal ones. This way one
         # can do a reasonably safe "from parser import *"
