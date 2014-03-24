@@ -5,6 +5,7 @@ from lxml import etree
 
 import metadata_api
 
+
 bands_element_path = '{http://espa.cr.usgs.gov/v1.0}bands'
 
 xml = metadata_api.parse('LT50460282002042EDC01.xml', silence=True)

@@ -10,7 +10,7 @@ xsi:schemaLocation="http://espa.cr.usgs.gov/v1.0 http://espa.cr.usgs.gov/static/
         <satellite>LANDSAT_5</satellite>
         <instrument>TM</instrument>
         <acquisition_date>2002-02-11</acquisition_date>
-        <scene_center_time>18:34:40.566000Z</scene_center_time>
+        <scene_center_time>18:34:40.5660000Z</scene_center_time>
         <level1_production_date>2014-01-13T06:49:56Z</level1_production_date>
         <solar_angles zenith="64.810051" azimuth="150.464523" units="degrees"/>
         <wrs system="2" path="46" row="28"/>
@@ -122,7 +122,7 @@ xsi:schemaLocation="http://espa.cr.usgs.gov/v1.0 http://espa.cr.usgs.gov/static/
             <valid_range min="-100" max="16000"/>
             <calibrated_nt>5.000000</calibrated_nt>
             <app_version>LEDAPS_2.0.0</app_version>
-            <production_date>2014-03-13T18:28:34Z</production_date>
+            <production_date>2014-03-24T14:59:41Z</production_date>
         </band>
         <band product="toa_refl" source="level1" name="toa_band2" category="image" data_type="INT16" nlines="7321" nsamps="7951" fill_value="-9999" saturate_value="20000" scale_factor="0.000100" add_offset="0.000000">
             <short_name>LT5REF</short_name>
@@ -133,7 +133,7 @@ xsi:schemaLocation="http://espa.cr.usgs.gov/v1.0 http://espa.cr.usgs.gov/static/
             <valid_range min="-100" max="16000"/>
             <calibrated_nt>5.000000</calibrated_nt>
             <app_version>LEDAPS_2.0.0</app_version>
-            <production_date>2014-03-13T18:28:34Z</production_date>
+            <production_date>2014-03-24T14:59:41Z</production_date>
         </band>
         <band product="toa_refl" source="level1" name="toa_band3" category="image" data_type="INT16" nlines="7321" nsamps="7951" fill_value="-9999" saturate_value="20000" scale_factor="0.000100" add_offset="0.000000">
             <short_name>LT5REF</short_name>
@@ -144,7 +144,7 @@ xsi:schemaLocation="http://espa.cr.usgs.gov/v1.0 http://espa.cr.usgs.gov/static/
             <valid_range min="-100" max="16000"/>
             <calibrated_nt>5.000000</calibrated_nt>
             <app_version>LEDAPS_2.0.0</app_version>
-            <production_date>2014-03-13T18:28:34Z</production_date>
+            <production_date>2014-03-24T14:59:41Z</production_date>
         </band>
         <band product="toa_refl" source="level1" name="toa_band4" category="image" data_type="INT16" nlines="7321" nsamps="7951" fill_value="-9999" saturate_value="20000" scale_factor="0.000100" add_offset="0.000000">
             <short_name>LT5REF</short_name>
@@ -155,7 +155,7 @@ xsi:schemaLocation="http://espa.cr.usgs.gov/v1.0 http://espa.cr.usgs.gov/static/
             <valid_range min="-100" max="16000"/>
             <calibrated_nt>5.000000</calibrated_nt>
             <app_version>LEDAPS_2.0.0</app_version>
-            <production_date>2014-03-13T18:28:34Z</production_date>
+            <production_date>2014-03-24T14:59:41Z</production_date>
         </band>
         <band product="toa_refl" source="level1" name="toa_band5" category="image" data_type="INT16" nlines="7321" nsamps="7951" fill_value="-9999" saturate_value="20000" scale_factor="0.000100" add_offset="0.000000">
             <short_name>LT5REF</short_name>
@@ -166,7 +166,7 @@ xsi:schemaLocation="http://espa.cr.usgs.gov/v1.0 http://espa.cr.usgs.gov/static/
             <valid_range min="-100" max="16000"/>
             <calibrated_nt>5.000000</calibrated_nt>
             <app_version>LEDAPS_2.0.0</app_version>
-            <production_date>2014-03-13T18:28:34Z</production_date>
+            <production_date>2014-03-24T14:59:41Z</production_date>
         </band>
         <band product="toa_refl" source="level1" name="toa_band7" category="image" data_type="INT16" nlines="7321" nsamps="7951" fill_value="-9999" saturate_value="20000" scale_factor="0.000100" add_offset="0.000000">
             <short_name>LT5REF</short_name>
@@ -177,7 +177,7 @@ xsi:schemaLocation="http://espa.cr.usgs.gov/v1.0 http://espa.cr.usgs.gov/static/
             <valid_range min="-100" max="16000"/>
             <calibrated_nt>5.000000</calibrated_nt>
             <app_version>LEDAPS_2.0.0</app_version>
-            <production_date>2014-03-13T18:28:34Z</production_date>
+            <production_date>2014-03-24T14:59:41Z</production_date>
         </band>
         <band product="toa_refl" source="level1" name="toa_qa" category="qa" data_type="UINT8" nlines="7321" nsamps="7951" fill_value="1">
             <short_name>LT5REF</short_name>
@@ -197,7 +197,7 @@ xsi:schemaLocation="http://espa.cr.usgs.gov/v1.0 http://espa.cr.usgs.gov/static/
                 <bit num="7">Band 7 Data Saturation Flag (0 = valid data, 1 = saturated data)</bit>
             </bitmap_description>
             <app_version>LEDAPS_2.0.0</app_version>
-            <production_date>2014-03-13T18:28:34Z</production_date>
+            <production_date>2014-03-24T14:59:41Z</production_date>
         </band>
         <band product="toa_bt" source="level1" name="toa_band6" category="image" data_type="INT16" nlines="7321" nsamps="7951" fill_value="-9999" saturate_value="20000" scale_factor="0.100000" add_offset="0.000000">
             <short_name>LT5BT</short_name>
@@ -208,7 +208,7 @@ xsi:schemaLocation="http://espa.cr.usgs.gov/v1.0 http://espa.cr.usgs.gov/static/
             <valid_range min="1500" max="3500"/>
             <calibrated_nt>5.000000</calibrated_nt>
             <app_version>LEDAPS_2.0.0</app_version>
-            <production_date>2014-03-13T18:28:34Z</production_date>
+            <production_date>2014-03-24T14:59:41Z</production_date>
         </band>
         <band product="toa_bt" source="level1" name="toa_bt_qa" category="qa" data_type="UINT8" nlines="7321" nsamps="7951" fill_value="1">
             <short_name>LT5BT</short_name>
@@ -228,7 +228,7 @@ xsi:schemaLocation="http://espa.cr.usgs.gov/v1.0 http://espa.cr.usgs.gov/static/
                 <bit num="7">Band 7 Data Saturation Flag (not set)</bit>
             </bitmap_description>
             <app_version>LEDAPS_2.0.0</app_version>
-            <production_date>2014-03-13T18:28:34Z</production_date>
+            <production_date>2014-03-24T14:59:41Z</production_date>
         </band>
         <band product="sr_refl" source="toa_refl" name="sr_band1" category="image" data_type="INT16" nlines="7321" nsamps="7951" fill_value="-9999" saturate_value="20000" scale_factor="0.000100" add_offset="0.000000">
             <short_name>LT5SR</short_name>
@@ -239,7 +239,7 @@ xsi:schemaLocation="http://espa.cr.usgs.gov/v1.0 http://espa.cr.usgs.gov/static/
             <valid_range min="-2000" max="16000"/>
             <calibrated_nt>5.000000</calibrated_nt>
             <app_version>LEDAPS_2.0.0</app_version>
-            <production_date>2014-03-13T18:28:44Z</production_date>
+            <production_date>2014-03-24T14:59:51Z</production_date>
         </band>
         <band product="sr_refl" source="toa_refl" name="sr_band2" category="image" data_type="INT16" nlines="7321" nsamps="7951" fill_value="-9999" saturate_value="20000" scale_factor="0.000100" add_offset="0.000000">
             <short_name>LT5SR</short_name>
@@ -250,7 +250,7 @@ xsi:schemaLocation="http://espa.cr.usgs.gov/v1.0 http://espa.cr.usgs.gov/static/
             <valid_range min="-2000" max="16000"/>
             <calibrated_nt>5.000000</calibrated_nt>
             <app_version>LEDAPS_2.0.0</app_version>
-            <production_date>2014-03-13T18:28:44Z</production_date>
+            <production_date>2014-03-24T14:59:51Z</production_date>
         </band>
         <band product="sr_refl" source="toa_refl" name="sr_band3" category="image" data_type="INT16" nlines="7321" nsamps="7951" fill_value="-9999" saturate_value="20000" scale_factor="0.000100" add_offset="0.000000">
             <short_name>LT5SR</short_name>
@@ -261,7 +261,7 @@ xsi:schemaLocation="http://espa.cr.usgs.gov/v1.0 http://espa.cr.usgs.gov/static/
             <valid_range min="-2000" max="16000"/>
             <calibrated_nt>5.000000</calibrated_nt>
             <app_version>LEDAPS_2.0.0</app_version>
-            <production_date>2014-03-13T18:28:44Z</production_date>
+            <production_date>2014-03-24T14:59:51Z</production_date>
         </band>
         <band product="sr_refl" source="toa_refl" name="sr_band4" category="image" data_type="INT16" nlines="7321" nsamps="7951" fill_value="-9999" saturate_value="20000" scale_factor="0.000100" add_offset="0.000000">
             <short_name>LT5SR</short_name>
@@ -272,7 +272,7 @@ xsi:schemaLocation="http://espa.cr.usgs.gov/v1.0 http://espa.cr.usgs.gov/static/
             <valid_range min="-2000" max="16000"/>
             <calibrated_nt>5.000000</calibrated_nt>
             <app_version>LEDAPS_2.0.0</app_version>
-            <production_date>2014-03-13T18:28:44Z</production_date>
+            <production_date>2014-03-24T14:59:51Z</production_date>
         </band>
         <band product="sr_refl" source="toa_refl" name="sr_band5" category="image" data_type="INT16" nlines="7321" nsamps="7951" fill_value="-9999" saturate_value="20000" scale_factor="0.000100" add_offset="0.000000">
             <short_name>LT5SR</short_name>
@@ -283,7 +283,7 @@ xsi:schemaLocation="http://espa.cr.usgs.gov/v1.0 http://espa.cr.usgs.gov/static/
             <valid_range min="-2000" max="16000"/>
             <calibrated_nt>5.000000</calibrated_nt>
             <app_version>LEDAPS_2.0.0</app_version>
-            <production_date>2014-03-13T18:28:44Z</production_date>
+            <production_date>2014-03-24T14:59:51Z</production_date>
         </band>
         <band product="sr_refl" source="toa_refl" name="sr_band7" category="image" data_type="INT16" nlines="7321" nsamps="7951" fill_value="-9999" saturate_value="20000" scale_factor="0.000100" add_offset="0.000000">
             <short_name>LT5SR</short_name>
@@ -294,7 +294,7 @@ xsi:schemaLocation="http://espa.cr.usgs.gov/v1.0 http://espa.cr.usgs.gov/static/
             <valid_range min="-2000" max="16000"/>
             <calibrated_nt>5.000000</calibrated_nt>
             <app_version>LEDAPS_2.0.0</app_version>
-            <production_date>2014-03-13T18:28:44Z</production_date>
+            <production_date>2014-03-24T14:59:51Z</production_date>
         </band>
         <band product="sr_refl" source="toa_refl" name="sr_atmos_opacity" category="image" data_type="INT16" nlines="7321" nsamps="7951" fill_value="-9999" scale_factor="0.001000">
             <short_name>LT5SR</short_name>
@@ -304,7 +304,7 @@ xsi:schemaLocation="http://espa.cr.usgs.gov/v1.0 http://espa.cr.usgs.gov/static/
             <data_units>reflectance</data_units>
             <valid_range min="-2000" max="16000"/>
             <app_version>LEDAPS_2.0.0</app_version>
-            <production_date>2014-03-13T18:28:44Z</production_date>
+            <production_date>2014-03-24T14:59:51Z</production_date>
         </band>
         <band product="sr_refl" source="toa_refl" name="sr_fill_qa" category="qa" data_type="UINT8" nlines="7321" nsamps="7951" fill_value="0">
             <short_name>LT5SR</short_name>
@@ -318,7 +318,7 @@ xsi:schemaLocation="http://espa.cr.usgs.gov/v1.0 http://espa.cr.usgs.gov/static/
                 <class num="255">not fill</class>
             </class_values>
             <app_version>LEDAPS_2.0.0</app_version>
-            <production_date>2014-03-13T18:28:44Z</production_date>
+            <production_date>2014-03-24T14:59:51Z</production_date>
         </band>
         <band product="sr_refl" source="toa_refl" name="sr_ddv_qa" category="qa" data_type="UINT8" nlines="7321" nsamps="7951" fill_value="255">
             <short_name>LT5SR</short_name>
@@ -332,7 +332,7 @@ xsi:schemaLocation="http://espa.cr.usgs.gov/v1.0 http://espa.cr.usgs.gov/static/
                 <class num="255">not dark dense vegetation</class>
             </class_values>
             <app_version>LEDAPS_2.0.0</app_version>
-            <production_date>2014-03-13T18:28:44Z</production_date>
+            <production_date>2014-03-24T14:59:51Z</production_date>
         </band>
         <band product="sr_refl" source="toa_refl" name="sr_cloud_qa" category="qa" data_type="UINT8" nlines="7321" nsamps="7951" fill_value="255">
             <short_name>LT5SR</short_name>
@@ -346,7 +346,7 @@ xsi:schemaLocation="http://espa.cr.usgs.gov/v1.0 http://espa.cr.usgs.gov/static/
                 <class num="255">not cloud</class>
             </class_values>
             <app_version>LEDAPS_2.0.0</app_version>
-            <production_date>2014-03-13T18:28:44Z</production_date>
+            <production_date>2014-03-24T14:59:51Z</production_date>
         </band>
         <band product="sr_refl" source="toa_refl" name="sr_cloud_shadow_qa" category="qa" data_type="UINT8" nlines="7321" nsamps="7951" fill_value="255">
             <short_name>LT5SR</short_name>
@@ -360,7 +360,7 @@ xsi:schemaLocation="http://espa.cr.usgs.gov/v1.0 http://espa.cr.usgs.gov/static/
                 <class num="255">not cloud shadow</class>
             </class_values>
             <app_version>LEDAPS_2.0.0</app_version>
-            <production_date>2014-03-13T18:28:44Z</production_date>
+            <production_date>2014-03-24T14:59:51Z</production_date>
         </band>
         <band product="sr_refl" source="toa_refl" name="sr_snow_qa" category="qa" data_type="UINT8" nlines="7321" nsamps="7951" fill_value="255">
             <short_name>LT5SR</short_name>
@@ -374,7 +374,7 @@ xsi:schemaLocation="http://espa.cr.usgs.gov/v1.0 http://espa.cr.usgs.gov/static/
                 <class num="255">not snow</class>
             </class_values>
             <app_version>LEDAPS_2.0.0</app_version>
-            <production_date>2014-03-13T18:28:44Z</production_date>
+            <production_date>2014-03-24T14:59:51Z</production_date>
         </band>
         <band product="sr_refl" source="toa_refl" name="sr_land_water_qa" category="qa" data_type="UINT8" nlines="7321" nsamps="7951" fill_value="255">
             <short_name>LT5SR</short_name>
@@ -388,7 +388,7 @@ xsi:schemaLocation="http://espa.cr.usgs.gov/v1.0 http://espa.cr.usgs.gov/static/
                 <class num="255">water</class>
             </class_values>
             <app_version>LEDAPS_2.0.0</app_version>
-            <production_date>2014-03-13T18:28:44Z</production_date>
+            <production_date>2014-03-24T14:59:51Z</production_date>
         </band>
         <band product="sr_refl" source="toa_refl" name="sr_adjacent_cloud_qa" category="qa" data_type="UINT8" nlines="7321" nsamps="7951" fill_value="255">
             <short_name>LT5SR</short_name>
@@ -402,25 +402,77 @@ xsi:schemaLocation="http://espa.cr.usgs.gov/v1.0 http://espa.cr.usgs.gov/static/
                 <class num="255">not adjacent cloud</class>
             </class_values>
             <app_version>LEDAPS_2.0.0</app_version>
-            <production_date>2014-03-13T18:28:44Z</production_date>
+            <production_date>2014-03-24T14:59:51Z</production_date>
         </band>
-        <band product="cfmask" source="toa_refl" name="fmask" category="qa" data_type="UINT8" nlines="7321" nsamps="7951" fill_value="255">
-            <short_name>LT5FMSK</short_name>
-            <long_name>fmask_band</long_name>
-            <file_name>LT50460282002042EDC01_fmask.img</file_name>
+        <band product="spectral_indices" source="sr_refl" name="ndvi" category="index" data_type="INT16" nlines="7321" nsamps="7951" fill_value="-9999" saturate_value="20000" scale_factor="0.000100">
+            <short_name>LT5NDVI</short_name>
+            <long_name>normalized difference vegetation index</long_name>
+            <file_name>LT50460282002042EDC01_sr_ndvi.img</file_name>
             <pixel_size x="30.000000" y="30.000000" units="meters"/>
-            <data_units>quality/feature classification</data_units>
-            <valid_range min="0" max="4"/>
-            <class_values>
-                <class num="0">clear</class>
-                <class num="1">water</class>
-                <class num="2">cloud_shadow</class>
-                <class num="3">snow</class>
-                <class num="4">cloud</class>
-                <class num="255">fill</class>
-            </class_values>
-            <app_version>cfmask_1.4.0</app_version>
-            <production_date>2014-03-13T18:43:52Z</production_date>
+            <data_units>band ratio index value</data_units>
+            <valid_range min="-10000" max="10000"/>
+            <app_version>spectral_indices_1.3.0</app_version>
+            <production_date>2014-03-24T15:09:43Z</production_date>
+        </band>
+        <band product="spectral_indices" source="sr_refl" name="evi" category="index" data_type="INT16" nlines="7321" nsamps="7951" fill_value="-9999" saturate_value="20000" scale_factor="0.000100">
+            <short_name>LT5EVI</short_name>
+            <long_name>enhanced vegetation index</long_name>
+            <file_name>LT50460282002042EDC01_sr_evi.img</file_name>
+            <pixel_size x="30.000000" y="30.000000" units="meters"/>
+            <data_units>band ratio index value</data_units>
+            <valid_range min="-10000" max="10000"/>
+            <app_version>spectral_indices_1.3.0</app_version>
+            <production_date>2014-03-24T15:09:43Z</production_date>
+        </band>
+        <band product="spectral_indices" source="sr_refl" name="ndmi" category="index" data_type="INT16" nlines="7321" nsamps="7951" fill_value="-9999" saturate_value="20000" scale_factor="0.000100">
+            <short_name>LT5NDMI</short_name>
+            <long_name>normalized difference moisture index</long_name>
+            <file_name>LT50460282002042EDC01_sr_ndmi.img</file_name>
+            <pixel_size x="30.000000" y="30.000000" units="meters"/>
+            <data_units>band ratio index value</data_units>
+            <valid_range min="-10000" max="10000"/>
+            <app_version>spectral_indices_1.3.0</app_version>
+            <production_date>2014-03-24T15:09:43Z</production_date>
+        </band>
+        <band product="spectral_indices" source="sr_refl" name="savi" category="index" data_type="INT16" nlines="7321" nsamps="7951" fill_value="-9999" saturate_value="20000" scale_factor="0.000100">
+            <short_name>LT5SAVI</short_name>
+            <long_name>soil adjusted vegetation index</long_name>
+            <file_name>LT50460282002042EDC01_sr_savi.img</file_name>
+            <pixel_size x="30.000000" y="30.000000" units="meters"/>
+            <data_units>band ratio index value</data_units>
+            <valid_range min="-10000" max="10000"/>
+            <app_version>spectral_indices_1.3.0</app_version>
+            <production_date>2014-03-24T15:09:43Z</production_date>
+        </band>
+        <band product="spectral_indices" source="sr_refl" name="msavi" category="index" data_type="INT16" nlines="7321" nsamps="7951" fill_value="-9999" saturate_value="20000" scale_factor="0.000100">
+            <short_name>LT5MSAVI</short_name>
+            <long_name>modified soil adjusted vegetation index</long_name>
+            <file_name>LT50460282002042EDC01_sr_msavi.img</file_name>
+            <pixel_size x="30.000000" y="30.000000" units="meters"/>
+            <data_units>band ratio index value</data_units>
+            <valid_range min="-10000" max="10000"/>
+            <app_version>spectral_indices_1.3.0</app_version>
+            <production_date>2014-03-24T15:09:43Z</production_date>
+        </band>
+        <band product="spectral_indices" source="sr_refl" name="nbr" category="index" data_type="INT16" nlines="7321" nsamps="7951" fill_value="-9999" saturate_value="20000" scale_factor="0.000100">
+            <short_name>LT5NBR</short_name>
+            <long_name>normalized burn ratio</long_name>
+            <file_name>LT50460282002042EDC01_sr_nbr.img</file_name>
+            <pixel_size x="30.000000" y="30.000000" units="meters"/>
+            <data_units>band ratio index value</data_units>
+            <valid_range min="-10000" max="10000"/>
+            <app_version>spectral_indices_1.3.0</app_version>
+            <production_date>2014-03-24T15:09:43Z</production_date>
+        </band>
+        <band product="spectral_indices" source="sr_refl" name="nbr2" category="index" data_type="INT16" nlines="7321" nsamps="7951" fill_value="-9999" saturate_value="20000" scale_factor="0.000100">
+            <short_name>LT5NBR2</short_name>
+            <long_name>normalized burn ratio 2</long_name>
+            <file_name>LT50460282002042EDC01_sr_nbr2.img</file_name>
+            <pixel_size x="30.000000" y="30.000000" units="meters"/>
+            <data_units>band ratio index value</data_units>
+            <valid_range min="-10000" max="10000"/>
+            <app_version>spectral_indices_1.3.0</app_version>
+            <production_date>2014-03-24T15:09:43Z</production_date>
         </band>
     </bands>
 </espa_metadata>
