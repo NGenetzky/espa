@@ -62,9 +62,6 @@ if __name__ == '__main__':
                 log ("Error missing JSON 'options' record")
                 sys.exit(EXIT_FAILURE)
 
-            # Convert the 'options' to a dictionary
-            parms['options'] = json.loads(parms['options'])
-
             (orderid, sceneid) = (parms['orderid'], parms['scene'])
 
             if parameters.test_for_parameter(parms['options'], 'debug'):
@@ -138,7 +135,8 @@ if __name__ == '__main__':
               or e.error_code == ee.ErrorCodes.cfmask_append \
               or e.error_code == ee.ErrorCodes.swe \
               or e.error_code == ee.ErrorCodes.sca \
-              or e.error_code == ee.ErrorCodes.cleanup_work_dir:
+              or e.error_code == ee.ErrorCodes.cleanup_work_dir \
+              or e.error_code == ee.ErrorCodes.remove_products:
 
                 if server is not None:
                     server.setSceneError(sceneid, orderid,
