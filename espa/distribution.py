@@ -293,7 +293,7 @@ def distribute_product (destination_host, destination_directory,
         raise ee.ESPAException (ee.ErrorCodes.packaging_product, str(e)), \
             None, sys.exc_info()[2]
 
-    return (cksum_value, destination_product_file)
+    return (cksum_value, destination_product_file, destination_cksum_file)
 # END - distribute_product
 
 
@@ -424,7 +424,8 @@ def deliver_product (work_directory, package_directory, product_name,
     attempt = 0
     while True:
         try:
-            (remote_cksum_value, destination_product_file) = \
+            (remote_cksum_value, destination_product_file,
+             destination_cksum_file) = \
                 distribute_product (destination_host, destination_directory,
                     destination_username, destination_pw,
                     product_full_path, cksum_full_path)
@@ -471,6 +472,9 @@ def deliver_product (work_directory, package_directory, product_name,
 
     log ("Product delivery complete for %s:%s" % \
         (destination_host, destination_product_file))
+
+    # Let the caller know where we put these on the destination system
+    return (destination_product_file, destination_cksum_file)
 # END - deliver_product
 
 
@@ -516,7 +520,7 @@ if __name__ == '__main__':
             print ("Successfully packaged product %s" % args.product_name)
 
         elif args.test_distribute_product:
-            (cksum_value, destination_full_path) = \
+            (cksum_value, destination_full_path, destination_cksum_file) = \
                 distribute_product (args.destination_host,
                     args.destination_directory, args.destination_host,
                     args.destination_pw, args.product_file, args.cksum_file)
