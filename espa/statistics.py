@@ -150,11 +150,15 @@ if __name__ == '__main__':
     '''
 
     # Landsat files
-    files_to_search_for = ['*-band[0-9].tif']
-    files_to_search_for += ['*-nbr.tif']
-    files_to_search_for += ['*-nbr2.tif']
-    files_to_search_for += ['*-ndmi.tif']
-    files_to_search_for += ['*-vi-*.tif']
+    files_to_search_for = ['*_sr_band[0-9].img']
+    files_to_search_for += ['*_toa_band[0-9].img']
+    files_to_search_for += ['*_nbr.img']
+    files_to_search_for += ['*_nbr2.img']
+    files_to_search_for += ['*_ndmi.img']
+    files_to_search_for += ['*_ndvi.img']
+    files_to_search_for += ['*_evi.img']
+    files_to_search_for += ['*_savi.img']
+    files_to_search_for += ['*_msavi.img']
     # MODIS files
     files_to_search_for += ['*-sur_refl_b*.tif']
     files_to_search_for += ['*-LST*.tif']
