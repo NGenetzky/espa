@@ -231,11 +231,15 @@ def process (parms):
     # Generate the stats for each stat'able' science product
     if options['include_statistics']:
         # Find the files
-        files_to_search_for = ['*-band[0-9].tif']
-        files_to_search_for += ['*-nbr.tif']
-        files_to_search_for += ['*-nbr2.tif']
-        files_to_search_for += ['*-ndmi.tif']
-        files_to_search_for += ['*-vi-*.tif']
+        files_to_search_for = ['*_sr_band[0-9].img']
+        files_to_search_for += ['*_toa_band[0-9].img']
+        files_to_search_for += ['*_nbr.img']
+        files_to_search_for += ['*_nbr2.img']
+        files_to_search_for += ['*_ndmi.img']
+        files_to_search_for += ['*_ndvi.img']
+        files_to_search_for += ['*_evi.img']
+        files_to_search_for += ['*_savi.img']
+        files_to_search_for += ['*_msavi.img']
         # Generate the stats for each file
         statistics.generate_statistics(options['work_directory'],
             files_to_search_for)
@@ -245,15 +249,20 @@ def process (parms):
     sleep_seconds = 2
     max_number_of_attempts = 5
     attempt = 0
+    destination_product_file = 'ERROR'
+    destination_cksum_file = 'ERROR'
     while True:
         try:
             # Deliver product will also try each of its parts three times
             # before failing, so we pass our sleep seconds down to them
-            distribution.deliver_product (work_directory, package_directory,
-                product_name,
-                options['destination_host'], options['destination_directory'],
-                options['destination_username'], options['destination_pw'],
-                options['include_statistics'], sleep_seconds)
+            (destination_product_file, destination_cksum_file) = \
+                distribution.deliver_product (work_directory,
+                    package_directory, product_name,
+                    options['destination_host'],
+                    options['destination_directory'],
+                    options['destination_username'],
+                    options['destination_pw'],
+                    options['include_statistics'], sleep_seconds)
         except Exception, e:
             log ("An error occurred processing %s" % scene)
             log ("Error: %s" % str(e))
@@ -265,6 +274,9 @@ def process (parms):
             else:
                 raise e # May already be an ESPAException so don't override that
         break
+
+    # Let the caller know where we put these on the destination system
+    return (destination_product_file, destination_cksum_file)
 # END - process
 
 
