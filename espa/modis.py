@@ -237,15 +237,20 @@ def process (parms):
     sleep_seconds = 2
     max_number_of_attempts = 5
     attempt = 0
+    destination_product_file = 'ERROR'
+    destination_cksum_file = 'ERROR'
     while True:
         try:
             # Deliver product will also try each of its parts three times
             # before failing, so we pass our sleep seconds down to them
-            distribution.deliver_product (work_directory, package_directory,
-                product_name,
-                options['destination_host'], options['destination_directory'],
-                options['destination_username'], options['destination_pw'],
-                options['include_statistics'], sleep_seconds)
+            (destination_product_file, destination_cksum_file) = \
+                distribution.deliver_product (work_directory,
+                    package_directory, product_name,
+                    options['destination_host'],
+                    options['destination_directory'],
+                    options['destination_username'],
+                    options['destination_pw'],
+                    options['include_statistics'], sleep_seconds)
         except Exception, e:
             log ("An error occurred processing %s" % scene)
             log ("Error: %s" % str(e))
@@ -257,6 +262,9 @@ def process (parms):
             else:
                 raise e # May already be an ESPAException so don't override that
         break
+
+    # Let the caller know where we put these on the destination system
+    return (destination_product_file, destination_cksum_file)
 # END - process
 
 
