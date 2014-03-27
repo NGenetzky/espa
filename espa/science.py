@@ -29,8 +29,10 @@ import espa_exception as ee
 import parameters
 import util
 import metadata
+import metadata_api
 import solr
-import browse
+# We do not offer browse products for the time being.
+#import browse
 
 
 # Default values
@@ -38,7 +40,39 @@ default_browse_resolution = 50
 default_solr_collection_name = 'DEFAULT_COLLECTION'
 
 
-#==============================================================================
+# Define all of the non-product files that need to be removed before product
+# generation
+non_product_files = [
+    'lndsr.*.txt',
+    'lndcal.*.txt',
+    'LogReport*',
+    'README*'
+#    'DEM*' TODO TODO TODO add back in later when include_snow_covered_area and include_surface_water_extent are converted to raw_binary format
+]
+
+# Define L1T source files that may need to be removed before product generation
+l1t_source_files = [
+    '*gap_mask*'
+]
+
+# Define L1T source metadata files that may need to be removed before product
+# generation
+l1t_source_metadata_files = [
+    '*MTL*',
+    '*VER*',
+    '*GCP*'
+]
+
+order_to_product_mapping = {
+    'include_sourcefile': 'L1T',
+    'include_sr': 'sr_refl',
+    'include_sr_toa': 'toa_refl',
+    'include_sr_thermal': 'toa_bt',
+    'include_cfmask': 'cfmask'
+}
+
+
+#=============================================================================
 def build_argument_parser():
     '''
     Description:
@@ -65,7 +99,7 @@ def build_argument_parser():
 # END - build_argument_parser
 
 
-#==============================================================================
+#=============================================================================
 def validate_landsat_parameters (parms):
     '''
     Description:
@@ -119,7 +153,67 @@ def validate_landsat_parameters (parms):
 # END - validate_landsat_parameters
 
 
-#==============================================================================
+def remove_products (xml_filename, products_to_remove=None):
+    '''
+    Description:
+      Remove the specified products from the XML file.  The file is read into
+      memory, processed, and written back out with out the specified products.
+    '''
+
+    if products_to_remove != None:
+        espa_xml = metadata_api.parse (xml_filename, silence=True)
+        bands = espa_xml.get_bands()
+
+        file_names = []
+
+        # Remove them from the file system first
+        for band in bands.band:
+            if band.product in products_to_remove:
+                file_name = band.file_name.rsplit ('.')[0]
+                file_names += glob.glob ('%s*' % file_name)
+
+        # Only remove files if we found some
+        if len(file_names) > 0:
+
+            cmd = ['rm', '-rf'] + file_names
+            cmd = ' '.join(cmd)
+            log ('REMOVING INTERMEDIAT PRODUCTS NOT REQUESTED COMMAND:' + cmd)
+
+            try:
+                output = util.execute_cmd (cmd)
+            except Exception, e:
+                raise ee.ESPAException (ee.ErrorCodes.remove_products, str(e)), \
+                    None, sys.exc_info()[2]
+            finally:
+                log (output)
+
+            # Remove them from the XML by creating a new list of all the others
+            bands.band[:] = [band for band in bands.band if band.product not in products_to_remove]
+
+            try:
+                # Export the file with validation
+                xml_fd = open(xml_filename, 'w')
+                # Export to the file and specify the namespace/schema
+                metadata_api.export(xml_fd, espa_xml,
+                    xmlns="http://espa.cr.usgs.gov/v1.0",
+                    xmlns_xsi="http://www.w3.org/2001/XMLSchema-instance",
+                    schema_uri="http://espa.cr.usgs.gov/static/schema/espa_internal_metadata_v1_0.xsd")
+                xml_fd.close()
+            except Exception, e:
+                raise ee.ESPAException (ee.ErrorCodes.remove_products, str(e)), \
+                    None, sys.exc_info()[2]
+            finally:
+                log (output)
+        # END - if file_names
+
+        # Cleanup
+        del bands
+        del espa_xml
+    # END - if products_to_remove
+# END - remove_products
+
+
+#=============================================================================
 def build_landsat_science_products (parms):
     '''
     Description:
@@ -139,12 +233,14 @@ def build_landsat_science_products (parms):
             None, sys.exc_info()[2]
     metadata_filename = landsat_metadata['metadata_filename']
 
+    xml_filename = metadata_filename.replace('_MTL.txt', '.xml')
+
     # Figure out filenames
     sr_filename = 'lndsr.%s.hdf' % scene
     toa_filename = 'lndcal.%s.hdf' % scene
     th_filename = 'lndth.%s.hdf' % scene
     fmask_filename = 'fmask.%s.hdf' % scene
-    dem_filename = 'dem.%s.bin' % scene
+    dem_filename = 'dem.%s.img' % scene
     sca_filename = 'sca.%s.hdf' % scene
     solr_filename = '%s-index.xml' % scene
 
@@ -154,7 +250,22 @@ def build_landsat_science_products (parms):
 
     output = ''
     try:
-        # ---------------------------------------------------------------------
+        # --------------------------------------------------------------------
+        # Convert lpgs to espa first
+        cmd = ['convert_lpgs_to_espa', '--mtl', metadata_filename,
+               '--xml', xml_filename]
+        cmd = ' '.join(cmd)
+        log ('CONVERT LPGS TO ESPA COMMAND:' + cmd)
+
+        try:
+            output = util.execute_cmd (cmd)
+        except Exception, e:
+            raise ee.ESPAException (ee.ErrorCodes.ledaps, str(e)), \
+                None, sys.exc_info()[2]
+        finally:
+            log (output)
+
+        # --------------------------------------------------------------------
         # Generate LEDAPS products SR, TOA, TH
         if options['include_sr'] \
           or options['include_sr_browse'] \
@@ -169,7 +280,7 @@ def build_landsat_science_products (parms):
           or options['include_sr_evi'] \
           or options['include_snow_covered_area'] \
           or options['include_surface_water_extent']:
-            cmd = ['do_ledaps.py', '--metafile', metadata_filename]
+            cmd = ['do_ledaps.py', '--xml', xml_filename]
             cmd = ' '.join(cmd)
             log ('LEDAPS COMMAND:' + cmd)
 
@@ -181,17 +292,39 @@ def build_landsat_science_products (parms):
             finally:
                 log (output)
 
-        # ---------------------------------------------------------------------
-        # Generate SR browse product
-        if options['include_sr_browse']:
-            try:
-                browse.do_sr_browse (sr_filename, scene,
-                    options['browse_resolution'])
-            except Exception, e:
-                raise ee.ESPAException (ee.ErrorCodes.browse, str(e)), \
-                    None, sys.exc_info()[2]
+        # --------------------------------------------------------------------
+        # Remove the TIF files as they are no longer needed for the remainder
+        # of the processing and since they are not delivered
+        # Also to help prevent issues later when searching for files
+        non_products = glob.glob ('*.TIF')
 
-        # ---------------------------------------------------------------------
+        cmd = ['rm', '-rf'] + non_products
+        cmd = ' '.join(cmd)
+        log ('REMOVING LPGS TIF INPUT COMMAND:' + cmd)
+
+        try:
+            output = util.execute_cmd (cmd)
+        except Exception, e:
+            raise ee.ESPAException (ee.ErrorCodes.cleanup_work_dir, str(e)), \
+                None, sys.exc_info()[2]
+        finally:
+            log (output)
+
+        # --------------------------------------------------------------------
+        # Generate SR browse product
+        # We do not offer browse products for the time being.  When we start
+        # offering them again, we should be able to un-comment the following
+        # code.  browse.do_sr_browse needs to be updated for the raw_binary
+        # format and it should also cleanup any of it's temporary files.
+        #if options['include_sr_browse']:
+        #    try:
+        #        browse.do_sr_browse (sr_filename, scene,
+        #            options['browse_resolution'])
+        #    except Exception, e:
+        #        raise ee.ESPAException (ee.ErrorCodes.browse, str(e)), \
+        #            None, sys.exc_info()[2]
+
+        # --------------------------------------------------------------------
         # Generate any specified indices
         if options['include_sr_nbr'] \
           or options['include_sr_nbr2'] \
@@ -200,7 +333,7 @@ def build_landsat_science_products (parms):
           or options['include_sr_savi'] \
           or options['include_sr_msavi'] \
           or options['include_sr_evi']:
-            cmd = ['do_spectral_indices.py']
+            cmd = ['do_spectral_indices.py', '--xml', xml_filename]
 
             # Add the specified index options
             if options['include_sr_nbr']:
@@ -218,10 +351,7 @@ def build_landsat_science_products (parms):
             if options['include_sr_evi']:
                 cmd += ['--evi']
 
-            # We are always generating indices off of surface reflectance
-            cmd += ['-i', sr_filename]
             cmd = ' '.join(cmd)
-
             log ('SPECTRAL INDICES COMMAND:' + cmd)
             try:
                 output = util.execute_cmd (cmd)
@@ -232,10 +362,16 @@ def build_landsat_science_products (parms):
                 log (output)
         # END - if indices
 
-        # ---------------------------------------------------------------------
+        # --------------------------------------------------------------------
         # Create a DEM
         if options['include_snow_covered_area'] \
           or options['include_surface_water_extent']:
+            # Does not use our internal raw binary XML format, because it is
+            # executing code which comes from Landsat to generate the DEM and
+            # because we do not distribute DEM's.
+            # Also currently only this Landsat product generation uses the DEM
+            # so when another sensor is added that needs to generate a DEM we
+            # can consider our choices at that time.
             cmd = ['do_create_dem.py', '--metafile', metadata_filename,
                    '--demfile', dem_filename]
             cmd = ' '.join(cmd)
@@ -249,7 +385,7 @@ def build_landsat_science_products (parms):
             finally:
                 log (output)
 
-        # ---------------------------------------------------------------------
+        # --------------------------------------------------------------------
         # Generate SOLR index
         if options['include_solr_index']:
             try:
@@ -259,17 +395,29 @@ def build_landsat_science_products (parms):
                 raise ee.ESPAException (ee.ErrorCodes.solr, str(e)), \
                     None, sys.exc_info()[2]
 
-        # ---------------------------------------------------------------------
+        # --------------------------------------------------------------------
         # Generate CFMask product
         if options['include_cfmask'] or options['include_sr']:
-            # Verify lndcal file exists first
-            if not os.path.isfile(toa_filename):
+            # Load the current ESPA XML file and verify that the TOA bands are
+            # present
+            espa_xml = metadata_api.parse(xml_filename, silence=True)
+            bands = espa_xml.get_bands()
+            toa_refl_count = 0
+            toa_bt_count = 0
+            for band in bands.band:
+                if band.product == 'toa_refl':
+                    toa_refl_count += 1
+                if band.product == 'toa_bt':
+                    toa_bt_count += 1
+            if (toa_refl_count != 7) or (toa_bt_count !=2):
                 raise ee.ESPAException (ee.ErrorCodes.cfmask,
-                    ("Could not find LEDAPS TOA reflectance file in %s") \
-                     % options['work_directory'])
+                    "Could not find or missing LEDAPS TOA reflectance"
+                    " files in %s" % options['work_directory'])
+            del bands    # Not needed anymore
+            del espa_xml # Not needed anymore
 
-            cmd = ['cfmask', '--verbose', '--max_cloud_pixels=%d' % 5000000,
-                   '--toarefl=%s' % toa_filename]
+            cmd = ['cfmask', '--verbose', '--max_cloud_pixels', str(5000000),
+                   '--xml', xml_filename]
             cmd = ' '.join(cmd)
 
             log ('CREATE CFMASK COMMAND:' + cmd)
@@ -281,25 +429,10 @@ def build_landsat_science_products (parms):
             finally:
                 log (output)
 
-        # ---------------------------------------------------------------------
-        # Append CFMask into the SR product if only SR was selected
-        if options['include_sr'] and not options['include_cfmask']:
-            cmd = ['do_append_cfmask.py', '--sr_infile', sr_filename,
-                   '--cfmask_infile', fmask_filename]
-            cmd = ' '.join(cmd)
-
-            log ('APPEND CFMASK COMMAND:' + cmd)
-            try:
-                output = util.execute_cmd (cmd)
-            except Exception, e:
-                raise ee.ESPAException (ee.ErrorCodes.cfmask_append, str(e)), \
-                    None, sys.exc_info()[2]
-            finally:
-                log (output)
-
-        # ---------------------------------------------------------------------
+        # --------------------------------------------------------------------
         # Generate Surface Water Extent product
         if options['include_surface_water_extent']:
+            # TODO TODO TODO - XML
             cmd = ['do_surface_water_extent.py', '--metafile',
                    metadata_filename, '--reflectance', sr_filename, '--dem',
                    dem_filename]
@@ -314,9 +447,10 @@ def build_landsat_science_products (parms):
             finally:
                 log (output)
 
-        # ---------------------------------------------------------------------
+        # --------------------------------------------------------------------
         # Generate Snow Covered Area product
         if options['include_snow_covered_area']:
+            # TODO TODO TODO - XML
             cmd = ['do_snow_cover.py', '--metafile', metadata_filename,
                    '--toa_infile', toa_filename, '--btemp_infile', th_filename,
                    '--sca_outfile', sca_filename, '--dem', dem_filename]
@@ -331,41 +465,56 @@ def build_landsat_science_products (parms):
             finally:
                 log (output)
 
-        # ---------------------------------------------------------------------
-        # Remove non-product (intermediate) files here
-        non_products = glob.glob ('*sixs*')
-        non_products += glob.glob ('*metadata*')
-        non_products += glob.glob ('LogReport*')
-        non_products += glob.glob ('README*')
-        non_products += glob.glob ('fmask*txt')
-        non_products += glob.glob ('dem*')
+        # --------------------------------------------------------------------
+        # Remove the intermediate non-product files
+        non_products = []
+        for item in non_product_files:
+            non_products += glob.glob (item)
 
-        # Remove these only if they are not requested
+        # Add L1T source files if not requested
         if not options['include_sourcefile']:
-            non_products += glob.glob ('*TIF')
-            non_products += glob.glob ('*gap_mask*')
+            for item in l1t_source_files:
+                non_products += glob.glob (item)
         if not options['include_source_metadata']:
-            non_products += glob.glob ('*MTL*')
-            non_products += glob.glob ('*VER*')
-            non_products += glob.glob ('*GCP*')
-        if not options['include_sr']:
-            non_products += glob.glob ('lndsr*')
-        if not options['include_sr_toa']:
-            non_products += glob.glob ('lndcal*')
-        if not options['include_sr_thermal']:
-            non_products += glob.glob ('lndth*')
-        if not options['include_sr_browse']:
-            non_products += glob.glob ('*browse*')
-        if not options['include_cfmask']:
-            non_products += glob.glob ('fmask*')
+            for item in l1t_source_metadata_files:
+                non_products += glob.glob (item)
 
         cmd = ['rm', '-rf'] + non_products
         cmd = ' '.join(cmd)
         log ('REMOVING INTERMEDIATE DATA COMMAND:' + cmd)
+
         try:
             output = util.execute_cmd (cmd)
         except Exception, e:
             raise ee.ESPAException (ee.ErrorCodes.cleanup_work_dir, str(e)), \
+                None, sys.exc_info()[2]
+        finally:
+            log (output)
+
+        # Remove generated products that were not requested
+        products_to_remove = []
+        if not options['include_sourcefile']:
+            products_to_remove += \
+                [order_to_product_mapping['include_sourcefile']]
+        if not options['include_sr']:
+            products_to_remove += \
+                [order_to_product_mapping['include_sr']]
+        if not options['include_sr_toa']:
+            products_to_remove += \
+                [order_to_product_mapping['include_sr_toa']]
+        if not options['include_sr_thermal']:
+            products_to_remove += \
+                [order_to_product_mapping['include_sr_thermal']]
+        # These both need to be false before we delete the fmask files
+        # Because our defined SR product includes the fmask band
+        if not options['include_cfmask'] and not options['include_sr']:
+            products_to_remove += \
+                [order_to_product_mapping['include_cfmask']]
+
+        try:
+            remove_products (xml_filename, products_to_remove)
+        except Exception, e:
+            raise ee.ESPAException (ee.ErrorCodes.remove_products, str(e)), \
                 None, sys.exc_info()[2]
         finally:
             log (output)
@@ -376,7 +525,7 @@ def build_landsat_science_products (parms):
 # END - build_landsat_science_products
 
 
-#==============================================================================
+#=============================================================================
 if __name__ == '__main__':
     '''
     Description:
