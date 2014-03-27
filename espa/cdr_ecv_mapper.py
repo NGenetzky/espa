@@ -91,19 +91,33 @@ if __name__ == '__main__':
             # application
             cmd_line_options = parameters.convert_to_command_line_options(parms)
 
+            destination_product_file = 'ERROR'
+            destination_cksum_file = 'ERROR'
             # Process the landsat sensors
             if sensor in parameters.valid_landsat_sensors:
                 log ("Processing cdr_ecv with [%s]" \
                     % ' '.join(cmd_line_options))
-                cdr_ecv.process (parms)
+                (destination_product_file, destination_cksum_file) = \
+                    cdr_ecv.process (parms)
+            # Process the modis sensors
             elif sensor in parameters.valid_modis_sensors:
                 log ("Processing modis with [%s]" \
                     % ' '.join(cmd_line_options))
-                modis.process (parms)
+                (destination_product_file, destination_cksum_file) = \
+                    modis.process (parms)
 
             #------------------------------------------------------------------
             # NOTE: Else process using another sensors processor
             #------------------------------------------------------------------
+
+            # Everything was successfull so mark the scene complete
+            if server is not None:
+                server.markSceneComplete(sceneid, orderid, processing_location,
+                    destination_product_file, destination_cksum_file, "")
+            else:
+                print ("Delivered product to %s at location %s and cksum"
+                       " location %s" % (processing_location,
+                       destination_product_file, destination_cksum_file))
 
         except ee.ESPAException, e:
             # Log the error information
@@ -189,6 +203,7 @@ if __name__ == '__main__':
             tb = traceback.format_exc()
             log ("Error: Traceback [%s]" % tb)
             log ("Error: Line [%s]" % line)
+
     # END - for line in STDIN
 
     sys.exit(EXIT_SUCCESS)
