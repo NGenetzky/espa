@@ -40,8 +40,8 @@ def get_landsat_metadata (work_dir):
             break
 
     if metadata_filename =='':
-        log ("Could not locate the Landsat MTL file in %s" % work_dir)
-        return None
+        msg = "Could not locate the Landsat MTL file in %s" % work_dir
+        raise RuntimeError(msg)
 
     # Save the current directory and change to the work directory
     current_directory = os.getcwd()
