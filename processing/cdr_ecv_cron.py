@@ -120,6 +120,7 @@ def runScenes():
                 '-file', '%s/espa-site/espa/transfer.py' % home_dir,
                 '-file', '%s/espa-site/espa/util.py' % home_dir,
                 '-file', '%s/espa-site/espa/warp.py' % home_dir,
+                '-file', '%s/espa-site/espa/settings.py' % home_dir,
                 '-mapper', '%s/espa-site/espa/cdr_ecv_mapper.py' % home_dir,
                 '-cmdenv', 'ESPA_WORK_DIR=$ESPA_WORK_DIR',
                 '-cmdenv', 'HOME=$HOME',
