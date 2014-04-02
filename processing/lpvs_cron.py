@@ -24,6 +24,7 @@ import time
 import json
 import xmlrpclib
 import subprocess
+import traceback
 from datetime import datetime
 
 # espa-common objects and methods
@@ -96,15 +97,20 @@ def run_orders():
                 try:
                     output = util.execute_cmd (cmd)
                 except Exception, e:
-                    # TODO TODO TODO
+                    # TODO TODO TODO - Needs web side implementation
                     server.updateOrderStatus (order, 'LPVS cron driver', 'FAIL')
-                    # TODO TODO TODO - Exception needs to be better
-                    raise e
+
+                    msg = "Error during execution of plot.py: " + str(e)
+                    raise Exception (msg)
                 finally:
                     log (output)
 
-                # TODO TODO TODO
+                # TODO TODO TODO - Needs web side implementation
                 server.updateOrderStatus (order, 'LPVS cron driver', 'SUCC')
+
+    except Exception, e:
+        msg = "Error Processing Plots: " + str(e)
+        raise Exception (msg)
 
     finally:
         server = None
