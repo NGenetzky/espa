@@ -47,7 +47,7 @@ non_product_files = [
     'lndcal.*.txt',
     'LogReport*',
     'README*'
-#    'DEM*' TODO TODO TODO add back in later when include_snow_covered_area and include_surface_water_extent are converted to raw_binary format
+    '*_dem.img'
 ]
 
 # Define L1T source files that may need to be removed before product generation
@@ -236,12 +236,7 @@ def build_landsat_science_products (parms):
     xml_filename = metadata_filename.replace('_MTL.txt', '.xml')
 
     # Figure out filenames
-    sr_filename = 'lndsr.%s.hdf' % scene
-    toa_filename = 'lndcal.%s.hdf' % scene
-    th_filename = 'lndth.%s.hdf' % scene
-    fmask_filename = 'fmask.%s.hdf' % scene
-    dem_filename = 'dem.%s.img' % scene
-    sca_filename = 'sca.%s.hdf' % scene
+    dem_filename = '%s_dem.img' % scene
     solr_filename = '%s-index.xml' % scene
 
     # Change to the working directory
@@ -252,7 +247,9 @@ def build_landsat_science_products (parms):
     try:
         # --------------------------------------------------------------------
         # Convert lpgs to espa first
-        cmd = ['convert_lpgs_to_espa', '--mtl', metadata_filename,
+        # Call with deletion of source files
+        cmd = ['convert_lpgs_to_espa', '--del_src_files',
+               '--mtl', metadata_filename,
                '--xml', xml_filename]
         cmd = ' '.join(cmd)
         log ('CONVERT LPGS TO ESPA COMMAND:' + cmd)
@@ -293,36 +290,18 @@ def build_landsat_science_products (parms):
                 log (output)
 
         # --------------------------------------------------------------------
-        # Remove the TIF files as they are no longer needed for the remainder
-        # of the processing and since they are not delivered
-        # Also to help prevent issues later when searching for files
-        non_products = glob.glob ('*.TIF')
-
-        cmd = ['rm', '-rf'] + non_products
-        cmd = ' '.join(cmd)
-        log ('REMOVING LPGS TIF INPUT COMMAND:' + cmd)
-
-        try:
-            output = util.execute_cmd (cmd)
-        except Exception, e:
-            raise ee.ESPAException (ee.ErrorCodes.cleanup_work_dir, str(e)), \
-                None, sys.exc_info()[2]
-        finally:
-            log (output)
-
-        # --------------------------------------------------------------------
         # Generate SR browse product
         # We do not offer browse products for the time being.  When we start
         # offering them again, we should be able to un-comment the following
         # code.  browse.do_sr_browse needs to be updated for the raw_binary
         # format and it should also cleanup any of it's temporary files.
-        #if options['include_sr_browse']:
-        #    try:
-        #        browse.do_sr_browse (sr_filename, scene,
-        #            options['browse_resolution'])
-        #    except Exception, e:
-        #        raise ee.ESPAException (ee.ErrorCodes.browse, str(e)), \
-        #            None, sys.exc_info()[2]
+#        if options['include_sr_browse']:
+#            try:
+#                browse.do_sr_browse (sr_filename, scene,
+#                    options['browse_resolution'])
+#            except Exception, e:
+#                raise ee.ESPAException (ee.ErrorCodes.browse, str(e)), \
+#                    None, sys.exc_info()[2]
 
         # --------------------------------------------------------------------
         # Generate any specified indices
@@ -429,41 +408,41 @@ def build_landsat_science_products (parms):
             finally:
                 log (output)
 
-        # --------------------------------------------------------------------
-        # Generate Surface Water Extent product
-        if options['include_surface_water_extent']:
-            # TODO TODO TODO - XML
-            cmd = ['do_surface_water_extent.py', '--metafile',
-                   metadata_filename, '--reflectance', sr_filename, '--dem',
-                   dem_filename]
-            cmd = ' '.join(cmd)
+#        # --------------------------------------------------------------------
+#        # Generate Surface Water Extent product
+#        if options['include_surface_water_extent']:
+#            # TODO - Needs modification for XML
+#            cmd = ['do_surface_water_extent.py', '--metafile',
+#                   metadata_filename, '--reflectance', sr_filename, '--dem',
+#                   dem_filename]
+#            cmd = ' '.join(cmd)
+#
+#            log ('CREATE SWE COMMAND:' + cmd)
+#            try:
+#                output = util.execute_cmd (cmd)
+#            except Exception, e:
+#                raise ee.ESPAException (ee.ErrorCodes.swe, str(e)), \
+#                    None, sys.exc_info()[2]
+#            finally:
+#                log (output)
 
-            log ('CREATE SWE COMMAND:' + cmd)
-            try:
-                output = util.execute_cmd (cmd)
-            except Exception, e:
-                raise ee.ESPAException (ee.ErrorCodes.swe, str(e)), \
-                    None, sys.exc_info()[2]
-            finally:
-                log (output)
-
-        # --------------------------------------------------------------------
-        # Generate Snow Covered Area product
-        if options['include_snow_covered_area']:
-            # TODO TODO TODO - XML
-            cmd = ['do_snow_cover.py', '--metafile', metadata_filename,
-                   '--toa_infile', toa_filename, '--btemp_infile', th_filename,
-                   '--sca_outfile', sca_filename, '--dem', dem_filename]
-            cmd = ' '.join(cmd)
-
-            log ('CREATE SCA COMMAND:' + cmd)
-            try:
-                output = util.execute_cmd (cmd)
-            except Exception, e:
-                raise ee.ESPAException (ee.ErrorCodes.sca, str(e)), \
-                    None, sys.exc_info()[2]
-            finally:
-                log (output)
+#        # --------------------------------------------------------------------
+#        # Generate Snow Covered Area product
+#        if options['include_snow_covered_area']:
+#            # TODO - Needs modification for XML
+#            cmd = ['do_snow_cover.py', '--metafile', metadata_filename,
+#                   '--toa_infile', toa_filename, '--btemp_infile', th_filename,
+#                   '--sca_outfile', sca_filename, '--dem', dem_filename]
+#            cmd = ' '.join(cmd)
+#
+#            log ('CREATE SCA COMMAND:' + cmd)
+#            try:
+#                output = util.execute_cmd (cmd)
+#            except Exception, e:
+#                raise ee.ESPAException (ee.ErrorCodes.sca, str(e)), \
+#                    None, sys.exc_info()[2]
+#            finally:
+#                log (output)
 
         # --------------------------------------------------------------------
         # Remove the intermediate non-product files
@@ -522,6 +501,8 @@ def build_landsat_science_products (parms):
     finally:
         # Change back to the previous directory
         os.chdir(current_directory)
+
+    return xml_filename
 # END - build_landsat_science_products
 
 
