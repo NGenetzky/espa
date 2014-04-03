@@ -82,6 +82,11 @@ if __name__ == '__main__':
             if sensor not in parameters.valid_sensors:
                 raise ValueError("Invalid Sensor %s" % sensor)
 
+            # Make sure we have a valid output format
+            if parms['options']['output_format'] \
+              not in parameters.valid_output_formats:
+                raise ValueError("Invalid Sensor %s" % sensor)
+
             #------------------------------------------------------------------
             # NOTE:
             #   The first thing process does is validate the input parameters
@@ -157,6 +162,12 @@ if __name__ == '__main__':
                         processing_location, e)
 
             elif e.error_code == ee.ErrorCodes.warping:
+
+                if server is not None:
+                    server.setSceneError(sceneid, orderid,
+                        processing_location, e)
+
+            elif e.error_code == ee.ErrorCodes.reformat:
 
                 if server is not None:
                     server.setSceneError(sceneid, orderid,
