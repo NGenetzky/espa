@@ -59,6 +59,9 @@ def build_argument_parser():
 
     parameters.add_data_type_parameter (parser, parameters.valid_data_types)
 
+    parameters.add_output_format_parameter (parser,
+        parameters.valid_output_formats)
+
     parameters.add_source_parameters (parser)
     parameters.add_destination_parameters (parser)
 
@@ -220,7 +223,12 @@ def process (parms):
             None, sys.exc_info()[2]
 
     # Build the requested science products
-    science.build_landsat_science_products (parms)
+    xml_filename = science.build_landsat_science_products (parms)
+
+    # TODO - SOMEDAY
+    # Since we have all the products built now, perform subsetting here before
+    # anything else.  That way we only warp and stat what we need.
+    # TODO - SOMEDAY
 
     # Reproject the data for each science product, but only if necessary
     # To generate statistics we must convert to GeoTIFF which warping does
@@ -243,6 +251,12 @@ def process (parms):
         # Generate the stats for each file
         statistics.generate_statistics(options['work_directory'],
             files_to_search_for)
+
+    # Convert to the user requested output format or leave it in ESPA ENVI
+    # We do all of our Landsat processing using ESPA ENVI format so it can be
+    # hard-coded here
+    warp.reformat(xml_filename, work_directory, 'envi',
+        options['output_format'])
 
     # Deliver the product files
     # Attempt five times sleeping between each attempt
