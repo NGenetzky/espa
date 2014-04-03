@@ -43,7 +43,7 @@ valid_projections = ['sinu', 'aea', 'utm', 'lonlat']
 valid_utm = ['north', 'south']
 
 
-#==============================================================================
+#=============================================================================
 def build_sinu_proj4_string(central_meridian, false_easting, false_northing):
     '''
     Description:
@@ -61,7 +61,7 @@ def build_sinu_proj4_string(central_meridian, false_easting, false_northing):
 # END - build_sinu_proj4_string
 
 
-#==============================================================================
+#=============================================================================
 def build_albers_proj4_string(std_parallel_1, std_parallel_2, origin_lat,
   central_meridian, false_easting, false_northing, datum):
     '''
@@ -82,7 +82,7 @@ def build_albers_proj4_string(std_parallel_1, std_parallel_2, origin_lat,
 # END - build_albers_proj4_string
 
 
-#==============================================================================
+#=============================================================================
 def build_utm_proj4_string(utm_zone, utm_north_south):
     '''
     Description:
@@ -108,7 +108,7 @@ def build_utm_proj4_string(utm_zone, utm_north_south):
 # END - build_utm_proj4_string
 
 
-#==============================================================================
+#=============================================================================
 def build_geographic_proj4_string():
     '''
     Description:
@@ -119,7 +119,7 @@ def build_geographic_proj4_string():
 # END - build_geographic_proj4_string
 
 
-#==============================================================================
+#=============================================================================
 def convert_target_projection_to_proj4 (parms):
     '''
     Description:
@@ -161,7 +161,7 @@ def convert_target_projection_to_proj4 (parms):
 # END - convert_target_projection_to_proj4
 
 
-#==============================================================================
+#=============================================================================
 def build_argument_parser():
     '''
     Description:
@@ -184,7 +184,7 @@ def build_argument_parser():
 # END - build_argument_parser
 
 
-#==============================================================================
+#=============================================================================
 def validate_parameters (parms):
     '''
     Description:
@@ -197,7 +197,7 @@ def validate_parameters (parms):
 # END - validate_parameters
 
 
-#==============================================================================
+#=============================================================================
 def build_warp_command (source_file, output_file,
   min_x=None, min_y=None, max_x=None, max_y=None,
   pixel_size=None, projection=None, resample_method=None, no_data_value=None):
@@ -238,7 +238,7 @@ def build_warp_command (source_file, output_file,
 # END - build_warp_command
 
 
-#==============================================================================
+#=============================================================================
 def parse_hdf_subdatasets (hdf_file):
     '''
     Description:
@@ -266,7 +266,7 @@ def parse_hdf_subdatasets (hdf_file):
 # END - parse_hdf_subdatasets
 
 
-#==============================================================================
+#=============================================================================
 def get_no_data_value (hdf_name):
     cmd = ['gdalinfo', hdf_name]
     cmd = ' '.join(cmd)
@@ -283,7 +283,7 @@ def get_no_data_value (hdf_name):
 # END - get_no_data_value
 
 
-#==============================================================================
+#=============================================================================
 def run_warp (source_file, output_file,
   min_x=None, min_y=None, max_x=None, max_y=None,
   pixel_size=None, projection=None, resample_method=None, no_data_value=None):
@@ -301,11 +301,13 @@ def run_warp (source_file, output_file,
 # END - run_warp
 
 
-#==============================================================================
+#=============================================================================
 def get_hdf_global_metadata(hdf_file):
     '''
     Description:
         Extract the metadata information from the HDF formatted file
+
+    Note: Works with Ledaps and Modis generated HDF files
     '''
 
     cmd = ['gdalinfo', hdf_file]
@@ -313,27 +315,119 @@ def get_hdf_global_metadata(hdf_file):
     output = util.execute_cmd (cmd)
 
     sb = StringIO()
-    has_subdatasets = False
+    has_metadata = False
     for line in output.split('\n'):
         if str(line).strip().lower().startswith('metadata'):
-            sb.write(line.strip())
-            sb.write('\n')
-            continue
+            has_metadata = True
         if str(line).strip().lower().startswith('subdatasets'):
-            has_subdatasets = True
             break
         if str(line).strip().lower().startswith('corner'):
             break
+        if has_metadata:
+            sb.write(line.strip())
+            sb.write('\n')
 
     sb.flush()
     metadata = sb.getvalue()
     sb.close()
 
-    return (metadata, has_subdatasets)
+    return metadata
 # END - get_hdf_global_metadata
 
 
-#==============================================================================
+#=============================================================================
+def hdf_has_subdatasets (hdf_file):
+    '''
+    Description:
+        Determine if the HDF file has subdatasets
+    '''
+
+    cmd = ['gdalinfo', hdf_file]
+    cmd = ' '.join(cmd)
+    output = util.execute_cmd (cmd)
+
+    for line in output.split('\n'):
+        if str(line).strip().lower().startswith('subdatasets'):
+            return True
+
+    return False
+# END - hdf_has_subdatasets
+
+
+#=============================================================================
+def convert_hdf_to_gtiff (hdf_file):
+    '''
+    Description:
+        Convert HDF formatted data to GeoTIFF
+    '''
+
+    hdf_name = hdf_file.split('.hdf')[0]
+
+    log ("Retrieving global HDF metadata")
+    metadata = get_hdf_global_metadata(hdf_file)
+    if metadata is not None and len(metadata) > 0:
+        metadata_filename = '%s-global_metadata.txt' % hdf_name
+
+        log ("Writing global metadata to %s" % metadata_filename)
+        fd = open(metadata_filename, 'w+')
+        fd.write(str(metadata))
+        fd.flush()
+        fd.close()
+
+    # Extract the subdatasets into individual GeoTIFF files
+    if hdf_has_subdatasets (hdf_file):
+        for (sds_desc, sds_name) in parse_hdf_subdatasets(hdf_file):
+            # Split the name into parts to extract the subdata name
+            sds_parts = sds_name.split(':')
+            subdata_name = sds_parts[len(sds_parts) - 1]
+            # Quote the sds name due to possible spaces
+            # Must be single because have double quotes in sds name
+            quoted_sds_name = "'" + sds_name + "'"
+            no_data_value = get_no_data_value (quoted_sds_name)
+
+            # Split the description into part to extract the string
+            # which allows for determining the correct gdal data
+            # data type, allowing specifying the correct no-data
+            # value
+            sds_parts = sds_desc.split('(')
+            sds_parts = sds_parts[len(sds_parts) - 1].split(')')
+            hdf_type = sds_parts[0]
+
+            log ("Processing Subdataset %s" % quoted_sds_name)
+
+            # Remove spaces from the subdataset name for the
+            # final output name
+            subdata_name = subdata_name.replace(' ', '_')
+            output_filename = '%s-%s.tif' % (hdf_name, subdata_name)
+
+            run_warp(quoted_sds_name, output_filename,
+                #min_x, min_y, max_x, max_y,
+                None, None, None, None,
+                #pixel_size, projection, resample_method,
+                None, None, 'near',
+                no_data_value)
+
+    # We only have the one dataset in the HDF file
+    else:
+        output_filename = '%s.tif' % hdf_name
+
+        no_data_value = get_no_data_value (hdf_file)
+        run_warp(file, output_filename,
+            min_x, min_y, max_x, max_y,
+            pixel_size, projection, resample_method, no_data_value)
+
+    # Remove the HDF file, it is not needed anymore
+    if os.path.exists(hdf_file):
+        os.unlink(hdf_file)
+
+    # Remove the associated hdr file
+    hdr_filename = '%s.hdr' % hdf_file
+    if os.path.exists(hdr_filename):
+        os.unlink(hdr_filename)
+# END - convert_hdf_to_gtiff
+
+
+#=============================================================================
 def warp_science_products (parms):
     '''
     Description:
@@ -365,105 +459,139 @@ def warp_science_products (parms):
     resample_method = parms['resample_method']
 
     try:
-        # Include all HDF and TIF
-        what_to_warp = glob.glob('*.hdf')
-        what_to_warp += glob.glob('*.TIF')
-        what_to_warp += glob.glob('*.tif') # capture the browse
+        # First convert any HDF to GeoTIFF
+        what_to_convert = glob.glob('*.hdf')
+        for file in what_to_convert:
+            log ("Converting %s to GeoTIFF" % file)
+            convert_hdf_to_gtiff (file)
 
+        # Now warp the GeoTIFF files
+        what_to_warp = glob.glob('*.TIF')
+        what_to_warp += glob.glob('*.tif') # capture the browse
         for file in what_to_warp:
             log ("Processing %s" % file)
-            if file.endswith('hdf'):
-                hdf_name = file.split('.hdf')[0]
 
-                log ("Retrieving global HDF metadata")
-                (metadata, has_subdatasets) = get_hdf_global_metadata(file)
-                if metadata is not None and len(metadata) > 0:
-                    metadata_filename = '%s.txt' % hdf_name
-
-                    log ("Writing global metadata to %s" % metadata_filename)
-                    fd = open(metadata_filename, 'w+')
-                    fd.write(str(metadata))
-                    fd.flush()
-                    fd.close()
-
-                if has_subdatasets:
-                    for (sds_desc, sds_name) in parse_hdf_subdatasets(file):
-                        # Split the name into parts to extract the subdata name
-                        sds_parts = sds_name.split(':')
-                        subdata_name = sds_parts[len(sds_parts) - 1]
-                        # Quote the sds name due to possible spaces
-                        # Must be single because have double quotes in sds name
-                        quoted_sds_name = "'" + sds_name + "'"
-                        no_data_value = get_no_data_value (quoted_sds_name)
-
-                        # Split the description into part to extract the string
-                        # which allows for determining the correct gdal data
-                        # data type, allowing specifying the correct no-data
-                        # value
-                        sds_parts = sds_desc.split('(')
-                        sds_parts = sds_parts[len(sds_parts) - 1].split(')')
-                        hdf_type = sds_parts[0]
-
-                        log ("Processing Subdataset %s" % quoted_sds_name)
-
-                        # Remove spaces from the subdataset name for the
-                        # final output name
-                        subdata_name = subdata_name.replace(' ', '_')
-                        output_filename = '%s-%s.tif' % (hdf_name, subdata_name)
-
-                        run_warp(quoted_sds_name, output_filename,
-                            min_x, min_y, max_x, max_y,
-                            pixel_size, projection, resample_method,
-                            no_data_value)
-                else:
-                    output_filename = '%s.tif' % hdf_name
-
-                    no_data_value = get_no_data_value (file)
-                    run_warp(file, output_filename,
-                        min_x, min_y, max_x, max_y,
-                        pixel_size, projection, resample_method, no_data_value)
-
-                # Remove the HDF file, it is not needed anymore
-                if os.path.exists(file):
-                    os.unlink(file)
-
-                # Remove the associated hdr file
-                hdr_filename = '%s.hdr' % file
-                if os.path.exists(hdr_filename):
-                    os.unlink(hdr_filename)
-            # END - HDF files
+            if "TIF" in file:
+                output_filename = 'tmp-%s.tif' \
+                    % file.split('.TIF')[0].lower()
+                no_data_value = '0' # Assuming Landsat data
             else:
-                # Assuming GeoTIFF
-                if "TIF" in file:
-                    output_filename = 'tmp-%s.tif' \
-                        % file.split('.TIF')[0].lower()
-                    no_data_value = '0' # Assuming Landsat data
-                else:
-                    output_filename = 'tmp-%s' % file.lower()
-                    no_data_value = get_no_data_value (file)
+                output_filename = 'tmp-%s' % file.lower()
+                no_data_value = get_no_data_value (file)
 
-                run_warp(file, output_filename,
-                    min_x, min_y, max_x, max_y,
-                    pixel_size, projection, resample_method, no_data_value)
+            run_warp(file, output_filename,
+                min_x, min_y, max_x, max_y,
+                pixel_size, projection, resample_method, no_data_value)
 
-                # Remove the TIF file, it is not needed anymore
-                if os.path.exists(file):
-                    os.unlink(file)
+            # Remove the original file, it is not needed anymore
+            if os.path.exists(file):
+                os.unlink(file)
 
-                # Rename the temp file back to the original name
-                os.rename(output_filename, file)
-            # END - GeoTIFF
+            # Rename the temp file back to the original name
+            os.rename(output_filename, file)
         # END - for each file
+
+        # Now warp the ENVI files
+        what_to_warp = glob.glob('*.img') # ENVI formatted files
+        for file in what_to_warp:
+            log ("Processing %s" % file)
+
+            output_filename = 'tmp-%s' % file.lower()
+            no_data_value = get_no_data_value (file)
+
+            run_warp(file, output_filename,
+                min_x, min_y, max_x, max_y,
+                pixel_size, projection, resample_method, no_data_value)
+
+            # Remove the original file, it is not needed anymore
+            if os.path.exists(file):
+                os.unlink(file)
+
+            # Rename the temp file back to the original name
+            os.rename(output_filename, file)
+        # END - for each file
+
+        # Should only be true if .img files are found
+        # We need to fix the XML file
+        if len(what_to_warp) > 0:
+            # TODO TODO TODO
+            # TODO TODO TODO
+            # TODO TODO TODO
+            # Modify the code below to fix our XML metadata file after warping.
+            # TODO TODO TODO
+            # TODO TODO TODO
+            # TODO TODO TODO
+            dummy = 0
+
     except Exception, e:
         raise ee.ESPAException (ee.ErrorCodes.warping, str(e)), \
             None, sys.exc_info()[2]
     finally:
         # Change back to the previous directory
         os.chdir(current_directory)
-# END - reproject_science_products
+# END - warp_science_products
 
 
-#==============================================================================
+#=============================================================================
+def reformat (metadata_filename, work_directory, input_format, output_format):
+    '''
+    Description:
+      Re-format the bands to the specified format using our raw binary tools
+      or gdal, whichever is appropriate for the task.
+
+      Input espa:
+          Output Formats: envi(espa), gtiff, and hdf
+    '''
+
+    # Don't do anything if they match
+    if input_format == output_format:
+        return
+
+    # Change to the working directory
+    current_directory = os.getcwd()
+    os.chdir (work_directory)
+
+    try:
+        # Convert from our internal ESPA/ENVI format to GeoTIFF
+        if input_format == 'envi' and output_format == 'gtiff':
+            gtiff_name = metadata_filename.rstrip ('.xml')
+            # Call with deletion of source files
+            cmd = ['convert_espa_to_gtif', '--del_src_files',
+                   '--xml', metadata_filename,
+                   '--gtif', gtiff_name]
+            cmd = ' '.join (cmd)
+            output = util.execute_cmd (cmd)
+            if len(output) > 0:
+                log (output)
+
+        # Convert from our internal ESPA/ENVI format to HDF
+        elif input_format == 'envi' and output_format == 'hdf':
+            # convert_espa_to_hdf
+            hdf_name = metadata_filename.replace ('.xml', '.hdf')
+            # Call with deletion of source files
+            cmd = ['convert_espa_to_hdf', '--del_src_files',
+                   '--xml', metadata_filename,
+                   '--hdf', hdf_name]
+            cmd = ' '.join (cmd)
+            output = util.execute_cmd (cmd)
+            if len(output) > 0:
+                log (output)
+
+        # Requested conversion not implemented
+        else:
+            raise ValueError ("Unsupported reformat combination (%s, %s)" \
+                % (input_format, output_format))
+
+    except Exception, e:
+        raise ee.ESPAException (ee.ErrorCodes.reformat, str(e)), \
+            None, sys.exc_info()[2]
+    finally:
+        # Change back to the previous directory
+        os.chdir (current_directory)
+# END - reformat
+
+
+#=============================================================================
 if __name__ == '__main__':
     '''
     Description:
