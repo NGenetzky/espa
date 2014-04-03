@@ -55,6 +55,9 @@ def build_argument_parser():
 
     parameters.add_scene_parameter (parser)
 
+    parameters.add_output_format_parameter (parser,
+        parameters.valid_output_formats)
+
     parameters.add_source_parameters (parser)
     parameters.add_destination_parameters (parser)
 
@@ -211,8 +214,19 @@ def process (parms):
         raise ESPAException (ErrorCodes.unpacking, str(e)), \
             None, sys.exc_info()[2]
 
+    # The format of MODIS data is HDF we are going to process using GeoTIFF
+    # for the time being
+    what_to_convert = glob.glob('*.hdf')
+    for file in what_to_convert:
+        log ("Converting %s to GeoTIFF" % file)
+        convert_hdf_to_gtiff (file)
+
+    # TODO - SOMEDAY
+    # Since we have all the products now, perform subsetting here before
+    # anything else.  That way we only warp and stat what we need.
+    # TODO - SOMEDAY
+
     # Reproject the data for each science product, but only if necessary
-    # To generate statistics we must convert to GeoTIFF which warping does
     if options['reproject'] or options['resize'] or options['image_extents'] \
       or options['projection'] is not None:
         warp.warp_science_products (options)
@@ -231,6 +245,11 @@ def process (parms):
         # Generate the stats for each file
         statistics.generate_statistics(options['work_directory'],
             files_to_search_for)
+
+    # Convert to the user requested output format or leave it in ESPA ENVI
+    # TODO - reformat is not implemented to go from GeoTIFF to the other formats
+#    warp.reformat(xml_filename, work_directory, format,
+#        options['output_format'])
 
     # Deliver the product files
     # Attempt five times sleeping between each attempt
