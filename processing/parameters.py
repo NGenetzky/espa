@@ -22,6 +22,7 @@ valid_landsat_sensors = ['LT', 'LE']
 valid_modis_sensors = ['MOD', 'MYD']
 valid_sensors = valid_landsat_sensors + valid_modis_sensors
 valid_data_types = ['level1', 'sr', 'toa', 'th']
+valid_output_formats = ['envi', 'gtiff', 'hdf']
 
 
 #==============================================================================
@@ -180,6 +181,21 @@ def add_data_type_parameter (parser, data_types):
         choices=data_types,
         help="one of %s" % ', '.join(data_types))
 # END - add_data_source_parameter
+
+
+#==============================================================================
+def add_output_format_parameter (parser, output_formats):
+    '''
+    Description:
+      Adds the data_source parameter to the command line parameters with
+      specific choices
+    '''
+
+    parser.add_argument ('--output_format',
+        action='store', dest='output_format', default='envi',
+        choices=output_formats,
+        help="one of %s" % ', '.join(output_formats))
+# END - add_output_format_parameter
 
 
 #==============================================================================
