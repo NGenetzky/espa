@@ -29,7 +29,7 @@ def get_landsat_metadata (work_dir):
     # Find the metadata file
     metadata_filename = ''
     dir_items = os.listdir(work_dir)
-# TODO TODO TODO - Do we still need to exclude old and lnd?
+
     for dir_item in dir_items:
         if (dir_item.find('_MTL') > 0) and \
           not (dir_item.find('old') > 0) and \
