@@ -132,10 +132,6 @@ def add_science_product_parameters (parser):
         action='store_true', dest='include_sr_evi', default=False,
         help="build SR EVI index")
 
-    parser.add_argument ('--include_snow_covered_area',
-        action='store_true', dest='include_snow_covered_area', default=False,
-        help="build snow covered area product")
-
     parser.add_argument ('--include_surface_water_extent',
         action='store_true', dest='include_surface_water_extent', default=False,
         help="build surface water extent product")

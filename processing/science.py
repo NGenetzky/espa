@@ -132,7 +132,7 @@ def validate_landsat_parameters (parms):
     keys = ['include_sr', 'include_sr_toa', 'include_sr_thermal',
             'include_sr_browse', 'include_sr_nbr', 'include_sr_nbr2',
             'include_sr_ndvi', 'include_sr_ndmi', 'include_sr_savi',
-            'include_sr_msavi', 'include_sr_evi', 'include_snow_covered_area',
+            'include_sr_msavi', 'include_sr_evi',
             'include_surface_water_extent', 'include_solr_index']
 
     for key in keys:
@@ -275,7 +275,6 @@ def build_landsat_science_products (parms):
           or options['include_sr_savi'] \
           or options['include_sr_msavi'] \
           or options['include_sr_evi'] \
-          or options['include_snow_covered_area'] \
           or options['include_surface_water_extent']:
             cmd = ['do_ledaps.py', '--xml', xml_filename]
             cmd = ' '.join(cmd)
@@ -343,8 +342,7 @@ def build_landsat_science_products (parms):
 
         # --------------------------------------------------------------------
         # Create a DEM
-        if options['include_snow_covered_area'] \
-          or options['include_surface_water_extent']:
+        if options['include_surface_water_extent']:
             # Does not use our internal raw binary XML format, because it is
             # executing code which comes from Landsat to generate the DEM and
             # because we do not distribute DEM's.
@@ -422,24 +420,6 @@ def build_landsat_science_products (parms):
 #                output = util.execute_cmd (cmd)
 #            except Exception, e:
 #                raise ee.ESPAException (ee.ErrorCodes.swe, str(e)), \
-#                    None, sys.exc_info()[2]
-#            finally:
-#                log (output)
-
-#        # --------------------------------------------------------------------
-#        # Generate Snow Covered Area product
-#        if options['include_snow_covered_area']:
-#            # TODO - Needs modification for XML
-#            cmd = ['do_snow_cover.py', '--metafile', metadata_filename,
-#                   '--toa_infile', toa_filename, '--btemp_infile', th_filename,
-#                   '--sca_outfile', sca_filename, '--dem', dem_filename]
-#            cmd = ' '.join(cmd)
-#
-#            log ('CREATE SCA COMMAND:' + cmd)
-#            try:
-#                output = util.execute_cmd (cmd)
-#            except Exception, e:
-#                raise ee.ESPAException (ee.ErrorCodes.sca, str(e)), \
 #                    None, sys.exc_info()[2]
 #            finally:
 #                log (output)
