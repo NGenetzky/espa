@@ -234,7 +234,7 @@ def process (parms):
     # To generate statistics we must convert to GeoTIFF which warping does
     if options['reproject'] or options['resize'] or options['image_extents'] \
       or options['projection'] is not None:
-        warp.warp_science_products (options)
+        warp.warp_espa_data (options, xml_filename)
 
     # Generate the stats for each stat'able' science product
     if options['include_statistics']:
