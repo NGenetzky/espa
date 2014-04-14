@@ -197,7 +197,7 @@ def convert_target_projection_to_proj4 (parms):
                                            float(parms['false_easting']),
                                            float(parms['false_northing']),
                                            parms['datum'],
-                                           parms['north_south']):
+                                           parms['north_south'])
 
     elif target_projection == "lonlat":
         projection = build_geographic_proj4_string()
