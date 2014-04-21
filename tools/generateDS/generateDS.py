@@ -208,6 +208,12 @@ prefixToNamespaceMap = {}
 MappingTypes = {}
 Targetnamespace = ""
 
+# ESPA - Added these to encode the schema into the api
+ESPA_XMLNS = None
+ESPA_XMLNS_XSI = None
+ESPA_SCHEMA_URI = None
+ESPA_VERSION = None
+
 NameTable = {
     'type': 'type_',
     'float': 'float_',
@@ -4312,7 +4318,7 @@ TEMPLATE_HEADER = """\
 #
 # Generated with the ESPA modified version of generateDS.py
 # See espa google code project.
-# See directory ../tools/generateDS
+# See directory ...../tools/generateDS
 #
 
 import os
@@ -5138,8 +5144,10 @@ def validate_xml(rootObj, xmlns=None, xmlns_xsi=None, schema_uri=None):
 
 # ESPA - Added a module method to allow exporting from the module level with
 #        validation
-def export(outFile, rootObj, xmlns=None, xmlns_xsi=None, schema_uri=None):
+def export(outFile, rootObj, xmlns=%(espa_xmlns)s, xmlns_xsi=%(espa_xmlns_xsi)s, schema_uri=%(espa_schema_uri)s):
     ns_def = build_ns_def(xmlns, xmlns_xsi, schema_uri)
+
+    rootObj.set_version(%(espa_version)s)
 
     try:
         validate_xml(rootObj, xmlns, xmlns_xsi, schema_uri)
@@ -5172,6 +5180,8 @@ if __name__ == '__main__':
 
 
 def generateMain(outfile, prefix, root):
+    global ESPA_XMLNS, ESPA_XMLNS_XSI, ESPA_SCHEMA_URI, ESPA_VERSION
+
     exportDictLine = "GDSClassesMapping = {\n"
     for classType in MappingTypes:
         if MappingTypes[classType] in AlreadyGenerated:
@@ -5212,7 +5222,11 @@ def generateMain(outfile, prefix, root):
         'module_name': os.path.splitext(os.path.basename(outfile.name))[0],
         'root': rootElement,
         'namespacedef': namespace,
-        'string': "%s"
+        'string': "%s",
+        'espa_xmlns': ESPA_XMLNS,
+        'espa_xmlns_xsi': ESPA_XMLNS_XSI,
+        'espa_schema_uri': ESPA_SCHEMA_URI,
+        'espa_version': ESPA_VERSION
     }
     s1 = TEMPLATE_MAIN % params
     outfile.write(s1)
@@ -6236,6 +6250,7 @@ def main():
         ExportWrite, ExportEtree, ExportLiteral, \
         FixTypeNames, SingleFileOutput, OutputDirectory, \
         ModuleSuffix
+    global ESPA_XMLNS, ESPA_XMLNS_XSI, ESPA_SCHEMA_URI, ESPA_VERSION
     outputText = True
     args = sys.argv[1:]
     try:
@@ -6251,7 +6266,9 @@ def main():
                 'no-questions', 'session=', 'fix-type-names=',
                 'version', 'export=',
                 'one-file-per-xsd', 'output-directory=',
-                'module-suffix='
+                'module-suffix=',
+                'espa-version=', 'espa-xmlns=',
+                'espa-xmlns-xsi=', 'espa-schema-uri='
             ])
     except getopt.GetoptError:
         usage()
@@ -6378,6 +6395,14 @@ def main():
             outputText = False
         elif option[0] == "--namespacedef":
             namespacedef = option[1]
+        elif option[0] == "--espa-xmlns":
+            ESPA_XMLNS = "'%s'" % option[1]
+        elif option[0] == "--espa-xmlns-xsi":
+            ESPA_XMLNS_XSI = "'%s'" % option[1]
+        elif option[0] == "--espa-schema-uri":
+            ESPA_SCHEMA_URI = "'%s'" % option[1]
+        elif option[0] == "--espa-version":
+            ESPA_VERSION = "'%s'" % option[1]
         elif option[0] == '--external-encoding':
             ExternalEncoding = option[1]
         elif option[0] in ('-q', '--no-questions'):

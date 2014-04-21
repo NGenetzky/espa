@@ -105,12 +105,8 @@ bands.add_band (band)
 xml.set_bands (bands)
 
 
-# Create the output file **WITHOUT** validation
-f = open ('test-2.xml', 'w')
-ns_def = metadata_api.build_ns_def (
-        xmlns='http://espa.cr.usgs.gov/v1.0',
-        xmlns_xsi='http://www.w3.org/2001/XMLSchema-instance',
-        schema_uri='http://espa.cr.usgs.gov/static/schema/espa_internal_metadata_v1_0.xsd')
-xml.export (f, 0, namespacedef_=ns_def)
+# Create the output file **WITH** validation
+f = open ('test-2-with-validation.xml', 'w')
+metadata_api.export (f, xml)
 f.close()
 
