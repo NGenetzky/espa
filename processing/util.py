@@ -225,7 +225,7 @@ def getCacheHostname():
             if len(hostlist) > 0:
                 return get_hostname()
             else:
-                raise Exception("No online cache hosts available...") 
-    
+                raise Exception("No online cache hosts available...")
+
     return get_hostname()
 
