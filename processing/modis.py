@@ -62,7 +62,7 @@ def build_argument_parser():
     parameters.add_destination_parameters (parser)
 
     parameters.add_reprojection_parameters (parser, warp.valid_projections,
-        warp.valid_utm, warp.valid_pixel_units, warp.valid_resample_methods)
+        warp.valid_ns, warp.valid_pixel_units, warp.valid_resample_methods)
 
     parameters.add_include_statistics_parameter (parser)
 
@@ -89,7 +89,7 @@ def validate_parameters (parms):
 
     # Validate the reprojection parameters
     parameters.validate_reprojection_parameters (options,
-        warp.valid_projections, warp.valid_utm, warp.valid_pixel_units,
+        warp.valid_projections, warp.valid_ns, warp.valid_pixel_units,
         warp.valid_resample_methods)
 
     # Force these parameters to false if not provided
@@ -221,11 +221,6 @@ def process (parms):
         log ("Converting %s to GeoTIFF" % file)
         convert_hdf_to_gtiff (file)
 
-    # TODO - SOMEDAY
-    # Since we have all the products now, perform subsetting here before
-    # anything else.  That way we only warp and stat what we need.
-    # TODO - SOMEDAY
-
     # Reproject the data for each science product, but only if necessary
     if options['reproject'] or options['resize'] or options['image_extents'] \
       or options['projection'] is not None:
@@ -247,7 +242,7 @@ def process (parms):
             files_to_search_for)
 
     # Convert to the user requested output format or leave it in ESPA ENVI
-    # TODO - reformat is not implemented to go from GeoTIFF to the other formats
+# TODO TODO TODO - reformat is not implemented to go from GeoTIFF to the other formats
 #    warp.reformat(xml_filename, work_directory, format,
 #        options['output_format'])
 
