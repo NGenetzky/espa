@@ -247,7 +247,7 @@ def add_destination_parameters (parser):
 
 
 #==============================================================================
-def add_reprojection_parameters (parser, projection_values, utm_values,
+def add_reprojection_parameters (parser, projection_values, ns_values,
   pixel_units, resample_methods):
     '''
     Description:
@@ -270,14 +270,22 @@ def add_reprojection_parameters (parser, projection_values, utm_values,
     parser.add_argument ('--utm_zone',
         action='store', dest='utm_zone',
         help="UTM zone to use")
-    parser.add_argument ('--utm_north_south',
-        action='store', dest='utm_north_south',
-        choices=utm_values,
-        help="one of (%s)" % ', '.join(utm_values))
+    parser.add_argument ('--north_south',
+        action='store', dest='north_south',
+        choices=ns_values,
+        help="one of (%s)" % ', '.join(ns_values))
 
     parser.add_argument ('--datum',
         action='store', dest='datum',
         help="datum to use typically (wgs84)")
+
+    parser.add_argument ('--longitude_pole',
+        action='store', dest='longitude_pole',
+        help="longitude of the pole projection parameter")
+
+    parser.add_argument ('--latitude_true_scale',
+        action='store', dest='latitude_true_scale',
+        help="latitude true of scale projection parameter")
 
     parser.add_argument ('--origin_lat',
         action='store', dest='origin_lat',
@@ -377,7 +385,7 @@ def convert_to_command_line_options (parms):
 
 
 #==============================================================================
-def validate_reprojection_parameters (parms, projections, utm_values,
+def validate_reprojection_parameters (parms, projections, ns_values,
   pixel_units, resample_methods):
     '''
     Description:
@@ -435,12 +443,26 @@ def validate_reprojection_parameters (parms, projections, utm_values,
                     if zone < 0 or zone > 60:
                         raise ValueError("Invalid utm_zone [%s]:" \
                             " Value must be 0-60")
-                if not test_for_parameter (parms, 'utm_north_south'):
-                    raise RuntimeError ("Missing utm_north_south parameter")
-                elif parms['utm_north_south'] not in utm_values:
-                    raise ValueError("Invalid utm_north_south [%s]:" \
+
+            #..................................................................
+            if target_projection == 'ps':
+                if not test_for_parameter (parms, 'latitude_true_scale'):
+                    raise RuntimeError ("Missing latitude_true_scale parameter")
+                if not test_for_parameter (parms, 'longitude_pole'):
+                    raise RuntimeError ("Missing longitude_pole parameter")
+                if not test_for_parameter (parms, 'false_easting'):
+                    raise RuntimeError ("Missing false_easting parameter")
+                if not test_for_parameter (parms, 'false_northing'):
+                    raise RuntimeError ("Missing false_northing parameter")
+
+            #..................................................................
+            if target_projection == 'utm' or target_projection == 'ps':
+                if not test_for_parameter (parms, 'north_south'):
+                    raise RuntimeError ("Missing north_south parameter")
+                elif parms['north_south'] not in ns_values:
+                    raise ValueError("Invalid north_south [%s]:" \
                         " Argument must be one of (%s)" \
-                        % (parms['utm_north_south'], ', '.join(utm_values)))
+                        % (parms['north_south'], ', '.join(ns_values)))
 
             #..................................................................
             if target_projection == 'lonlat':
@@ -496,7 +518,7 @@ def validate_reprojection_parameters (parms, projections, utm_values,
         parms['pixel_units'] = 'meters'
         if test_for_parameter (parms, 'target_projection'):
             if str(parms['target_projection']).lower() == 'lonlat':
-                parms['pixel_size'] = .0002695
+                parms['pixel_size'] = '0.0002695'
                 parms['pixel_units'] = 'dd'
 # END - validate_reprojection_parameters
 
