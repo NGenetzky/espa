@@ -66,7 +66,7 @@ def build_argument_parser():
     parameters.add_destination_parameters (parser)
 
     parameters.add_reprojection_parameters (parser, warp.valid_projections,
-        warp.valid_utm, warp.valid_pixel_units, warp.valid_resample_methods)
+        warp.valid_ns, warp.valid_pixel_units, warp.valid_resample_methods)
 
     parameters.add_science_product_parameters (parser)
 
@@ -98,7 +98,7 @@ def validate_parameters (parms):
 
     # Validate the reprojection parameters
     parameters.validate_reprojection_parameters (options,
-        warp.valid_projections, warp.valid_utm, warp.valid_pixel_units,
+        warp.valid_projections, warp.valid_ns, warp.valid_pixel_units,
         warp.valid_resample_methods)
 
     # Force these parameters to false if not provided
@@ -224,11 +224,6 @@ def process (parms):
 
     # Build the requested science products
     xml_filename = science.build_landsat_science_products (parms)
-
-    # TODO - SOMEDAY
-    # Since we have all the products built now, perform subsetting here before
-    # anything else.  That way we only warp and stat what we need.
-    # TODO - SOMEDAY
 
     # Reproject the data for each science product, but only if necessary
     # To generate statistics we must convert to GeoTIFF which warping does
