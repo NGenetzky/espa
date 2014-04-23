@@ -44,6 +44,10 @@ BG_COLOR               = '#f3f3f3' # A light gray
 MARKER = (1, 3, 0) # Better circle than 'o'
 MARKER_SIZE = 5.0  # A good size for the circle or diamond
 
+# Specify a base number of days to expand the plot date range
+# This helps keep data points from being placed on the plot border lines
+TIME_DELTA_5_DAYS = datetime.timedelta(days=5)
+
 
 #=============================================================================
 def execute_cmd (cmd):
@@ -132,6 +136,8 @@ def build_argument_parser():
     Description:
       Build the command line argument parser
     '''
+
+    global SENSOR_COLORS, BG_COLOR, MARKER, MARKER_SIZE
 
     # Create a command line argument parser
     description = "Generate plots of the statistics"
@@ -341,15 +347,15 @@ def generate_sensor_stats(stat_name, stat_files):
 # END - generate_sensor_stats
 
 
-# Specify a base number of days to expand the plot date range
-# This helps keep data points from being placed on the plot border lines
-TIME_DELTA_5_DAYS = datetime.timedelta(days=5)
 #=============================================================================
 def generate_plot(plot_name, subjects, stats, type="Value"):
     '''
     Description:
       Builds a plot and then generates a png formatted image of the plot. 
     '''
+
+    global SENSOR_COLORS, BG_COLOR, MARKER, MARKER_SIZE
+    global TIME_DELTA_5_DAYS
 
     # Test for a valid type parameter
     # For us 'Range' mean min, max, and mean
@@ -912,6 +918,8 @@ if __name__ == '__main__':
       Read parameters from the command line and build a JSON dictionary from
       them.  Pass the JSON dictionary to the process routine.
     '''
+
+    global SENSOR_COLORS, BG_COLOR, MARKER, MARKER_SIZE
 
     # Build the command line argument parser
     parser = build_argument_parser()
