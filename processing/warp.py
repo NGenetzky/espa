@@ -33,10 +33,6 @@ import espa_exception as ee
 import parameters
 import util
 
-# This contains the valid sensors which are supported
-valid_landsat_sensors = ['LT', 'LE']
-valid_modis_sensors = ['MODIS']
-valid_science_sensors = valid_landsat_sensors + valid_modis_sensors
 
 # These contain valid warping options
 valid_resample_methods = ['near', 'bilinear', 'cubic', 'cubicspline', 'lanczos']
@@ -45,7 +41,7 @@ valid_projections = ['sinu', 'aea', 'utm', 'ps', 'lonlat']
 valid_ns = ['north', 'south']
 
 # We are only supporting one
-sinusoidal_sphere_radius = '6371007.181'
+SINUSOIDAL_SPHERE_RADIUS = '6371007.181'
 
 
 #=============================================================================
@@ -60,10 +56,12 @@ def build_sinu_proj4_string (central_meridian, false_easting, false_northing):
       +units=m +no_defs
     '''
 
+    global SINUSOIDAL_SPHERE_RADIUS
+
     proj4_string = "'+proj=sinu +lon_0=%f +x_0=%f +y_0=%f +a=%f +b=%f" \
         " +units=m +no_defs'" \
         % (central_meridian, false_easting, false_northing,
-           sinusoidal_sphere_radius, sinusoidal_sphere_radius)
+           SINUSOIDAL_SPHERE_RADIUS, SINUSOIDAL_SPHERE_RADIUS)
 
     return proj4_string
 # END - build_sinu_proj4_string
@@ -233,6 +231,9 @@ def build_argument_parser():
       Build the command line argument parser.
     '''
 
+    global valid_resample_methods, valid_pixel_units, valid_projections
+    global valid_ns
+
     # Create a command line argument parser
     description = "Alters product extents, projections and pixel sizes"
     parser = ArgumentParser (description=description)
@@ -256,6 +257,9 @@ def validate_parameters (parms):
       Make sure all the parameters needed for this and called routines
       is available with the provided input parameters.
     '''
+
+    global valid_resample_methods, valid_pixel_units, valid_projections
+    global valid_ns
 
     parameters.validate_reprojection_parameters (parms, valid_projections,
         valid_ns, valid_pixel_units, valid_resample_methods)
@@ -516,6 +520,8 @@ def warp_espa_data (parms, xml_filename=None):
       Warp each espa science product to the parameters specified in the parms
     '''
 
+    global SINUSOIDAL_SPHERE_RADIUS
+
     # Validate the parameters
     validate_parameters (parms)
     debug (parms)
@@ -762,7 +768,7 @@ def warp_espa_data (parms, xml_filename=None):
                 false_northing = ds_srs.GetProjParm ('false_northing')
                 # Get a new SIN projection parameter object and populate it
                 sin_projection = metadata_api.sin_proj_params()
-                sin_projection.set_sphere_radius (sinusoidal_sphere_radius)
+                sin_projection.set_sphere_radius (SINUSOIDAL_SPHERE_RADIUS)
                 sin_projection.set_central_meridian (central_meridian)
                 sin_projection.set_false_easting (false_easting)
                 sin_projection.set_false_northing (false_northing)

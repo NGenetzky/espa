@@ -227,6 +227,8 @@ def http_transfer_file (source_host, source_file, destination_file):
       file on the localhost.
     '''
 
+    global BLOCK_SIZE
+
     url_path = 'http://%s/%s' % (source_host, source_file)
     log (url_path)
 

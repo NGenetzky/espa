@@ -35,6 +35,7 @@ import staging
 import warp
 import statistics
 import distribution
+import settings
 
 
 #==============================================================================
@@ -111,10 +112,9 @@ def validate_parameters (parms):
 
     # Setup the base paths
     if sensor == 'MOD':
-        base_source_path = '/MOLT'
+        base_source_path = settings.terra_base_source_path
     else:
-        base_source_path = '/MOLA'
-    base_output_path = '/data2/LSRD'
+        base_source_path = settings.aqua_base_source_path
 
     # Verify or set the source information
     if not parameters.test_for_parameter (options, 'source_host'):
@@ -130,7 +130,7 @@ def validate_parameters (parms):
         short_name = util.getModisShortName(parms['scene'])
         version = util.getModisVersion(parms['scene'])
         archive_date = util.getModisArchiveDate(parms['scene'])
-        options['source_directory'] = ('%s/%s.%s/%s') \
+        options['source_directory'] = '%s/%s.%s/%s' \
             % (base_source_path, short_name, version, archive_date)
 
     # Verify or set the destination information
@@ -144,8 +144,8 @@ def validate_parameters (parms):
         options['destination_pw'] = 'localhost'
 
     if not parameters.test_for_parameter (options, 'destination_directory'):
-        options['destination_directory'] = \
-            ('%s/orders/%s') % (base_output_path, parms['orderid'])
+        options['destination_directory'] = '%s/orders/%s' \
+            % (settings.espa_base_output_path, parms['orderid'])
 # END - validate_parameters
 
 
@@ -247,9 +247,9 @@ def process (parms):
 #        options['output_format'])
 
     # Deliver the product files
-    # Attempt five times sleeping between each attempt
-    sleep_seconds = 2
-    max_number_of_attempts = 5
+    # Attempt X times sleeping between each attempt
+    sleep_seconds = settings.default_sleep_seconds
+    max_number_of_attempts = settings.max_distribution_attempts
     attempt = 0
     destination_product_file = 'ERROR'
     destination_cksum_file = 'ERROR'

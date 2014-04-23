@@ -86,6 +86,8 @@ def initialize_processing_directory (orderid, scene):
         current working directory as the base starting point.
     '''
 
+    global espa_base_working_dir_envvar
+
     order_directory = ''
 
     if not os.environ.has_key (espa_base_working_dir_envvar):

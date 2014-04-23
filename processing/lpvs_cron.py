@@ -33,6 +33,8 @@ from espa_logging import log
 
 # local objects and methods
 import util
+import settings
+
 
 #=============================================================================
 def usage():
@@ -44,6 +46,7 @@ def usage():
     print ("Usage:")
     print ("\tlpvs_cron.py run-orders | clean-cache")
 # END - usage
+
 
 #=============================================================================
 def run_orders():
@@ -62,18 +65,18 @@ def run_orders():
     if not os.environ.has_key(dev_cache_hostname) \
       or os.environ.get(dev_cache_hostname) is None \
       or len(os.environ.get(dev_cache_hostname)) < 1:
-        espa_cache_host = util.getCacheHostname()
+        cache_host = util.getCacheHostname()
     else:
-        espa_cache_host = os.environ.get('DEV_CACHE_HOSTNAME')
+        cache_host = os.environ.get('DEV_CACHE_HOSTNAME')
 
     # Use the DEV_CACHE_DIRECTORY if present
     dev_cache_directory = 'DEV_CACHE_DIRECTORY'
     if not os.environ.has_key(dev_cache_directory) \
       or os.environ.get(dev_cache_directory) is None \
       or len(os.environ.get(dev_cache_directory)) < 1:
-        espa_cache_directory = '/data2/LSRD'
+        cache_directory = settings.espa_cache_directory
     else:
-        espa_cache_directory = os.environ.get('DEV_CACHE_DIRECTORY')
+        cache_directory = os.environ.get('DEV_CACHE_DIRECTORY')
 
     try:
         log ("Checking for orders to process...")
@@ -87,10 +90,10 @@ def run_orders():
                 log ("Processing order [%s]" % order)
 
                 # Build the order directory
-                order_directory = espa_cache_directory + '/' + order
+                order_directory = cache_directory + '/' + order
 
                 # Build the plot command line
-                cmd = ['./plot.py', '--source_host', espa_cache_host,
+                cmd = ['./plot.py', '--source_host', cache_host,
                        '--order_directory', order_directory]
                 cmd = ' '.join(cmd)
                 output = ''
@@ -116,6 +119,7 @@ def run_orders():
         server = None
 
 # END - run_orders
+
 
 #=============================================================================
 if __name__ == '__main__':

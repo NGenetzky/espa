@@ -30,9 +30,7 @@ import espa_exception as ee
 import parameters
 import util
 import transfer
-
-# Define the number of seconds to sleep between attempts
-default_sleep_seconds = 2
+import settings
 
 
 #==============================================================================
@@ -78,7 +76,8 @@ def build_argument_parser():
         help="package directory on the localhost")
 
     parser.add_argument ('--sleep_seconds',
-        action='store', dest='sleep_seconds', default=default_sleep_seconds,
+        action='store', dest='sleep_seconds',
+        default=settings.default_sleep_seconds,
         help="number of seconds to sleep after a failure before retrying")
 
     # Used by distribute
@@ -387,20 +386,18 @@ def distribute_statistics (work_directory,
 def deliver_product (work_directory, package_directory, product_name,
   destination_host, destination_directory,
   destination_username, destination_pw,
-  include_statistics=False, sleep_seconds=default_sleep_seconds):
+  include_statistics=False, sleep_seconds=settings.default_sleep_seconds):
     '''
     Description:
       Packages the product and distributes it to the destination.
       Verification of the local and remote checksum values is performed.
 
     Note:
-        Three attempts are made for each part of the delivery
+        X attempts are made for each part of the delivery
     '''
 
-    max_number_of_attempts = 3
-
     # Package the product files
-    # Attempt three times sleeping between each attempt
+    # Attempt X times sleeping between each attempt
     attempt = 0
     while True:
         try:
@@ -410,7 +407,7 @@ def deliver_product (work_directory, package_directory, product_name,
         except Exception, e:
             log ("An error occurred processing %s" % product_name)
             log ("Error: %s" % str(e))
-            if attempt < max_number_of_attempts:
+            if attempt < settings.max_packaging_attempts:
                 sleep(sleep_seconds) # sleep before trying again
                 attempt += 1
                 continue
@@ -420,7 +417,7 @@ def deliver_product (work_directory, package_directory, product_name,
         break
 
     # Distribute the product
-    # Attempt three times sleeping between each attempt
+    # Attempt X times sleeping between each attempt
     attempt = 0
     while True:
         try:
@@ -432,7 +429,7 @@ def deliver_product (work_directory, package_directory, product_name,
         except Exception, e:
             log ("An error occurred processing %s" % product_name)
             log ("Error: %s" % str(e))
-            if attempt < max_number_of_attempts:
+            if attempt < settings.max_delivery_attempts:
                 sleep(sleep_seconds) # sleep before trying again
                 attempt += 1
                 continue
@@ -450,7 +447,7 @@ def deliver_product (work_directory, package_directory, product_name,
 
     # Distribute the statistics directory if they were generated
     if include_statistics:
-        # Attempt three times sleeping between each attempt
+        # Attempt X times sleeping between each attempt
         attempt = 0
         while True:
             try:
@@ -459,7 +456,7 @@ def deliver_product (work_directory, package_directory, product_name,
             except Exception, e:
                 log ("An error occurred processing %s" % product_name)
                 log ("Error: %s" % str(e))
-                if attempt < max_number_of_attempts:
+                if attempt < settings.max_delivery_attempts:
                     sleep(sleep_seconds) # sleep before trying again
                     attempt += 1
                     continue

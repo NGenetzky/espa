@@ -34,13 +34,7 @@ from espa_logging import log
 
 # local objects and methods
 import util
-
-# Specify the buffer length for an order line in the order file.  Currently we
-# are setting a buffer of 2048.
-order_buffer_length = 2048
-# Define the hadoop timeouts to a ridiculous number so the jobs don't get
-# killed before they are done.... currently set to
-hadoop_timeout = 172800000 # which is 2 days
+import settings
 
 
 #=============================================================================
@@ -81,7 +75,7 @@ def runScenes():
 
                 # Pad the entry so hadoop will properly split the jobs
                 filler = ""
-                filler_count = order_buffer_length - len(line_entry)
+                filler_count = settings.order_buffer_length - len(line_entry)
 
                 # Have to start at 1 here because the \n will be part of the
                 # overall buffer bytes.
@@ -101,7 +95,7 @@ def runScenes():
             hadoop_run_command = [hadoop_executable, 'jar',
                 '%s/bin/hadoop/contrib/streaming/hadoop-streaming*.jar' \
                     % home_dir,
-                '-D', 'mapred.task.timeout=%s' % hadoop_timeout,
+                '-D', 'mapred.task.timeout=%s' % settings.hadoop_timeout,
                 '-D', 'mapred.reduce.tasks=0',
                 '-D', 'mapred.job.queue.name=ondemand',
                 '-D', 'mapred.job.name="%s"' % ordername,

@@ -32,16 +32,15 @@ from espa_logging import log, debug
 
 # local objects and methods
 import util
-
-# Default values
-default_resolution = 50
+import settings
 
 
 # TODO - At some point in the future we should allow browse generation from
 #        L1T, and TOA as well.  Should also consider support for applying
 #        color ramps against indices.
 #=============================================================================
-def do_sr_browse (sr_filename, scene, resolution=default_resolution):
+def do_sr_browse (sr_filename, scene,
+  resolution=settings.default_browse_resolution):
     '''
     Description:
       Creates a browse image from the surface relfectance file

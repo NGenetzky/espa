@@ -33,11 +33,7 @@ import metadata_api
 import solr
 # We do not offer browse products for the time being.
 #import browse
-
-
-# Default values
-default_browse_resolution = 50
-default_solr_collection_name = 'DEFAULT_COLLECTION'
+import settings
 
 
 # Define all of the non-product files that need to be removed before product
@@ -143,13 +139,13 @@ def validate_landsat_parameters (parms):
     # a resolution was not specified
     if options['include_sr_browse']:
         if not parameters.test_for_parameter (options, 'browse_resolution'):
-            options['browse_resolution'] = default_browse_resolution
+            options['browse_resolution'] = settings.default_browse_resolution
 
     # Determine if SOLR was requested and specify the default collection name
     # if a collection name was not specified
     if options['include_solr_index']:
         if not parameters.test_for_parameter (options, 'collection_name'):
-            options['collection_name'] = default_solr_collection_name
+            options['collection_name'] = settings.default_solr_collection_name
 # END - validate_landsat_parameters
 
 
@@ -219,6 +215,9 @@ def build_landsat_science_products (parms):
     Description:
       Build all the requested science products for Landsat data.
     '''
+
+    global non_product_files, l1t_source_files, l1t_source_metadata_files
+    global order_to_product_mapping
 
     # Keep a local options for those apps that only need a few things
     options = parms['options']
@@ -393,8 +392,8 @@ def build_landsat_science_products (parms):
             del bands    # Not needed anymore
             del espa_xml # Not needed anymore
 
-            cmd = ['cfmask', '--verbose', '--max_cloud_pixels', str(5000000),
-                   '--xml', xml_filename]
+            cmd = ['cfmask', '--verbose', '--max_cloud_pixels',
+                   settings.cfmask_max_cloud_pixels, '--xml', xml_filename]
             cmd = ' '.join(cmd)
 
             log ('CREATE CFMASK COMMAND:' + cmd)
