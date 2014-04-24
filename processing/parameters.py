@@ -248,7 +248,7 @@ def add_destination_parameters (parser):
 
 #==============================================================================
 def add_reprojection_parameters (parser, projection_values, ns_values,
-  pixel_units, resample_methods):
+  pixel_units, resample_methods, datum_values):
     '''
     Description:
       Adds the reprojection parameters to the command line parameters
@@ -275,9 +275,11 @@ def add_reprojection_parameters (parser, projection_values, ns_values,
         choices=ns_values,
         help="one of (%s)" % ', '.join(ns_values))
 
+    # Default to the first entry which should be WGS84
     parser.add_argument ('--datum',
-        action='store', dest='datum',
-        help="datum to use typically (wgs84)")
+        action='store', dest='datum', default=datum_values[0],
+        help="one of (%s), only used with albers projection" \
+            % ', '.join(datum_values))
 
     parser.add_argument ('--longitude_pole',
         action='store', dest='longitude_pole',
@@ -386,7 +388,7 @@ def convert_to_command_line_options (parms):
 
 #==============================================================================
 def validate_reprojection_parameters (parms, projections, ns_values,
-  pixel_units, resample_methods):
+  pixel_units, resample_methods, datum_values):
     '''
     Description:
       Perform a check on the possible reprojection parameters
@@ -433,6 +435,12 @@ def validate_reprojection_parameters (parms, projections, ns_values,
                     raise RuntimeError ("Missing false_easting parameter")
                 if not test_for_parameter (parms, 'false_northing'):
                     raise RuntimeError ("Missing false_northing parameter")
+                if not test_for_parameter (parms, 'datum'):
+                    raise RuntimeError ("Missing datum parameter")
+                elif parms['datum'] not in datum_values:
+                    raise ValueError("Invalid datum [%s]:" \
+                        " Argument must be one of (%s)" \
+                        % (parms['datum'], ', '.join(datum_values)))
 
             #..................................................................
             if target_projection == 'utm':

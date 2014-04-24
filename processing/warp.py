@@ -34,14 +34,22 @@ import parameters
 import util
 
 
+# We are only supporting one radius
+SINUSOIDAL_SPHERE_RADIUS = '6371007.181'
+
+# Supported datums - the strings for them
+WGS84 = 'WGS84'
+NAD27 = 'NAD27'
+NAD83 = 'NAD83'
+
 # These contain valid warping options
 valid_resample_methods = ['near', 'bilinear', 'cubic', 'cubicspline', 'lanczos']
 valid_pixel_units = ['meters', 'dd']
 valid_projections = ['sinu', 'aea', 'utm', 'ps', 'lonlat']
 valid_ns = ['north', 'south']
-
-# We are only supporting one
-SINUSOIDAL_SPHERE_RADIUS = '6371007.181'
+# First entry in the datums is used as the default, it should always be set to
+# WGS84
+valid_datums = [WGS84, NAD27, NAD83]
 
 
 #=============================================================================
@@ -232,7 +240,7 @@ def build_argument_parser():
     '''
 
     global valid_resample_methods, valid_pixel_units, valid_projections
-    global valid_ns
+    global valid_ns, valid_datums
 
     # Create a command line argument parser
     description = "Alters product extents, projections and pixel sizes"
@@ -242,7 +250,7 @@ def build_argument_parser():
     parameters.add_debug_parameter (parser)
 
     parameters.add_reprojection_parameters (parser, valid_projections,
-        valid_ns, valid_pixel_units, valid_resample_methods)
+        valid_ns, valid_pixel_units, valid_resample_methods, valid_datums)
 
     parameters.add_work_directory_parameter (parser)
 
@@ -259,10 +267,10 @@ def validate_parameters (parms):
     '''
 
     global valid_resample_methods, valid_pixel_units, valid_projections
-    global valid_ns
+    global valid_ns, valid_datums
 
     parameters.validate_reprojection_parameters (parms, valid_projections,
-        valid_ns, valid_pixel_units, valid_resample_methods)
+        valid_ns, valid_pixel_units, valid_resample_methods, valid_datums)
 # END - validate_parameters
 
 
@@ -546,6 +554,7 @@ def warp_espa_data (parms, xml_filename=None):
     pixel_size = parms['pixel_size']
     pixel_size_units = parms['pixel_size_units']
     resample_method = parms['resample_method']
+    datum = parms['datum']
 
     try:
         xml = metadata_api.parse (xml_filename, silence=True)
@@ -680,16 +689,16 @@ def warp_espa_data (parms, xml_filename=None):
             band_pixel_size.set_units = pixel_size_units
         # END for each band in the XML file
 
+
+        ######################################################################
         ######################################################################
         # TODO TODO TODO - Determine the projection of the warped data
-        # (UTM, PS, ALBERS, GEOGRAPHIC, SIN)
-        # May need to change the sphere_code
-        #     We hard code albers to GRS80 which is 8
-        #     Are all the others WGS84??????????????
         # What about orientation_angle?
         # What about scene_center_time?  If the data was subsetted it changes??????
+        ######################################################################
+        ######################################################################
 
-        # Remove the parameters for all of the projections
+        # Remove the parameters for all of the projections that have them
         # Geographic doesn't have one
         if gm.projection_information.utm_proj_params != None:
             del gm.projection_information.utm_proj_params
@@ -705,7 +714,7 @@ def warp_espa_data (parms, xml_filename=None):
         if projection_name != None:
             # ----------------------------------------------------------------
             if projection_name.lower().startswith('transverse_mercator'):
-                log ("------------------ Updating UTM ------------------")
+                log ("---- Updating UTM Parameters")
                 # Get the parameter values
                 zone = int(ds_srs.GetUTMZone())
                 # Get a new UTM projection parameter object and populate it
@@ -715,10 +724,10 @@ def warp_espa_data (parms, xml_filename=None):
                 gm.projection_information.set_utm_proj_params(utm_projection)
                 # Update the attribute values
                 gm.projection_information.set_projection("UTM")
-                # TODO - Change to the string
-                gm.projection_information.set_sphere_code(12) # WGS84 only
+                gm.projection_information.set_datum(WGS84) # WGS84 only
             # ----------------------------------------------------------------
             elif projection_name.lower().startswith('polar'):
+                log ("---- Updating Polar Stereographic Parameters")
                 # Get the parameter values
                 latitude_true_scale = ds_srs.GetProjParm ('latitude_of_origin')
                 longitude_pole = ds_srs.GetProjParm ('central_meridian')
@@ -734,10 +743,10 @@ def warp_espa_data (parms, xml_filename=None):
                 gm.projection_information.set_ps_proj_params(ps_projection)
                 # Update the attribute values
                 gm.projection_information.set_projection("PS")
-                # TODO - Change to the string
-                gm.projection_information.set_sphere_code(12) # WGS84 only
+                gm.projection_information.set_datum(WGS84) # WGS84 only
             # ----------------------------------------------------------------
             elif projection_name.lower().startswith('albers'):
+                log ("---- Updating Albers Equal Area Parameters")
                 # Get the parameter values
                 standard_parallel1 = ds_srs.GetProjParm ('standard_parallel_1')
                 standard_parallel2 = ds_srs.GetProjParm ('standard_parallel_2')
@@ -757,11 +766,12 @@ def warp_espa_data (parms, xml_filename=None):
                 gm.projection_information.set_utm_proj_params(albers_projection)
                 # Update the attribute values
                 gm.projection_information.set_projection("ALBERS")
-                # TODO This can have different ones, what are they????????
-                # TODO - Change to the string
-                gm.projection_information.set_sphere_code(12) # WGS84
+                # This projection can have different datums, so use the datum
+                # requested by the user
+                gm.projection_information.set_datum(datum)
             # ----------------------------------------------------------------
             elif projection_name.lower().startswith('sinusoidal'):
+                log ("---- Updating Sinusoidal Parameters")
                 # Get the parameter values
                 central_meridian = ds_srs.GetProjParm ('longitude_of_center')
                 false_easting = ds_srs.GetProjParm ('false_easting')
@@ -776,19 +786,16 @@ def warp_espa_data (parms, xml_filename=None):
                 gm.projection_information.set_utm_proj_params(sin_projection)
                 # Update the attribute values
                 gm.projection_information.set_projection("SIN")
-                # This projection doesn't have a sphere code
-                sphere_code = gm.projection_information.get_sphere_code()
-                del gm.projection_information.sphere_code
+                # This projection doesn't have a datum
+                del gm.projection_information.datum
         else:
             # ----------------------------------------------------------------
             # Must be Geographic Projection
+            log ("---- Updating Geographic Parameters")
             gm.projection_information.set_projection("GEO")
-            # TODO - Change to the string
-            gm.projection_information.set_sphere_code(12) # WGS84 only
+            gm.projection_information.set_datum(WGS84) # WGS84 only
 
-        # TODO TODO TODO - Do I always do the remaining for every projection???
-
-        # Get the UL and LR center of pixel map coordinates
+        # Fix the UL and LR center of pixel map coordinates
         (map_ul_x, map_ul_y) = convert_imageXY_to_mapXY (0.5, 0.5,
             ds_transform)
         (map_lr_x, map_lr_y) = convert_imageXY_to_mapXY (
@@ -801,7 +808,7 @@ def warp_espa_data (parms, xml_filename=None):
                 cp.set_x (map_lr_x)
                 cp.set_y (map_lr_y)
 
-        # Get the UL and LR center of pixel latitude and longitude coordinates
+        # Fix the UL and LR center of pixel latitude and longitude coordinates
         srs_lat_lon = ds_srs.CloneGeogCS()
         coord_tf = osr.CoordinateTransformation (ds_srs, srs_lat_lon)
         for corner in gm.corner:
@@ -853,7 +860,6 @@ def warp_espa_data (parms, xml_filename=None):
         tmp_xml_filename = 'tmp-%s' % xml_filename
         fd = open (tmp_xml_filename, 'w')
         # Call the export with validation
-        # TODO TODO TODO - This doesn't fail when it should (happened one time)
         metadata_api.export (fd, xml)
         fd.close()
 
