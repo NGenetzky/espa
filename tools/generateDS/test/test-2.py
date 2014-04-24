@@ -49,7 +49,7 @@ bounding_coordinates.set_south (45.027814)
 global_metadata.set_bounding_coordinates (bounding_coordinates)
 
 # ---
-projection_information = metadata_api.projection_information (projection="UTM", sphere_code="12", units="meters")
+projection_information = metadata_api.projection_information (projection="UTM", datum="WGS84", units="meters")
 
 corner_point = metadata_api.corner_point(location="UL", x="423000.000000", y="5207700.000000")
 projection_information.add_corner_point (corner_point)
