@@ -692,28 +692,36 @@ def warp_espa_data (parms, xml_filename=None):
 
         ######################################################################
         ######################################################################
-        # TODO TODO TODO - Determine the projection of the warped data
+        # TODO TODO TODO - Fix theprojection of the warped data
         # What about orientation_angle?
         # What about scene_center_time?  If the data was subsetted it changes??????
         ######################################################################
         ######################################################################
 
-        # Remove the parameters for all of the projections that have them
+        # Remove the projection parameter object from the structure so that it
+        # can be replaced with the new one
         # Geographic doesn't have one
         if gm.projection_information.utm_proj_params != None:
             del gm.projection_information.utm_proj_params
+            gm.projection_information.utm_proj_params = None
+
         if gm.projection_information.ps_proj_params != None:
             del gm.projection_information.ps_proj_params
+            gm.projection_information.ps_proj_params = None
+
         if gm.projection_information.albers_proj_params != None:
             del gm.projection_information.albers_proj_params
+            gm.projection_information.albers_proj_params = None
+
         if gm.projection_information.sin_proj_params != None:
             del gm.projection_information.sin_proj_params
+            gm.projection_information.sin_proj_params = None
 
         # Rebuild the projection parameters
         projection_name = ds_srs.GetAttrValue ('PROJECTION')
         if projection_name != None:
             # ----------------------------------------------------------------
-            if projection_name.lower().startswith('transverse_mercator'):
+            if projection_name.lower().startswith ('transverse_mercator'):
                 log ("---- Updating UTM Parameters")
                 # Get the parameter values
                 zone = int(ds_srs.GetUTMZone())
@@ -721,12 +729,12 @@ def warp_espa_data (parms, xml_filename=None):
                 utm_projection = metadata_api.utm_proj_params()
                 utm_projection.set_zone_code (zone)
                 # Add the object to the projection information
-                gm.projection_information.set_utm_proj_params(utm_projection)
+                gm.projection_information.set_utm_proj_params (utm_projection)
                 # Update the attribute values
-                gm.projection_information.set_projection("UTM")
-                gm.projection_information.set_datum(WGS84) # WGS84 only
+                gm.projection_information.set_projection ("UTM")
+                gm.projection_information.set_datum (WGS84) # WGS84 only
             # ----------------------------------------------------------------
-            elif projection_name.lower().startswith('polar'):
+            elif projection_name.lower().startswith ('polar'):
                 log ("---- Updating Polar Stereographic Parameters")
                 # Get the parameter values
                 latitude_true_scale = ds_srs.GetProjParm ('latitude_of_origin')
@@ -740,12 +748,12 @@ def warp_espa_data (parms, xml_filename=None):
                 ps_projection.set_false_easting (false_easting)
                 ps_projection.set_false_northing (false_northing)
                 # Add the object to the projection information
-                gm.projection_information.set_ps_proj_params(ps_projection)
+                gm.projection_information.set_ps_proj_params (ps_projection)
                 # Update the attribute values
-                gm.projection_information.set_projection("PS")
-                gm.projection_information.set_datum(WGS84) # WGS84 only
+                gm.projection_information.set_projection ("PS")
+                gm.projection_information.set_datum (WGS84) # WGS84 only
             # ----------------------------------------------------------------
-            elif projection_name.lower().startswith('albers'):
+            elif projection_name.lower().startswith ('albers'):
                 log ("---- Updating Albers Equal Area Parameters")
                 # Get the parameter values
                 standard_parallel1 = ds_srs.GetProjParm ('standard_parallel_1')
@@ -763,14 +771,14 @@ def warp_espa_data (parms, xml_filename=None):
                 albers_projection.set_false_easting (false_easting)
                 albers_projection.set_false_northing (false_northing)
                 # Add the object to the projection information
-                gm.projection_information.set_utm_proj_params(albers_projection)
+                gm.projection_information.set_albers_proj_params (albers_projection)
                 # Update the attribute values
-                gm.projection_information.set_projection("ALBERS")
+                gm.projection_information.set_projection ("ALBERS")
                 # This projection can have different datums, so use the datum
                 # requested by the user
-                gm.projection_information.set_datum(datum)
+                gm.projection_information.set_datum (datum)
             # ----------------------------------------------------------------
-            elif projection_name.lower().startswith('sinusoidal'):
+            elif projection_name.lower().startswith ('sinusoidal'):
                 log ("---- Updating Sinusoidal Parameters")
                 # Get the parameter values
                 central_meridian = ds_srs.GetProjParm ('longitude_of_center')
@@ -783,17 +791,18 @@ def warp_espa_data (parms, xml_filename=None):
                 sin_projection.set_false_easting (false_easting)
                 sin_projection.set_false_northing (false_northing)
                 # Add the object to the projection information
-                gm.projection_information.set_utm_proj_params(sin_projection)
+                gm.projection_information.set_sin_proj_params (sin_projection)
                 # Update the attribute values
-                gm.projection_information.set_projection("SIN")
+                gm.projection_information.set_projection ("SIN")
                 # This projection doesn't have a datum
                 del gm.projection_information.datum
+                gm.projection_information.datum = None
         else:
             # ----------------------------------------------------------------
             # Must be Geographic Projection
             log ("---- Updating Geographic Parameters")
-            gm.projection_information.set_projection("GEO")
-            gm.projection_information.set_datum(WGS84) # WGS84 only
+            gm.projection_information.set_projection ("GEO")
+            gm.projection_information.set_datum (WGS84) # WGS84 only
 
         # Fix the UL and LR center of pixel map coordinates
         (map_ul_x, map_ul_y) = convert_imageXY_to_mapXY (0.5, 0.5,

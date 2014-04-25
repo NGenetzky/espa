@@ -53,7 +53,7 @@
     "include_sr_evi": false,
     "include_sr_savi": false,
     "include_sr_evi": false,
-    "include_surface_water_extent": true,
+    "include_swe": true,
     "include_solr_index": false,
     "include_statistics": true
   }
