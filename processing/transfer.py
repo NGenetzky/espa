@@ -46,7 +46,8 @@ def copy_file_to_file (source_file, destination_file):
         log ("Error: Failed to copy file")
         raise e
     finally:
-        log (output)
+        if len(output) > 0:
+            log (output)
 
     log ("Transfer complete - CP")
 # END - copy_file_to_directory
@@ -72,7 +73,8 @@ def remote_copy_file_to_file (source_host, source_file, destination_file):
         log ("Error: Failed to copy file")
         raise e
     finally:
-        log (output)
+        if len(output) > 0:
+            log (output)
 
     log ("Transfer complete - SSH-CP")
 # END - remote_copy_file_to_directory
