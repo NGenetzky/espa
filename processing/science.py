@@ -259,7 +259,8 @@ def build_landsat_science_products (parms):
             raise ee.ESPAException (ee.ErrorCodes.ledaps, str(e)), \
                 None, sys.exc_info()[2]
         finally:
-            log (output)
+            if len(output) > 0:
+                log (output)
 
         # --------------------------------------------------------------------
         # Generate LEDAPS products SR, TOA, TH
@@ -285,7 +286,8 @@ def build_landsat_science_products (parms):
                 raise ee.ESPAException (ee.ErrorCodes.ledaps, str(e)), \
                     None, sys.exc_info()[2]
             finally:
-                log (output)
+                if len(output) > 0:
+                    log (output)
 
         # --------------------------------------------------------------------
         # Generate SR browse product
@@ -336,7 +338,8 @@ def build_landsat_science_products (parms):
                 raise ee.ESPAException (ee.ErrorCodes.spectral_indices,
                     str(e)), None, sys.exc_info()[2]
             finally:
-                log (output)
+                if len(output) > 0:
+                    log (output)
         # END - if indices
 
         # --------------------------------------------------------------------
@@ -359,7 +362,8 @@ def build_landsat_science_products (parms):
                 raise ee.ESPAException (ee.ErrorCodes.create_dem, str(e)), \
                     None, sys.exc_info()[2]
             finally:
-                log (output)
+                if len(output) > 0:
+                    log (output)
 
         # --------------------------------------------------------------------
         # Generate SOLR index
@@ -403,7 +407,8 @@ def build_landsat_science_products (parms):
                 raise ee.ESPAException (ee.ErrorCodes.cfmask, str(e)), \
                     None, sys.exc_info()[2]
             finally:
-                log (output)
+                if len(output) > 0:
+                    log (output)
 
 #        # --------------------------------------------------------------------
 #        # Generate Surface Water Extent product
@@ -421,7 +426,8 @@ def build_landsat_science_products (parms):
 #                raise ee.ESPAException (ee.ErrorCodes.swe, str(e)), \
 #                    None, sys.exc_info()[2]
 #            finally:
-#                log (output)
+#                if len(output) > 0:
+#                    log (output)
 
         # --------------------------------------------------------------------
         # Remove the intermediate non-product files
@@ -447,7 +453,8 @@ def build_landsat_science_products (parms):
             raise ee.ESPAException (ee.ErrorCodes.cleanup_work_dir, str(e)), \
                 None, sys.exc_info()[2]
         finally:
-            log (output)
+            if len(output) > 0:
+                log (output)
 
         # Remove generated products that were not requested
         products_to_remove = []
@@ -474,8 +481,6 @@ def build_landsat_science_products (parms):
         except Exception, e:
             raise ee.ESPAException (ee.ErrorCodes.remove_products, str(e)), \
                 None, sys.exc_info()[2]
-        finally:
-            log (output)
 
     finally:
         # Change back to the previous directory
