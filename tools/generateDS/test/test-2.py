@@ -49,6 +49,7 @@ bounding_coordinates.set_south (45.027814)
 global_metadata.set_bounding_coordinates (bounding_coordinates)
 
 # ---
+#projection_information = metadata_api.projection_information (projection="UTM", datum="WGS84", units="meters")
 projection_information = metadata_api.projection_information (projection="UTM", datum="WGS84", units="meters")
 
 corner_point = metadata_api.corner_point(location="UL", x="423000.000000", y="5207700.000000")
@@ -61,6 +62,8 @@ projection_information.set_grid_origin ('CENTER')
 utm_proj_params = metadata_api.utm_proj_params()
 utm_proj_params.set_zone_code (10)
 projection_information.set_utm_proj_params (utm_proj_params)
+del projection_information.utm_proj_params
+projection_information.utm_proj_params = None
 
 global_metadata.set_projection_information (projection_information)
 
