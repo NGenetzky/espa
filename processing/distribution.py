@@ -105,13 +105,15 @@ def tar_product (product_full_path, product_files):
     cmd += product_files
     cmd = ' '.join(cmd)
 
+    output = ''
     try:
         output = util.execute_cmd (cmd)
     except Exception, e:
         raise ee.ESPAException (ee.ErrorCodes.packaging_product, str(e)), \
             None, sys.exc_info()[2]
     finally:
-        log (output)
+        if len(output) > 0:
+            log (output)
 # END - tar_product
 
 
@@ -125,13 +127,15 @@ def gzip_product (product_full_path):
     cmd = ['gzip', product_full_path]
     cmd = ' '.join(cmd)
 
+    output = ''
     try:
         output = util.execute_cmd (cmd)
     except Exception, e:
         raise ee.ESPAException (ee.ErrorCodes.packaging_product, str(e)), \
             None, sys.exc_info()[2]
     finally:
-        log (output)
+        if len(output) > 0:
+            log (output)
 # END - tar_product
 
 
@@ -257,6 +261,7 @@ def distribute_product (destination_host, destination_directory,
     cmd = ['ssh', '-q', '-o', 'StrictHostKeyChecking=no', destination_host,
            'mkdir', '-p', destination_directory]
     cmd = ' '.join(cmd)
+
     output = ''
     try:
         output = util.execute_cmd (cmd)
@@ -264,7 +269,8 @@ def distribute_product (destination_host, destination_directory,
         raise ee.ESPAException (ee.ErrorCodes.packaging_product, str(e)), \
             None, sys.exc_info()[2]
     finally:
-        log (output)
+        if len(output) > 0:
+            log (output)
 
     # Transfer the checksum file
     destination_cksum_file = '%s/%s' \
@@ -326,6 +332,7 @@ def distribute_statistics (work_directory,
         cmd = ['ssh', '-q', '-o', 'StrictHostKeyChecking=no', destination_host,
                'mkdir', '-p', stats_directory]
         cmd = ' '.join(cmd)
+
         output = ''
         try:
             output = util.execute_cmd (cmd)
@@ -333,7 +340,8 @@ def distribute_statistics (work_directory,
             raise ee.ESPAException (ee.ErrorCodes.packaging_product, str(e)), \
                 None, sys.exc_info()[2]
         finally:
-            log (output)
+            if len(output) > 0:
+                log (output)
 
         stats_files = 'stats/*'
 
