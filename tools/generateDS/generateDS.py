@@ -2567,7 +2567,7 @@ def generateExportFn(wrt, prefix, element, namespace, nameSpacesDef):
     #        output to the ESPA XML file
     wrt("        # Check if we are at the root level and output the XML header\n")
     wrt("        if level == 0:\n")
-    wrt("            outfile.write('<?xml version=\"1.0\" encoding=\"%s\"?>\\n' % ExternalEncoding)\n")
+    wrt("            outfile.write('<?xml version=\"1.0\"?>\\n')\n")
     wrt("            outfile.write('\\n')\n")
 
     wrt('        if pretty_print:\n')
@@ -4986,7 +4986,11 @@ def get_root_tag(node):
 
 
 def parse(inFileName, silence=False):
-    doc = parsexml_(inFileName)
+    parser = etree.XMLParser(ns_clean=True, recover=True,
+        encoding='%(external_encoding)s')
+    fd = open(inFileName, 'r')
+    doc = etree.parse(fd, parser=parser)
+    fd.close()
     rootNode = doc.getroot()
     rootTag, rootClass = get_root_tag(rootNode)
     if rootClass is None:
@@ -5089,6 +5093,7 @@ def build_ns_def(xmlns=None, xmlns_xsi=None, schema_uri=None):
 # ESPA - Added a module method to allow validation of the proposed output
 def validate_xml(rootObj, xmlns=None, xmlns_xsi=None, schema_uri=None):
 
+    xml_text = ''
     try:
         ns_def = build_ns_def(xmlns, xmlns_xsi, schema_uri)
 
@@ -5133,13 +5138,17 @@ def validate_xml(rootObj, xmlns=None, xmlns_xsi=None, schema_uri=None):
         xml_io.flush()
         xml_text = xml_io.getvalue()
         xml_io.close()
-        xml = etree.fromstring(xml_text)
+        parser = etree.XMLParser(ns_clean=True, recover=True,
+            encoding='%(external_encoding)s')
+        xml = etree.fromstring(xml_text, parser=parser)
 
         # Validate the etree against the schema 
         schema.assertValid(xml)
 
     except Exception, e:
-        print "metadata_api Validation Error: " + str(e)
+        raise Exception("metadata_api Validation Error: " + str(e))
+
+    return xml_text
 
 
 # ESPA - Added a module method to allow exporting from the module level with
@@ -5149,15 +5158,17 @@ def export(outFile, rootObj, xmlns=%(espa_xmlns)s, xmlns_xsi=%(espa_xmlns_xsi)s,
 
     rootObj.set_version(%(espa_version)s)
 
+    xml_text = ''
     try:
-        validate_xml(rootObj, xmlns, xmlns_xsi, schema_uri)
+        xml_text = validate_xml(rootObj, xmlns, xmlns_xsi, schema_uri)
     except Exception, e:
         raise
 
     try:
-        rootObj.export(outFile, 0, namespacedef_=ns_def, pretty_print=True)
+        outFile.write(xml_text)
+        outFile.flush()
     except Exception, e:
-        raise Exception("metadata_api Export Error: " + str(e))
+        raise Exception("metadata_api Write Error: " + str(e))
 
 
 def main():
@@ -5226,7 +5237,8 @@ def generateMain(outfile, prefix, root):
         'espa_xmlns': ESPA_XMLNS,
         'espa_xmlns_xsi': ESPA_XMLNS_XSI,
         'espa_schema_uri': ESPA_SCHEMA_URI,
-        'espa_version': ESPA_VERSION
+        'espa_version': ESPA_VERSION,
+        'external_encoding': ExternalEncoding
     }
     s1 = TEMPLATE_MAIN % params
     outfile.write(s1)
