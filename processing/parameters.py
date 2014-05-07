@@ -248,7 +248,7 @@ def add_destination_parameters (parser):
 
 #==============================================================================
 def add_reprojection_parameters (parser, projection_values, ns_values,
-  pixel_units, resample_methods, datum_values):
+  pixel_size_units, resample_methods, datum_values):
     '''
     Description:
       Adds the reprojection parameters to the command line parameters
@@ -319,8 +319,8 @@ def add_reprojection_parameters (parser, projection_values, ns_values,
         help="new size of the pixels")
     parser.add_argument ('--pixel_size_units',
         action='store', dest='pixel_size_units',
-        choices=pixel_units,
-        help="one of (%s)" % ', '.join(pixel_units))
+        choices=pixel_size_units,
+        help="one of (%s)" % ', '.join(pixel_size_units))
 
     parser.add_argument ('--image_extents',
         action='store_true', dest='image_extents', default=False,
@@ -388,7 +388,7 @@ def convert_to_command_line_options (parms):
 
 #==============================================================================
 def validate_reprojection_parameters (parms, projections, ns_values,
-  pixel_units, resample_methods, datum_values):
+  pixel_size_units, resample_methods, datum_values):
     '''
     Description:
       Perform a check on the possible reprojection parameters
@@ -506,14 +506,14 @@ def validate_reprojection_parameters (parms, projections, ns_values,
         if not test_for_parameter (parms, 'pixel_size_units'):
             raise RuntimeError ("Missing pixel_size_units parameter")
         else:
-            if parms['pixel_size_units'] not in pixel_units:
+            if parms['pixel_size_units'] not in pixel_size_units:
                 raise ValueError("Invalid pixel_size_units [%s]:" \
                     " Argument must be one of (%s)" \
-                    % (parms['pixel_size_units'], ', '.join(pixel_units)))
+                    % (parms['pixel_size_units'], ', '.join(pixel_size_units)))
     else:
         # Default this
         parms['pixel_size'] = None
-        parms['pixel_units'] = None
+        parms['pixel_size_units'] = None
 
     #--------------------------------------------------------------------------
     if parms['reproject'] or parms['image_extents'] and not parms['resize']:
@@ -523,10 +523,10 @@ def validate_reprojection_parameters (parms, projections, ns_values,
         # Everything will default to 30 meters except if they chose geographic
         # projection, which will default to dd equivalent
         parms['pixel_size'] = '30.0'
-        parms['pixel_units'] = 'meters'
+        parms['pixel_size_units'] = 'meters'
         if test_for_parameter (parms, 'target_projection'):
             if str(parms['target_projection']).lower() == 'lonlat':
                 parms['pixel_size'] = '0.0002695'
-                parms['pixel_units'] = 'dd'
+                parms['pixel_size_units'] = 'dd'
 # END - validate_reprojection_parameters
 

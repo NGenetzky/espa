@@ -63,7 +63,7 @@ def build_argument_parser():
     parameters.add_destination_parameters (parser)
 
     parameters.add_reprojection_parameters (parser, warp.valid_projections,
-        warp.valid_ns, warp.valid_pixel_units, warp.valid_resample_methods,
+        warp.valid_ns, warp.valid_pixel_size_units, warp.valid_resample_methods,
         warp.valid_datums)
 
     parameters.add_include_statistics_parameter (parser)
@@ -91,7 +91,7 @@ def validate_parameters (parms):
 
     # Validate the reprojection parameters
     parameters.validate_reprojection_parameters (options,
-        warp.valid_projections, warp.valid_ns, warp.valid_pixel_units,
+        warp.valid_projections, warp.valid_ns, warp.valid_pixel_size_units,
         warp.valid_resample_methods, warp.valid_datums)
 
     # Force these parameters to false if not provided
