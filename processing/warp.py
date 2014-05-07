@@ -35,7 +35,7 @@ import util
 
 
 # We are only supporting one radius
-SINUSOIDAL_SPHERE_RADIUS = '6371007.181'
+SINUSOIDAL_SPHERE_RADIUS = 6371007.181
 
 # Supported datums - the strings for them
 WGS84 = 'WGS84'
@@ -44,7 +44,7 @@ NAD83 = 'NAD83'
 
 # These contain valid warping options
 valid_resample_methods = ['near', 'bilinear', 'cubic', 'cubicspline', 'lanczos']
-valid_pixel_units = ['meters', 'dd']
+valid_pixel_size_units = ['meters', 'dd']
 valid_projections = ['sinu', 'aea', 'utm', 'ps', 'lonlat']
 valid_ns = ['north', 'south']
 # First entry in the datums is used as the default, it should always be set to
@@ -176,8 +176,6 @@ def build_geographic_proj4_string():
         +proj=longlat +datum=WGS84 +no_defs
 
     '''
-    # TODO - Is specifying the ellipsoid needed when gdalsrsinfo doesn't
-    # TODO - specify it as a proj4 parameter?
 
     return "'+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs'"
 # END - build_geographic_proj4_string
@@ -239,7 +237,7 @@ def build_argument_parser():
       Build the command line argument parser.
     '''
 
-    global valid_resample_methods, valid_pixel_units, valid_projections
+    global valid_resample_methods, valid_pixel_size_units, valid_projections
     global valid_ns, valid_datums
 
     # Create a command line argument parser
@@ -250,7 +248,7 @@ def build_argument_parser():
     parameters.add_debug_parameter (parser)
 
     parameters.add_reprojection_parameters (parser, valid_projections,
-        valid_ns, valid_pixel_units, valid_resample_methods, valid_datums)
+        valid_ns, valid_pixel_size_units, valid_resample_methods, valid_datums)
 
     parameters.add_work_directory_parameter (parser)
 
@@ -266,11 +264,11 @@ def validate_parameters (parms):
       is available with the provided input parameters.
     '''
 
-    global valid_resample_methods, valid_pixel_units, valid_projections
+    global valid_resample_methods, valid_pixel_size_units, valid_projections
     global valid_ns, valid_datums
 
     parameters.validate_reprojection_parameters (parms, valid_projections,
-        valid_ns, valid_pixel_units, valid_resample_methods, valid_datums)
+        valid_ns, valid_pixel_size_units, valid_resample_methods, valid_datums)
 # END - validate_parameters
 
 
@@ -369,15 +367,26 @@ def run_warp (source_file, output_file, output_format='envi',
       Executes the warping command on the specified source file
     '''
 
-    cmd = build_warp_command (source_file, output_file, output_format,
-        min_x, min_y, max_x, max_y, pixel_size, projection,
-        resample_method, no_data_value)
-    debug (cmd)
-    cmd = ' '.join(cmd)
+    try:
+        # Turn GDAL PAM off to prevent *.aux.xml files
+        os.environ['GDAL_PAM_ENABLED'] = 'NO'
 
-    log ("Warping %s with %s" % (source_file, cmd))
-    output = util.execute_cmd (cmd)
-    log (output)
+        cmd = build_warp_command (source_file, output_file, output_format,
+            min_x, min_y, max_x, max_y, pixel_size, projection,
+            resample_method, no_data_value)
+        debug (cmd)
+        cmd = ' '.join(cmd)
+
+        log ("Warping %s with %s" % (source_file, cmd))
+        output = util.execute_cmd (cmd)
+        log (output)
+
+    except Exception, e:
+        raise
+
+    finally:
+        # Remove the environment variable we set above
+        del os.environ['GDAL_PAM_ENABLED']
 # END - run_warp
 
 
@@ -519,99 +528,22 @@ def convert_imageXY_to_mapXY (image_x, image_y, transform):
     map_y = transform[3] + image_x * transform[4] + image_y * transform[5]
 
     return (map_x, map_y)
+# END - convert_imageXY_to_mapXY
 
 
 #=============================================================================
-def warp_espa_data (parms, xml_filename=None):
-    '''
-    Description:
-      Warp each espa science product to the parameters specified in the parms
-    '''
-
-    global SINUSOIDAL_SPHERE_RADIUS
-
-    # Validate the parameters
-    validate_parameters (parms)
-    debug (parms)
-
-    if parms['projection'] is not None:
-        # Use the provided proj.4 projection information
-        projection = parms['projection']
-    elif parms['reproject']:
-        # Verify and create proj.4 projection information
-        projection = convert_target_projection_to_proj4 (parms)
-    else:
-        projection = None
-
-    # Change to the working directory
-    current_directory = os.getcwd()
-    os.chdir (parms['work_directory'])
-
-    min_x = parms['minx']
-    min_y = parms['miny']
-    max_x = parms['maxx']
-    max_y = parms['maxy']
-    pixel_size = parms['pixel_size']
-    pixel_size_units = parms['pixel_size_units']
-    resample_method = parms['resample_method']
-    datum = parms['datum']
+def update_espa_xml (parms, xml, xml_filename, datum=WGS84):
 
     try:
-        xml = metadata_api.parse (xml_filename, silence=True)
         bands = xml.get_bands()
-        gm = xml.get_global_metadata()
-        # These will be poulated with the last bands information
-        map_info_str = None
-        x_pixel_size = None
-        y_pixel_size = None
-
-        ds_transform = None
-        # Process through the bands in the XML file
         for band in bands.band:
             img_filename = band.get_file_name()
             hdr_filename = img_filename.replace ('.img', '.hdr')
-            log ("Processing %s" % img_filename)
+            log ("Updating XML for %s" % img_filename)
 
-            # Open the image to read the no data value out since the internal
-            # ENVI driver for GDAL does not output it, even if it is known
             ds = gdal.Open (img_filename)
             if ds is None:
-                raise RuntimeError ("GDAL failed to open (%s)" % img_filename)
-
-            try:
-                ds_band = ds.GetRasterBand (1)
-            except Exception, e:
-                raise ee.ESPAException (ee.ErrorCodes.warping, str(e)), \
-                    None, sys.exc_info()[2]
-
-            # TODO - We don't process any floating point data types.... Yet
-            # Save the no data value since gdalwarp does not write it out when
-            # using the ENVI format
-            no_data_value = ds_band.GetNoDataValue()
-            if no_data_value is None:
-                raise RuntimeError ("no_data_value = None")
-            else:
-                # Convert to an integer then string
-                no_data_value = str(int(no_data_value))
-
-            del (ds_band)
-            del (ds)
-
-            tmp_img_filename = 'tmp-%s' % img_filename
-            tmp_hdr_filename = 'tmp-%s' % hdr_filename
-
-            run_warp (img_filename, tmp_img_filename, 'envi',
-                min_x, min_y, max_x, max_y,
-                pixel_size, projection, resample_method, no_data_value)
-
-            ##################################################################
-            ##################################################################
-            # Get new everything for the re-projected band
-            ##################################################################
-            ##################################################################
-            ds = gdal.Open (tmp_img_filename)
-            if ds is None:
-                msg = "GDAL failed to open (%s)" % tmp_img_filename
+                msg = "GDAL failed to open (%s)" % img_filename
                 raise RuntimeError (msg)
 
             try:
@@ -622,6 +554,8 @@ def warp_espa_data (parms, xml_filename=None):
             except Exception, e:
                 raise ee.ESPAException (ee.ErrorCodes.warping, str(e)), \
                     None, sys.exc_info()[2]
+
+            projection_name = ds_srs.GetAttrValue ('PROJECTION')
 
             number_of_lines = float(ds_band.YSize)
             number_of_samples = float(ds_band.XSize)
@@ -634,69 +568,38 @@ def warp_espa_data (parms, xml_filename=None):
             del (ds_band)
             del (ds)
 
-            # Update the tmp ENVI header with our own values for some fields
-            sb = StringIO()
-            fd = open (tmp_hdr_filename, 'r')
-            while 1:
-                line = fd.readline()
-                if not line:
-                    break
-                if line.startswith ('data ignore value') \
-                  or line.startswith ('description'):
-                    dummy = 'Nothing'
-                else:
-                    sb.write (line)
-
-                if line.startswith ('description'):
-                    # This may be on multiple lines so read lines until found
-                    if not line.strip().endswith ('}'):
-                        while 1:
-                            next_line = fd.readline()
-                            if not next_line or next_line.strip().endswith('}'):
-                                break
-                    sb.write ('description = {ESPA-generated file}\n')
-                elif line.startswith ('data type'):
-                    sb.write ('data ignore value = %s\n' % no_data_value)
-                elif line.startswith ('map info'):
-                    map_info_str = line
-
-            fd.close()
-            sb.flush()
-
-            # Do the actual update here
-            fd = open (tmp_hdr_filename, 'w')
-            fd.write (sb.getvalue())
-            fd.flush()
-            fd.close()
-
-            # Remove the original files, they are replaced in following code
-            if os.path.exists (img_filename):
-                os.unlink (img_filename)
-            if os.path.exists (hdr_filename):
-                os.unlink (hdr_filename)
-
-            # Rename the temps file back to the original name
-            os.rename (tmp_img_filename, img_filename)
-            os.rename (tmp_hdr_filename, hdr_filename)
-
             # Update the band information in the XML file
             band.set_nlines (number_of_lines)
             band.set_nsamps (number_of_samples)
             band_pixel_size = band.get_pixel_size()
             band_pixel_size.set_x (x_pixel_size)
             band_pixel_size.set_y (y_pixel_size)
-            # Use the units from the order request options
-            band_pixel_size.set_units = pixel_size_units
-        # END for each band in the XML file
 
+            # We only support one unit type for each projection
+            if projection_name != None:
+                if projection_name.lower().startswith ('transverse_mercator'):
+                    band_pixel_size.set_units ('meters')
+                elif projection_name.lower().startswith ('polar'):
+                    band_pixel_size.set_units ('meters')
+                elif projection_name.lower().startswith ('albers'):
+                    band_pixel_size.set_units ('meters')
+                elif projection_name.lower().startswith ('sinusoidal'):
+                    band_pixel_size.set_units ('meters')
+            else:
+                # Must be Geographic Projection
+                band_pixel_size.set_units ('degrees')
 
         ######################################################################
+        # Fix the projection information for the warped data
         ######################################################################
-        # TODO TODO TODO - Fix theprojection of the warped data
-        # What about orientation_angle?
-        # What about scene_center_time?  If the data was subsetted it changes??????
-        ######################################################################
-        ######################################################################
+        gm = xml.get_global_metadata()
+
+        # If the image extents were changed, then the scene center time is
+        # meaningless so just remove it
+        # We don't have any way to calculate a new one
+        if parms['image_extents']:
+            del gm.scene_center_time
+            gm.scene_center_time = None
 
         # Remove the projection parameter object from the structure so that it
         # can be replaced with the new one
@@ -801,8 +704,9 @@ def warp_espa_data (parms, xml_filename=None):
             # ----------------------------------------------------------------
             # Must be Geographic Projection
             log ("---- Updating Geographic Parameters")
-            gm.projection_information.set_projection ("GEO")
+            gm.projection_information.set_projection ('GEO')
             gm.projection_information.set_datum (WGS84) # WGS84 only
+            gm.projection_information.set_units ('degrees') # always degrees
 
         # Fix the UL and LR center of pixel map coordinates
         (map_ul_x, map_ul_y) = convert_imageXY_to_mapXY (0.5, 0.5,
@@ -866,19 +770,182 @@ def warp_espa_data (parms, xml_filename=None):
         del (ds_srs)
 
         # Write out a new XML file after validation
+        log ("---- Validating XML Modifications and Creating Temp Output File")
         tmp_xml_filename = 'tmp-%s' % xml_filename
         fd = open (tmp_xml_filename, 'w')
         # Call the export with validation
         metadata_api.export (fd, xml)
+        fd.flush()
         fd.close()
 
-# TODO TODO TODO - Add both of these back in
-#        # Remove the original
-#        if os.path.exists (xml_filename):
-#            os.unlink (xml_filename)
-#
-#        # Rename the temp file back to the original name
-#        os.rename (tmp_xml_filename, xml_filename)
+# TODO TODO TODO - Remove this DEV only
+        os.rename (xml_filename, "zzz_" + xml_filename)
+
+        # Remove the original
+        if os.path.exists (xml_filename):
+            os.unlink (xml_filename)
+
+        # Rename the temp file back to the original name
+        os.rename (tmp_xml_filename, xml_filename)
+
+    except Exception, e:
+        raise ee.ESPAException (ee.ErrorCodes.warping, str(e)), \
+            None, sys.exc_info()[2]
+# END - update_espa_xml
+
+
+#=============================================================================
+def warp_espa_data (parms, xml_filename=None):
+    '''
+    Description:
+      Warp each espa science product to the parameters specified in the parms
+    '''
+
+    global SINUSOIDAL_SPHERE_RADIUS
+
+    # Validate the parameters
+    validate_parameters (parms)
+    debug (parms)
+
+    if parms['projection'] is not None:
+        # Use the provided proj.4 projection information
+        projection = parms['projection']
+    elif parms['reproject']:
+        # Verify and create proj.4 projection information
+        projection = convert_target_projection_to_proj4 (parms)
+    else:
+        projection = None
+
+    # Change to the working directory
+    current_directory = os.getcwd()
+    os.chdir (parms['work_directory'])
+
+    min_x = parms['minx']
+    min_y = parms['miny']
+    max_x = parms['maxx']
+    max_y = parms['maxy']
+    pixel_size = parms['pixel_size']
+    resample_method = parms['resample_method']
+    datum = parms['datum']
+
+    try:
+        xml = metadata_api.parse (xml_filename, silence=True)
+        bands = xml.get_bands()
+
+        # These will be poulated with the last bands information
+        map_info_str = None
+        x_pixel_size = None
+        y_pixel_size = None
+
+        ds_transform = None
+        # Process through the bands in the XML file
+        for band in bands.band:
+            img_filename = band.get_file_name()
+            hdr_filename = img_filename.replace ('.img', '.hdr')
+            log ("Processing %s" % img_filename)
+
+            # Open the image to read the no data value out since the internal
+            # ENVI driver for GDAL does not output it, even if it is known
+            ds = gdal.Open (img_filename)
+            if ds is None:
+                raise RuntimeError ("GDAL failed to open (%s)" % img_filename)
+
+            try:
+                ds_band = ds.GetRasterBand (1)
+            except Exception, e:
+                raise ee.ESPAException (ee.ErrorCodes.warping, str(e)), \
+                    None, sys.exc_info()[2]
+
+            # TODO - We don't process any floating point data types.... Yet
+            # Save the no data value since gdalwarp does not write it out when
+            # using the ENVI format
+            no_data_value = ds_band.GetNoDataValue()
+            if no_data_value is None:
+                raise RuntimeError ("no_data_value = None")
+            else:
+                # Convert to an integer then string
+                no_data_value = str(int(no_data_value))
+
+            del (ds_band)
+            del (ds)
+
+            tmp_img_filename = 'tmp-%s' % img_filename
+            tmp_hdr_filename = 'tmp-%s' % hdr_filename
+
+            run_warp (img_filename, tmp_img_filename, 'envi',
+                min_x, min_y, max_x, max_y,
+                pixel_size, projection, resample_method, no_data_value)
+
+            ##################################################################
+            ##################################################################
+            # Get new everything for the re-projected band
+            ##################################################################
+            ##################################################################
+            ds = gdal.Open (tmp_img_filename)
+            if ds is None:
+                msg = "GDAL failed to open (%s)" % tmp_img_filename
+                raise RuntimeError (msg)
+
+            try:
+                ds_band = ds.GetRasterBand (1)
+                ds_transform = ds.GetGeoTransform()
+                ds_srs = osr.SpatialReference()
+                ds_srs.ImportFromWkt (ds.GetProjection())
+            except Exception, e:
+                raise ee.ESPAException (ee.ErrorCodes.warping, str(e)), \
+                    None, sys.exc_info()[2]
+
+            del (ds_band)
+            del (ds)
+
+            # Update the tmp ENVI header with our own values for some fields
+            sb = StringIO()
+            fd = open (tmp_hdr_filename, 'r')
+            while 1:
+                line = fd.readline()
+                if not line:
+                    break
+                if line.startswith ('data ignore value') \
+                  or line.startswith ('description'):
+                    dummy = 'Nothing'
+                else:
+                    sb.write (line)
+
+                if line.startswith ('description'):
+                    # This may be on multiple lines so read lines until found
+                    if not line.strip().endswith ('}'):
+                        while 1:
+                            next_line = fd.readline()
+                            if not next_line or next_line.strip().endswith('}'):
+                                break
+                    sb.write ('description = {ESPA-generated file}\n')
+                elif line.startswith ('data type'):
+                    sb.write ('data ignore value = %s\n' % no_data_value)
+                elif line.startswith ('map info'):
+                    map_info_str = line
+
+            fd.close()
+            sb.flush()
+
+            # Do the actual update here
+            fd = open (tmp_hdr_filename, 'w')
+            fd.write (sb.getvalue())
+            fd.flush()
+            fd.close()
+
+            # Remove the original files, they are replaced in following code
+            if os.path.exists (img_filename):
+                os.unlink (img_filename)
+            if os.path.exists (hdr_filename):
+                os.unlink (hdr_filename)
+
+            # Rename the temps file back to the original name
+            os.rename (tmp_img_filename, img_filename)
+            os.rename (tmp_hdr_filename, hdr_filename)
+        # END for each band in the XML file
+
+        # Update the XML to reflect the new warped output
+        update_espa_xml (parms, xml, xml_filename, datum)
 
         del (xml)
 
@@ -989,6 +1056,7 @@ def reformat (metadata_filename, work_directory, input_format, output_format):
     os.chdir (work_directory)
 
     try:
+# TODO TODO TODO - Rename the xml files back to *.xml from *_gtiff.xml and *_hdf.xml
         # Convert from our internal ESPA/ENVI format to GeoTIFF
         if input_format == 'envi' and output_format == 'gtiff':
             gtiff_name = metadata_filename.rstrip ('.xml')
@@ -998,37 +1066,30 @@ def reformat (metadata_filename, work_directory, input_format, output_format):
                    '--gtif', gtiff_name]
             cmd = ' '.join (cmd)
 
-            # Turn GDAL PAM off
-            os.environ['GDAL_PAM_ENABLED'] = 'NO'
-
             output = ''
             try:
+# TODO TODO TODO - May not need this after Gail fixes the output
+                # Turn GDAL PAM off
+                os.environ['GDAL_PAM_ENABLED'] = 'NO'
+
                 output = util.execute_cmd (cmd)
+
+                # Rename the XML file back
+                meta_gtiff_name = metadata_filename.split('.')[0]
+                meta_gtiff_name += '_gtiff.xml'
+
+                os.rename (meta_gtiff_name, metadata_filename)
             except Exception, e:
                 raise ee.ESPAException (ee.ErrorCodes.reformat, str(e)), \
                     None, sys.exc_info()[2]
-            if len(output) > 0:
-                log (output)
+            finally:
+                if len(output) > 0:
+                    log (output)
 
-            # Remove the environment variable
-            del os.environ['GDAL_PAM_ENABLED']
-
-            world_files = glob.glob ('*.tfw')
-            cmd = ['rm', '-f'] + world_files
-            cmd = ' '.join (cmd)
-
-            log ('REMOVING WORLD FILES COMMAND:' + cmd)
-            output = ''
-            try:
-                output = util.execute_cmd (cmd)
-            except Exception, e:
-                raise ee.ESPAException (ee.ErrorCodes.reformat, str(e)), \
-                    None, sys.exc_info()[2]
-            if len(output) > 0:
-                log (output)
+                # Remove the environment variable we set above in the try
+                del os.environ['GDAL_PAM_ENABLED']
 
         # Convert from our internal ESPA/ENVI format to HDF
-# TODO TODO TODO - Not Tested
         elif input_format == 'envi' and output_format == 'hdf':
             # convert_espa_to_hdf
             hdf_name = metadata_filename.replace ('.xml', '.hdf')
@@ -1037,9 +1098,30 @@ def reformat (metadata_filename, work_directory, input_format, output_format):
                    '--xml', metadata_filename,
                    '--hdf', hdf_name]
             cmd = ' '.join (cmd)
-            output = util.execute_cmd (cmd)
-            if len(output) > 0:
-                log (output)
+
+            output = ''
+            try:
+# TODO TODO TODO - May not need this after Gail fixes the output
+                # Turn GDAL PAM off
+                os.environ['GDAL_PAM_ENABLED'] = 'NO'
+
+                output = util.execute_cmd (cmd)
+
+                # Rename the XML file back
+                meta_gtiff_name = metadata_filename.split('.')[0]
+                meta_gtiff_name += '_hdf.xml'
+
+                os.rename (meta_gtiff_name, metadata_filename)
+            except Exception, e:
+                raise ee.ESPAException (ee.ErrorCodes.reformat, str(e)), \
+                    None, sys.exc_info()[2]
+            finally:
+                if len(output) > 0:
+                    log (output)
+
+                # Remove the environment variable we set above in the try
+                del os.environ['GDAL_PAM_ENABLED']
+
 
         # Requested conversion not implemented
         else:
