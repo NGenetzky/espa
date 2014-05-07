@@ -247,9 +247,12 @@ def build_landsat_science_products (parms):
         # --------------------------------------------------------------------
         # Convert lpgs to espa first
         # Call with deletion of source files
-        cmd = ['convert_lpgs_to_espa', '--del_src_files',
+        cmd = ['convert_lpgs_to_espa',
                '--mtl', metadata_filename,
                '--xml', xml_filename]
+        if not options['include_sourcefile']:
+            cmd += ['--del_src_files']
+
         cmd = ' '.join(cmd)
         log ('CONVERT LPGS TO ESPA COMMAND:' + cmd)
 
