@@ -1056,7 +1056,6 @@ def reformat (metadata_filename, work_directory, input_format, output_format):
     os.chdir (work_directory)
 
     try:
-# TODO TODO TODO - Rename the xml files back to *.xml from *_gtiff.xml and *_hdf.xml
         # Convert from our internal ESPA/ENVI format to GeoTIFF
         if input_format == 'envi' and output_format == 'gtiff':
             gtiff_name = metadata_filename.rstrip ('.xml')
@@ -1074,9 +1073,9 @@ def reformat (metadata_filename, work_directory, input_format, output_format):
 
                 output = util.execute_cmd (cmd)
 
-                # Rename the XML file back
+                # Rename the XML file back to *.xml from *_gtif.xml
                 meta_gtiff_name = metadata_filename.split('.')[0]
-                meta_gtiff_name += '_gtiff.xml'
+                meta_gtiff_name += '_gtif.xml'
 
                 os.rename (meta_gtiff_name, metadata_filename)
             except Exception, e:
@@ -1107,11 +1106,11 @@ def reformat (metadata_filename, work_directory, input_format, output_format):
 
                 output = util.execute_cmd (cmd)
 
-                # Rename the XML file back
-                meta_gtiff_name = metadata_filename.split('.')[0]
-                meta_gtiff_name += '_hdf.xml'
+                # Rename the XML file back to *.xml from *_hdf.xml
+                meta_hdf_name = metadata_filename.split('.')[0]
+                meta_hdf_name += '_hdf.xml'
 
-                os.rename (meta_gtiff_name, metadata_filename)
+                os.rename (meta_hdf_name, metadata_filename)
             except Exception, e:
                 raise ee.ESPAException (ee.ErrorCodes.reformat, str(e)), \
                     None, sys.exc_info()[2]
