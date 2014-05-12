@@ -60,7 +60,7 @@ l1t_source_metadata_files = [
 ]
 
 order_to_product_mapping = {
-    'include_sourcefile': 'L1T',
+    'include_radiance': 'L1T',
     'include_sr': 'sr_refl',
     'include_sr_toa': 'toa_refl',
     'include_sr_thermal': 'toa_bt',
@@ -461,9 +461,9 @@ def build_landsat_science_products (parms):
 
         # Remove generated products that were not requested
         products_to_remove = []
-        if not options['include_sourcefile']:
+        if not options['include_radiance']:
             products_to_remove += \
-                [order_to_product_mapping['include_sourcefile']]
+                [order_to_product_mapping['include_radiance']]
         if not options['include_sr']:
             products_to_remove += \
                 [order_to_product_mapping['include_sr']]

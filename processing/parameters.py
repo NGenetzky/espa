@@ -84,6 +84,10 @@ def add_science_product_parameters (parser):
       Adds the science product parameters to the command line parameters
     '''
 
+    parser.add_argument ('--include_radiance',
+        action='store_true', dest='include_radiance', default=False,
+        help="include radiance product")
+
     parser.add_argument ('--include_sr',
         action='store_true', dest='include_sr', default=False,
         help="build surface reflectance product")
