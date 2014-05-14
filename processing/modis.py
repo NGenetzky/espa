@@ -28,6 +28,7 @@ from espa_constants import *
 from espa_logging import log, set_debug, debug
 
 # local objects and methods
+import espa_exception as ee
 import parameters
 import util
 import transfer
@@ -215,37 +216,64 @@ def process (parms):
         raise ESPAException (ErrorCodes.unpacking, str(e)), \
             None, sys.exc_info()[2]
 
+    # Change to the working directory
+    current_directory = os.getcwd()
+    os.chdir(options['work_directory'])
+
     # The format of MODIS data is HDF we are going to process using GeoTIFF
     # for the time being
-    what_to_convert = glob.glob('*.hdf')
-    for file in what_to_convert:
-        log ("Converting %s to GeoTIFF" % file)
-        convert_hdf_to_gtiff (file)
+    hdf_filename = glob.glob('*.hdf')[0] # Should only be one file
+    xml_filename = hdf_filename.replace('.hdf', '.xml')
+
+    # Convert lpgs to espa first
+    # Call with deletion of source files
+    cmd = ['convert_modis_to_espa',
+           '--hdf', hdf_filename,
+           '--xml', xml_filename]
+    if not options['include_sourcefile']:
+        cmd += ['--del_src_files']
+
+    cmd = ' '.join(cmd)
+    log ('CONVERT MODIS TO ESPA COMMAND:' + cmd)
+
+    output = ''
+    try:
+        output = util.execute_cmd (cmd)
+    except Exception, e:
+        raise ee.ESPAException (ee.ErrorCodes.reformat, str(e)), \
+            None, sys.exc_info()[2]
+    finally:
+        if len(output) > 0:
+            log (output)
+        # Change back to the previous directory
+        os.chdir(current_directory)
+
 
     # Reproject the data for each science product, but only if necessary
     if options['reproject'] or options['resize'] or options['image_extents'] \
       or options['projection'] is not None:
-        warp.warp_science_products (options)
+        warp.warp_espa_data (options, xml_filename)
 
     # Generate the stats for each stat'able' science product
     if options['include_statistics']:
         # Find the files
-        files_to_search_for = ['*-sur_refl_b*.tif']
-        files_to_search_for += ['*-LST_Day_1km.tif']
-        files_to_search_for += ['*-LST_Night_1km.tif']
-        files_to_search_for += ['*-LST_Day_6km.tif']
-        files_to_search_for += ['*-LST_Night_6km.tif']
-        files_to_search_for += ['*-Emis_*.tif']
-        files_to_search_for += ['*NDVI.tif']
-        files_to_search_for += ['*EVI.tif']
+        files_to_search_for = ['*.sur_refl_b*.img']
+        files_to_search_for += ['*.LST_Day_1km.img']
+        files_to_search_for += ['*.LST_Night_1km.img']
+        files_to_search_for += ['*.LST_Day_6km.img']
+        files_to_search_for += ['*.LST_Night_6km.img']
+        files_to_search_for += ['*.Emis_*.img']
+        files_to_search_for += ['*NDVI.img']
+        files_to_search_for += ['*EVI.img']
         # Generate the stats for each file
         statistics.generate_statistics(options['work_directory'],
             files_to_search_for)
 
     # Convert to the user requested output format or leave it in ESPA ENVI
-# TODO TODO TODO - reformat is not implemented to go from GeoTIFF to the other formats
-#    warp.reformat(xml_filename, work_directory, format,
-#        options['output_format'])
+    # We do all of our processing using ESPA ENVI format so it can be
+    # hard-coded here
+    warp.reformat(xml_filename, work_directory, 'envi',
+        options['output_format'])
 
     # Deliver the product files
     # Attempt X times sleeping between each attempt
