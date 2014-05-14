@@ -807,6 +807,10 @@ def warp_espa_data (parms, xml_filename=None):
     validate_parameters (parms)
     debug (parms)
 
+    # Verify something was provided for the XML filename
+    if xml_filename == None or xml_filename == '':
+        raise ee.ESPAException (ee.ErrorCodes.warping, "Missing XML Filename")
+
     if parms['projection'] is not None:
         # Use the provided proj.4 projection information
         projection = parms['projection']
@@ -1067,14 +1071,10 @@ def reformat (metadata_filename, work_directory, input_format, output_format):
 
             output = ''
             try:
-# TODO TODO TODO - May not need this after Gail fixes the output
-                # Turn GDAL PAM off
-                os.environ['GDAL_PAM_ENABLED'] = 'NO'
-
                 output = util.execute_cmd (cmd)
 
                 # Rename the XML file back to *.xml from *_gtif.xml
-                meta_gtiff_name = metadata_filename.split('.')[0]
+                meta_gtiff_name = metadata_filename.split('.xml')[0]
                 meta_gtiff_name += '_gtif.xml'
 
                 os.rename (meta_gtiff_name, metadata_filename)
@@ -1084,9 +1084,6 @@ def reformat (metadata_filename, work_directory, input_format, output_format):
             finally:
                 if len(output) > 0:
                     log (output)
-
-                # Remove the environment variable we set above in the try
-                del os.environ['GDAL_PAM_ENABLED']
 
         # Convert from our internal ESPA/ENVI format to HDF
         elif input_format == 'envi' and output_format == 'hdf':
@@ -1100,10 +1097,6 @@ def reformat (metadata_filename, work_directory, input_format, output_format):
 
             output = ''
             try:
-# TODO TODO TODO - May not need this after Gail fixes the output
-                # Turn GDAL PAM off
-                os.environ['GDAL_PAM_ENABLED'] = 'NO'
-
                 output = util.execute_cmd (cmd)
 
                 # Rename the XML file back to *.xml from *_hdf.xml
@@ -1117,10 +1110,6 @@ def reformat (metadata_filename, work_directory, input_format, output_format):
             finally:
                 if len(output) > 0:
                     log (output)
-
-                # Remove the environment variable we set above in the try
-                del os.environ['GDAL_PAM_ENABLED']
-
 
         # Requested conversion not implemented
         else:
