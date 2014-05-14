@@ -35,6 +35,10 @@ def build_argument_parser():
         action='store_true', dest='debug', default=False,
         help="turn debug logging on")
 
+    parser.add_argument ('--modis',
+        action='store_true', dest='modis', default=False,
+        help="is MODIS data")
+
     parser.add_argument ('--order-file',
         action='store', dest='order_file', required=True,
         help="order file to process")
@@ -44,7 +48,7 @@ def build_argument_parser():
 
 
 #=============================================================================
-def process_test_order(order_file, env_vars):
+def process_test_order(order_file, env_vars, modis=False):
     '''
     Description:
       Process the test order file.
@@ -53,6 +57,7 @@ def process_test_order(order_file, env_vars):
     tmp_order = 'tmp-' + order_file
     order_fd = open (order_file, 'r')
     tmp_fd = open (tmp_order, 'w')
+    order_id = order_file.split('.json')[0]
 
     have_error = False
     error_msg = ''
@@ -63,17 +68,20 @@ def process_test_order(order_file, env_vars):
 
         tmp_line = line
 
-        order = json.loads (line)
-        scene = order['scene']
+        if not modis:
+            order = json.loads (line)
+            scene = order['scene']
 
-        scene_path = env_vars['dev_data_dir']['value'] + '/' + order['scene']
-        scene_path += '.tar.gz'
+            scene_path = env_vars['dev_data_dir']['value'] + '/' \
+                + order['scene']
+            scene_path += '.tar.gz'
 
-        if not os.path.isfile (scene_path):
-            error_msg = "Missing scene data (%s)" % scene_path
-            have_error = True
-            break
+            if not os.path.isfile (scene_path):
+                error_msg = "Missing scene data (%s)" % scene_path
+                have_error = True
+                break
 
+        tmp_line = tmp_line.replace ("ORDER_ID", order_id)
         tmp_line = tmp_line.replace ("DEV_DATA_DIRECTORY",
             env_vars['dev_data_dir']['value'])
         tmp_line = tmp_line.replace ("DEV_CACHE_DIRECTORY",
@@ -168,7 +176,7 @@ if __name__ == '__main__':
         print "Order file (%s) does not exist" % args.order_file
         sys.exit(1)
 
-    if not process_test_order (args.order_file, env_vars):
+    if not process_test_order (args.order_file, env_vars, args.modis):
         print "Order file (%s) failed to process" % args.order_file
         sys.exit(1)
 
