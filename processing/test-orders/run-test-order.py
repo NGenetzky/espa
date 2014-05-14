@@ -35,10 +35,6 @@ def build_argument_parser():
         action='store_true', dest='debug', default=False,
         help="turn debug logging on")
 
-    parser.add_argument ('--modis',
-        action='store_true', dest='modis', default=False,
-        help="is MODIS data")
-
     parser.add_argument ('--order-file',
         action='store', dest='order_file', required=True,
         help="order file to process")
@@ -48,7 +44,7 @@ def build_argument_parser():
 
 
 #=============================================================================
-def process_test_order(order_file, env_vars, modis=False):
+def process_test_order(order_file, env_vars):
     '''
     Description:
       Process the test order file.
@@ -68,10 +64,15 @@ def process_test_order(order_file, env_vars, modis=False):
 
         tmp_line = line
 
-        if not modis:
-            order = json.loads (line)
-            scene = order['scene']
+        is_modis = False
+        order = json.loads (line)
+        scene = order['scene']
 
+        tmp = scene[:3]
+        if tmp == 'MOD' or tmp == 'MYD':
+            is_modis = True
+
+        if not is_modis:
             scene_path = env_vars['dev_data_dir']['value'] + '/' \
                 + order['scene']
             scene_path += '.tar.gz'
@@ -176,7 +177,7 @@ if __name__ == '__main__':
         print "Order file (%s) does not exist" % args.order_file
         sys.exit(1)
 
-    if not process_test_order (args.order_file, env_vars, args.modis):
+    if not process_test_order (args.order_file, env_vars):
         print "Order file (%s) failed to process" % args.order_file
         sys.exit(1)
 
