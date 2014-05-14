@@ -259,7 +259,7 @@ def build_landsat_science_products (parms):
         try:
             output = util.execute_cmd (cmd)
         except Exception, e:
-            raise ee.ESPAException (ee.ErrorCodes.ledaps, str(e)), \
+            raise ee.ESPAException (ee.ErrorCodes.reformat, str(e)), \
                 None, sys.exc_info()[2]
         finally:
             if len(output) > 0:
