@@ -224,7 +224,6 @@ def process (parms):
     xml_filename = science.build_landsat_science_products (parms)
 
     # Reproject the data for each science product, but only if necessary
-    # To generate statistics we must convert to GeoTIFF which warping does
     if options['reproject'] or options['resize'] or options['image_extents'] \
       or options['projection'] is not None:
         warp.warp_espa_data (options, xml_filename)
@@ -246,7 +245,7 @@ def process (parms):
             files_to_search_for)
 
     # Convert to the user requested output format or leave it in ESPA ENVI
-    # We do all of our Landsat processing using ESPA ENVI format so it can be
+    # We do all of our processing using ESPA ENVI format so it can be
     # hard-coded here
     warp.reformat(xml_filename, work_directory, 'envi',
         options['output_format'])
