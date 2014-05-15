@@ -109,7 +109,7 @@ def build_utm_proj4_string (utm_zone, north_south):
       +units=m +no_defs
     '''
     # TODO - Found this example on the web for south (39), that
-    # TODO - specifies the datum instead of "towgs"??????????????????????
+    # TODO - specifies the datum instead of "towgs"
     # TODO - gdalsrsinfo EPSG:32739
     # TODO - +proj=utm +zone=39 +south +datum=WGS84 +units=m +no_defs
     # TODO - It also seems that northern doesn't need the ellipsoid either
@@ -736,30 +736,58 @@ def update_espa_xml (parms, xml, xml_filename, datum=WGS84):
                 corner.set_longitude (lon)
                 corner.set_latitude (lat)
 
-        # Figure out the bounding coordinates
+        # Determine the bounding coordinates
+        # Initialize using the UL and LR, then walk the edges of the image,
+        # because some projections may not have the values in the corners of
+        # the image
         # UL
         (map_x, map_y) = convert_imageXY_to_mapXY (0.0, 0.0, ds_transform)
         (ul_lon, ul_lat, height) = coord_tf.TransformPoint (map_x, map_y)
-        # UR
-        (map_x, map_y) = convert_imageXY_to_mapXY (number_of_samples, 0.0,
-            ds_transform)
-        (ur_lon, ur_lat, height) = coord_tf.TransformPoint (map_x, map_y)
         # LR
         (map_x, map_y) = convert_imageXY_to_mapXY (number_of_samples,
             number_of_lines, ds_transform)
         (lr_lon, lr_lat, height) = coord_tf.TransformPoint (map_x, map_y)
-        # LL
-        (map_x, map_y) = convert_imageXY_to_mapXY (0.0, number_of_lines,
-            ds_transform)
-        (ll_lon, ll_lat, height) = coord_tf.TransformPoint (map_x, map_y)
 
-        # Now find the min and max values accordingly
-        west_lon = min (ul_lon, ur_lon, lr_lon, ll_lon)
-        east_lon = max (ul_lon, ur_lon, lr_lon, ll_lon)
-        north_lat = max (ul_lat, ur_lat, lr_lat, ll_lat)
-        south_lat = min (ul_lat, ur_lat, lr_lat, ll_lat)
+        # Set the initial values
+        west_lon = min (ul_lon, lr_lon)
+        east_lon = max (ul_lon, lr_lon)
+        north_lat = max (ul_lat, lr_lat)
+        south_lat = min (ul_lat, lr_lat)
 
-        # Update the XML
+        # Walk across the top and bottom of the image
+        for sample in range (0, int(number_of_samples)+1):
+            (map_x, map_y) = \
+                convert_imageXY_to_mapXY (sample, 0.0, ds_transform)
+            (top_lon, top_lat, height) = coord_tf.TransformPoint (map_x, map_y)
+
+            (map_x, map_y) = \
+                convert_imageXY_to_mapXY (sample, number_of_lines, ds_transform)
+            (bottom_lon, bottom_lat, height) = \
+                coord_tf.TransformPoint (map_x, map_y)
+
+            west_lon = min (top_lon, bottom_lon, west_lon)
+            east_lon = max (top_lon, bottom_lon, east_lon)
+            north_lat = max (top_lat, bottom_lat, north_lat)
+            south_lat = min (top_lat, bottom_lat, south_lat)
+
+        # Walk down the left and right of the image
+        for line in range (0, int(number_of_lines)+1):
+            (map_x, map_y) = \
+                convert_imageXY_to_mapXY (0.0, line, ds_transform)
+            (left_lon, left_lat, height) = \
+                coord_tf.TransformPoint (map_x, map_y)
+
+            (map_x, map_y) = \
+                convert_imageXY_to_mapXY (number_of_samples, line, ds_transform)
+            (right_lon, right_lat, height) = \
+                coord_tf.TransformPoint (map_x, map_y)
+
+            west_lon = min (left_lon, right_lon, west_lon)
+            east_lon = max (left_lon, right_lon, east_lon)
+            north_lat = max (left_lat, right_lat, north_lat)
+            south_lat = min (left_lat, right_lat, south_lat)
+
+        # Update the bounding coordinates in the XML
         bounding_coords = gm.get_bounding_coordinates()
         bounding_coords.set_west (west_lon)
         bounding_coords.set_east (east_lon)
@@ -777,9 +805,6 @@ def update_espa_xml (parms, xml, xml_filename, datum=WGS84):
         metadata_api.export (fd, xml)
         fd.flush()
         fd.close()
-
-# TODO TODO TODO - Remove this DEV only
-        os.rename (xml_filename, "zzz_" + xml_filename)
 
         # Remove the original
         if os.path.exists (xml_filename):
