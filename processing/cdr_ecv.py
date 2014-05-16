@@ -40,7 +40,7 @@ import distribution
 import settings
 
 
-#==============================================================================
+# ============================================================================
 def build_argument_parser():
     '''
     Description:
@@ -49,37 +49,39 @@ def build_argument_parser():
 
     # Create a command line argument parser
     description = "Processes Landsat TM(4,5), and ETM+(7) data"
-    parser = ArgumentParser (description=description)
+    parser = ArgumentParser(description=description)
 
     # Parameters
-    parameters.add_debug_parameter (parser)
+    parameters.add_debug_parameter(parser)
 
-    parameters.add_orderid_parameter (parser)
+    parameters.add_orderid_parameter(parser)
 
-    parameters.add_scene_parameter (parser)
+    parameters.add_scene_parameter(parser)
 
-    parameters.add_data_type_parameter (parser, parameters.valid_data_types)
+    parameters.add_data_type_parameter(parser, parameters.valid_data_types)
 
-    parameters.add_output_format_parameter (parser,
-        parameters.valid_output_formats)
+    parameters.add_output_format_parameter(parser,
+                                           parameters.valid_output_formats)
 
-    parameters.add_source_parameters (parser)
-    parameters.add_destination_parameters (parser)
+    parameters.add_source_parameters(parser)
+    parameters.add_destination_parameters(parser)
 
-    parameters.add_reprojection_parameters (parser, warp.valid_projections,
-        warp.valid_ns, warp.valid_pixel_size_units,
-        warp.valid_resample_methods, warp.valid_datums)
+    parameters.add_reprojection_parameters(parser, warp.valid_projections,
+                                           warp.valid_ns,
+                                           warp.valid_pixel_size_units,
+                                           warp.valid_resample_methods,
+                                           warp.valid_datums)
 
-    parameters.add_science_product_parameters (parser)
+    parameters.add_science_product_parameters(parser)
 
-    parameters.add_include_statistics_parameter (parser)
+    parameters.add_include_statistics_parameter(parser)
 
     return parser
 # END - build_argument_parser
 
 
-#==============================================================================
-def validate_parameters (parms):
+# ============================================================================
+def validate_parameters(parms):
     '''
     Description:
       Make sure all the parameter options needed for this and called routines
@@ -89,48 +91,51 @@ def validate_parameters (parms):
     # Test for presence of top-level parameters
     keys = ['orderid', 'scene', 'options']
     for key in keys:
-        if not parameters.test_for_parameter (parms, key):
-            raise RuntimeError ("Missing required input parameter [%s]" % key)
+        if not parameters.test_for_parameter(parms, key):
+            raise RuntimeError("Missing required input parameter [%s]" % key)
 
     # Validate the science product parameters
-    science.validate_landsat_parameters (parms)
+    science.validate_landsat_parameters(parms)
 
     # Get a local pointer to the options
     options = parms['options']
 
     # Validate the reprojection parameters
-    parameters.validate_reprojection_parameters (options,
-        warp.valid_projections, warp.valid_ns, warp.valid_pixel_size_units,
-        warp.valid_resample_methods, warp.valid_datums)
+    parameters.validate_reprojection_parameters(options,
+                                                warp.valid_projections,
+                                                warp.valid_ns,
+                                                warp.valid_pixel_size_units,
+                                                warp.valid_resample_methods,
+                                                warp.valid_datums)
 
     # Force these parameters to false if not provided
     keys = ['include_statistics']
 
     for key in keys:
-        if not parameters.test_for_parameter (options, key):
+        if not parameters.test_for_parameter(options, key):
             options[key] = False
 
     # Extract information from the scene string
     sensor = util.getSensor(parms['scene'])
 
     if sensor not in parameters.valid_landsat_sensors:
-        raise NotImplementedError ("Data sensor %s is not implemented" % \
-            sensor)
+        raise NotImplementedError("Data sensor %s is not implemented"
+                                  % sensor)
 
     # Add the sensor to the options
     options['sensor'] = sensor
 
     # Verify or set the source information
-    if not parameters.test_for_parameter (options, 'source_host'):
+    if not parameters.test_for_parameter(options, 'source_host'):
         options['source_host'] = util.getCacheHostname()
 
-    if not parameters.test_for_parameter (options, 'source_username'):
+    if not parameters.test_for_parameter(options, 'source_username'):
         options['source_username'] = None
 
-    if not parameters.test_for_parameter (options, 'source_pw'):
+    if not parameters.test_for_parameter(options, 'source_pw'):
         options['source_pw'] = None
 
-    if not parameters.test_for_parameter (options, 'source_directory'):
+    if not parameters.test_for_parameter(options, 'source_directory'):
         path = util.getPath(parms['scene'])
         row = util.getRow(parms['scene'])
         year = util.getYear(parms['scene'])
@@ -138,23 +143,23 @@ def validate_parameters (parms):
             % (settings.landsat_base_source_path, sensor, path, row, year)
 
     # Verify or set the destination information
-    if not parameters.test_for_parameter (options, 'destination_host'):
+    if not parameters.test_for_parameter(options, 'destination_host'):
         options['destination_host'] = util.getCacheHostname()
 
-    if not parameters.test_for_parameter (options, 'destination_username'):
+    if not parameters.test_for_parameter(options, 'destination_username'):
         options['destination_username'] = 'localhost'
 
-    if not parameters.test_for_parameter (options, 'destination_pw'):
+    if not parameters.test_for_parameter(options, 'destination_pw'):
         options['destination_pw'] = 'localhost'
 
-    if not parameters.test_for_parameter (options, 'destination_directory'):
+    if not parameters.test_for_parameter(options, 'destination_directory'):
         options['destination_directory'] = '%s/orders/%s' \
             % (settings.espa_base_output_path, parms['orderid'])
 # END - validate_parameters
 
 
-#==============================================================================
-def build_product_name (scene):
+# ============================================================================
+def build_product_name(scene):
     '''
     Description:
       Build the product name from the scene information and current time.
@@ -180,8 +185,8 @@ def build_product_name (scene):
 # END - build_product_name
 
 
-#==============================================================================
-def process (parms):
+# ============================================================================
+def process(parms):
     '''
     Description:
       Provides the processing for the generation of the science products and
@@ -189,13 +194,13 @@ def process (parms):
     '''
 
     # Validate the parameters
-    validate_parameters (parms)
+    validate_parameters(parms)
 
     scene = parms['scene']
 
     # Create and retrieve the directories to use for processing
     (scene_directory, stage_directory, work_directory, package_directory) = \
-        staging.initialize_processing_directory (parms['orderid'], scene)
+        staging.initialize_processing_directory(parms['orderid'], scene)
 
     # Keep a local options for those apps that only need a few things
     options = parms['options']
@@ -208,25 +213,32 @@ def process (parms):
     product_name = build_product_name(scene)
 
     # Stage the landsat data
-    filename = staging.stage_landsat_data(scene, options['source_host'],
-        options['source_directory'], 'localhost', stage_directory,
-        options['source_username'], options['source_pw'])
+    filename = staging.stage_landsat_data(scene,
+                                          options['source_host'],
+                                          options['source_directory'],
+                                          'localhost',
+                                          stage_directory,
+                                          options['source_username'],
+                                          options['source_pw'])
 
     # Un-tar the input data to the work directory
     try:
-        staging.untar_data (filename, work_directory)
+        staging.untar_data(filename, work_directory)
         os.unlink(filename)
     except Exception, e:
-        raise ESPAException (ErrorCodes.unpacking, str(e)), \
+        raise ESPAException(ErrorCodes.unpacking, str(e)), \
             None, sys.exc_info()[2]
 
     # Build the requested science products
-    xml_filename = science.build_landsat_science_products (parms)
+    xml_filename = science.build_landsat_science_products(parms)
 
     # Reproject the data for each science product, but only if necessary
-    if options['reproject'] or options['resize'] or options['image_extents'] \
-      or options['projection'] is not None:
-        warp.warp_espa_data (options, xml_filename)
+    if (options['reproject']
+            or options['resize']
+            or options['image_extents']
+            or options['projection'] is not None):
+
+        warp.warp_espa_data(options, xml_filename)
 
     # Generate the stats for each stat'able' science product
     if options['include_statistics']:
@@ -242,13 +254,13 @@ def process (parms):
         files_to_search_for += ['*_msavi.img']
         # Generate the stats for each file
         statistics.generate_statistics(options['work_directory'],
-            files_to_search_for)
+                                       files_to_search_for)
 
     # Convert to the user requested output format or leave it in ESPA ENVI
     # We do all of our processing using ESPA ENVI format so it can be
     # hard-coded here
     warp.reformat(xml_filename, work_directory, 'envi',
-        options['output_format'])
+                  options['output_format'])
 
     # Deliver the product files
     # Attempt X times sleeping between each attempt
@@ -262,23 +274,25 @@ def process (parms):
             # Deliver product will also try each of its parts three times
             # before failing, so we pass our sleep seconds down to them
             (destination_product_file, destination_cksum_file) = \
-                distribution.deliver_product (work_directory,
-                    package_directory, product_name,
-                    options['destination_host'],
-                    options['destination_directory'],
-                    options['destination_username'],
-                    options['destination_pw'],
-                    options['include_statistics'], sleep_seconds)
+                distribution.deliver_product(work_directory,
+                                             package_directory, product_name,
+                                             options['destination_host'],
+                                             options['destination_directory'],
+                                             options['destination_username'],
+                                             options['destination_pw'],
+                                             options['include_statistics'],
+                                             sleep_seconds)
         except Exception, e:
-            log ("An error occurred processing %s" % scene)
-            log ("Error: %s" % str(e))
+            log("An error occurred processing %s" % scene)
+            log("Error: %s" % str(e))
             if attempt < max_number_of_attempts:
-                sleep(sleep_seconds) # sleep before trying again
+                sleep(sleep_seconds)  # sleep before trying again
                 attempt += 1
-                sleep_seconds = int(sleep_seconds * 1.5) # adjust for next set
+                sleep_seconds = int(sleep_seconds * 1.5)  # adjust for next set
                 continue
             else:
-                raise e # May already be an ESPAException so don't override that
+                # May already be an ESPAException so don't override that
+                raise e
         break
 
     # Let the caller know where we put these on the destination system
@@ -286,7 +300,7 @@ def process (parms):
 # END - process
 
 
-#==============================================================================
+# ============================================================================
 if __name__ == '__main__':
     '''
     Description:
@@ -305,12 +319,12 @@ if __name__ == '__main__':
     args_dict = vars(args)
 
     # Setup debug
-    set_debug (args.debug)
+    set_debug(args.debug)
 
     # Build our JSON formatted input from the command line parameters
-    orderid = args_dict.pop ('orderid')
-    scene = args_dict.pop ('scene')
-    options = {k : args_dict[k] for k in args_dict if args_dict[k] != None}
+    orderid = args_dict.pop('orderid')
+    scene = args_dict.pop('scene')
+    options = {k: args_dict[k] for k in args_dict if args_dict[k] is not None}
 
     # Build the JSON parameters dictionary
     parms['orderid'] = orderid
@@ -319,15 +333,14 @@ if __name__ == '__main__':
 
     # Call the process routine with the JSON parameters
     try:
-        process (parms)
+        process(parms)
     except Exception, e:
-        log ("An error occurred processing %s" % scene)
-        log ("Error: %s" % str(e))
+        log("An error occurred processing %s" % scene)
+        log("Error: %s" % str(e))
         tb = traceback.format_exc()
-        log ("Traceback: [%s]" % tb)
+        log("Traceback: [%s]" % tb)
         if hasattr(e, 'output'):
-            log ("Error: Output [%s]" % e.output)
-        sys.exit (EXIT_FAILURE)
+            log("Error: Output [%s]" % e.output)
+        sys.exit(EXIT_FAILURE)
 
-    sys.exit (EXIT_SUCCESS)
-
+    sys.exit(EXIT_SUCCESS)
