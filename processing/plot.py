@@ -32,25 +32,25 @@ from espa_logging import log, set_debug, debug
 # Setup the default colors
 # Can override them from the command line
 SENSOR_COLORS = dict()
-SENSOR_COLORS['Terra'] = '#996600' # Some Brown kinda like dirt
-SENSOR_COLORS['Aqua']  = '#00cccc' # Some cyan like blue color
-SENSOR_COLORS['LT4']   = '#cc3333' # A nice Red
-SENSOR_COLORS['LT5']   = '#0066cc' # A nice Blue
-SENSOR_COLORS['LE7']   = '#00cc33' # An ok Green
-BG_COLOR               = '#f3f3f3' # A light gray
+SENSOR_COLORS['Terra'] = '#664400'  # Some Brown kinda like dirt
+SENSOR_COLORS['Aqua'] = '#00cccc'  # Some cyan like blue color
+SENSOR_COLORS['LT4'] = '#cc3333'  # A nice Red
+SENSOR_COLORS['LT5'] = '#0066cc'  # A nice Blue
+SENSOR_COLORS['LE7'] = '#00cc33'  # An ok Green
+BG_COLOR = '#f3f3f3'  # A light gray
 
 # Setup the default marker
 # Can override them from the command line
-MARKER = (1, 3, 0) # Better circle than 'o'
-MARKER_SIZE = 5.0  # A good size for the circle or diamond
+MARKER = (1, 3, 0)  # Better circle than 'o'
+MARKER_SIZE = 5.0   # A good size for the circle or diamond
 
 # Specify a base number of days to expand the plot date range
 # This helps keep data points from being placed on the plot border lines
 TIME_DELTA_5_DAYS = datetime.timedelta(days=5)
 
 
-#=============================================================================
-def execute_cmd (cmd):
+# ============================================================================
+def execute_cmd(cmd):
     '''
     Description:
       Execute a command line and return SUCCESS or ERROR
@@ -62,23 +62,24 @@ def execute_cmd (cmd):
     output = ''
     proc = None
     try:
-        proc = subprocess.Popen (cmd, stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
+        proc = subprocess.Popen(cmd, stdin=subprocess.PIPE,
+                                stdout=subprocess.PIPE,
+                                stderr=subprocess.STDOUT, shell=True)
         output = proc.communicate()[0]
 
         if proc.returncode < 0:
             message = "Application terminated by signal [%s]" % cmd
-            raise Exception (message)
+            raise Exception(message)
 
         if proc.returncode != 0:
             message = "Application failed to execute [%s]" % cmd
-            raise Exception (message)
+            raise Exception(message)
 
         application_exitcode = proc.returncode >> 8
         if application_exitcode != 0:
             message = "Application [%s] returned error code [%d]" \
                 % (cmd, application_exitcode)
-            raise Exception (message)
+            raise Exception(message)
 
     finally:
         del proc
@@ -87,9 +88,9 @@ def execute_cmd (cmd):
 # END - execute_cmd
 
 
-#==============================================================================
-def scp_transfer_file (source_host, source_file,
-                       destination_host, destination_file):
+# =============================================================================
+def scp_transfer_file(source_host, source_file,
+                      destination_host, destination_file):
     '''
     Description:
       Using SCP transfer a file from a source location to a destination
@@ -102,7 +103,8 @@ def scp_transfer_file (source_host, source_file,
         file must be a directory.  ***No checking is performed in this code***
     '''
 
-    cmd = ['scp', '-q', '-o', 'StrictHostKeyChecking=no', '-c', 'arcfour', '-C']
+    cmd = ['scp', '-q', '-o', 'StrictHostKeyChecking=no', '-c', 'arcfour',
+           '-C']
 
     # Build the source portion of the command
     # Single quote the source to allow for wild cards
@@ -120,17 +122,17 @@ def scp_transfer_file (source_host, source_file,
     # Transfer the data and raise any errors
     output = ''
     try:
-        output = execute_cmd (cmd)
+        output = execute_cmd(cmd)
     except Exception, e:
-        log (output)
-        log ("Error: Failed to transfer data")
+        log(output)
+        log("Error: Failed to transfer data")
         raise e
 
-    log ("Transfer complete - SCP")
+    log("Transfer complete - SCP")
 # END - scp_transfer_file
 
 
-#=============================================================================
+# ============================================================================
 def build_argument_parser():
     '''
     Description:
@@ -141,65 +143,76 @@ def build_argument_parser():
 
     # Create a command line argument parser
     description = "Generate plots of the statistics"
-    parser = ArgumentParser (description=description)
+    parser = ArgumentParser(description=description)
 
-    parser.add_argument ('--debug',
-        action='store_true', dest='debug', default=False,
-        help="turn debug logging on")
+    parser.add_argument('--debug',
+                        action='store_true', dest='debug', default=False,
+                        help="turn debug logging on")
 
-    parser.add_argument ('--source_host',
-        action='store', dest='source_host', default='localhost',
-        help="hostname where the order resides")
+    parser.add_argument('--source_host',
+                        action='store', dest='source_host',
+                        default='localhost',
+                        help="hostname where the order resides")
 
-    parser.add_argument ('--order_directory',
-        action='store', dest='order_directory', required=True,
-        help="directory on the source host where the order resides")
+    parser.add_argument('--order_directory',
+                        action='store', dest='order_directory',
+                        required=True,
+                        help="directory on the source host where the order" +
+                             " resides")
 
-    parser.add_argument ('--stats_directory',
-        action='store', dest='stats_directory', default=os.curdir,
-        help="directory containing the statistics")
+    parser.add_argument('--stats_directory',
+                        action='store', dest='stats_directory',
+                        default=os.curdir,
+                        help="directory containing the statistics")
 
-    parser.add_argument ('--terra_color',
-        action='store', dest='terra_color', default=SENSOR_COLORS['Terra'],
-        help="color specification for Terra data")
+    parser.add_argument('--terra_color',
+                        action='store', dest='terra_color',
+                        default=SENSOR_COLORS['Terra'],
+                        help="color specification for Terra data")
 
-    parser.add_argument ('--aqua_color',
-        action='store', dest='aqua_color', default=SENSOR_COLORS['Aqua'],
-        help="color specification for Aqua data")
+    parser.add_argument('--aqua_color',
+                        action='store', dest='aqua_color',
+                        default=SENSOR_COLORS['Aqua'],
+                        help="color specification for Aqua data")
 
-    parser.add_argument ('--lt4_color',
-        action='store', dest='lt4_color', default=SENSOR_COLORS['LT4'],
-        help="color specification for LT4 data")
+    parser.add_argument('--lt4_color',
+                        action='store', dest='lt4_color',
+                        default=SENSOR_COLORS['LT4'],
+                        help="color specification for LT4 data")
 
-    parser.add_argument ('--lt5_color',
-        action='store', dest='lt5_color', default=SENSOR_COLORS['LT5'],
-        help="color specification for LT5 data")
+    parser.add_argument('--lt5_color',
+                        action='store', dest='lt5_color',
+                        default=SENSOR_COLORS['LT5'],
+                        help="color specification for LT5 data")
 
-    parser.add_argument ('--le7_color',
-        action='store', dest='le7_color', default=SENSOR_COLORS['LE7'],
-        help="color specification for LE7 data")
+    parser.add_argument('--le7_color',
+                        action='store', dest='le7_color',
+                        default=SENSOR_COLORS['LE7'],
+                        help="color specification for LE7 data")
 
-    parser.add_argument ('--bg_color',
-        action='store', dest='bg_color', default=BG_COLOR,
-        help="color specification for plot and legend background")
+    parser.add_argument('--bg_color',
+                        action='store', dest='bg_color', default=BG_COLOR,
+                        help="color specification for plot and legend" +
+                             " background")
 
-    parser.add_argument ('--marker',
-        action='store', dest='marker', default=MARKER,
-        help="marker specification for plotted points")
+    parser.add_argument('--marker',
+                        action='store', dest='marker', default=MARKER,
+                        help="marker specification for plotted points")
 
-    parser.add_argument ('--marker_size',
-        action='store', dest='marker_size', default=MARKER_SIZE,
-        help="marker size specification for plotted points")
+    parser.add_argument('--marker_size',
+                        action='store', dest='marker_size',
+                        default=MARKER_SIZE,
+                        help="marker size specification for plotted points")
 
-    parser.add_argument ('--keep',
-        action='store_true', dest='keep', default=False,
-        help="keep the working directory")
+    parser.add_argument('--keep',
+                        action='store_true', dest='keep', default=False,
+                        help="keep the working directory")
 
     return parser
 # END - build_argument_parser
 
 
-#=============================================================================
+# ============================================================================
 def read_stats(stat_file):
     '''
     Description:
@@ -220,7 +233,7 @@ def read_stats(stat_file):
 # END - read_stats
 
 
-#=============================================================================
+# ============================================================================
 def get_mdom_from_ydoy(year, day_of_year):
     '''
     Description:
@@ -239,7 +252,7 @@ def get_mdom_from_ydoy(year, day_of_year):
 # END - get_mdom_from_ydoy
 
 
-#=============================================================================
+# ============================================================================
 def get_ymds_from_filename(filename):
     '''
     Description:
@@ -266,23 +279,20 @@ def get_ymds_from_filename(filename):
         sensor = 'Aqua'
 
     elif 'LT4' in filename:
-        date_element = filename.split('.')[1]
-        year = int(date_element[9:13])
-        day_of_year = int(date_element[13:16])
+        year = int(filename[9:13])
+        day_of_year = int(filename[13:16])
         (month, day_of_month) = get_mdom_from_ydoy(year, day_of_year)
         sensor = 'LT4'
 
     elif 'LT5' in filename:
-        date_element = filename.split('.')[1]
-        year = int(date_element[9:13])
-        day_of_year = int(date_element[13:16])
+        year = int(filename[9:13])
+        day_of_year = int(filename[13:16])
         (month, day_of_month) = get_mdom_from_ydoy(year, day_of_year)
         sensor = 'LT5'
 
     elif 'LE7' in filename:
-        date_element = filename.split('.')[1]
-        year = int(date_element[9:13])
-        day_of_year = int(date_element[13:16])
+        year = int(filename[9:13])
+        day_of_year = int(filename[13:16])
         (month, day_of_month) = get_mdom_from_ydoy(year, day_of_year)
         sensor = 'LE7'
 
@@ -290,7 +300,7 @@ def get_ymds_from_filename(filename):
 # END - get_ymds_from_filename
 
 
-#=============================================================================
+# ============================================================================
 def generate_sensor_stats(stat_name, stat_files):
     '''
     Description:
@@ -311,15 +321,15 @@ def generate_sensor_stats(stat_name, stat_files):
     stat_data = list()
     # Process through and create records
     for filename, obj in stats.items():
-        debug (filename)
+        debug(filename)
         # Figure out the date for stats record
         (year, month, day_of_month, sensor) = get_ymds_from_filename(filename)
         date = '%04d-%02d-%02d' % (int(year), int(month), int(day_of_month))
-        debug (date)
+        debug(date)
 
-        line = '%s,%s,%s,%s,%s' \
-            % (date, obj['minimum'], obj['maximum'], obj['mean'], obj['stddev'])
-        debug (line)
+        line = '%s,%s,%s,%s,%s' % (date, obj['minimum'], obj['maximum'],
+                                   obj['mean'], obj['stddev'])
+        debug(line)
 
         stat_data += [line]
 
@@ -347,21 +357,22 @@ def generate_sensor_stats(stat_name, stat_files):
 # END - generate_sensor_stats
 
 
-#=============================================================================
-def generate_plot(plot_name, subjects, stats, type="Value"):
+# ============================================================================
+def generate_plot(plot_name, subjects, stats, plot_type="Value"):
     '''
     Description:
-      Builds a plot and then generates a png formatted image of the plot. 
+      Builds a plot and then generates a png formatted image of the plot.
     '''
 
     global SENSOR_COLORS, BG_COLOR, MARKER, MARKER_SIZE
     global TIME_DELTA_5_DAYS
 
-    # Test for a valid type parameter
+    # Test for a valid plot_type parameter
     # For us 'Range' mean min, max, and mean
-    if type not in ('Range', 'Value'):
-        error = "Error type='%s' must be one of ('Range', 'Value')" % type
-        raise ValueError (error)
+    if plot_type not in ('Range', 'Value'):
+        error = "Error plot_type='" + plot_type \
+                + "' must be one of ('Range', 'Value')"
+        raise ValueError(error)
 
     # Configuration for the dates
     auto_date_locator = mpl_dates.AutoDateLocator()
@@ -375,11 +386,11 @@ def generate_plot(plot_name, subjects, stats, type="Value"):
 
     min_plot = mpl_plot.subplot(111, axisbg=BG_COLOR)
 
-    #-------------------------------------------------------------------------
+    # ------------------------------------------------------------------------
     # Build a dictionary of sensors which contains lists of the values, while
     # determining the minimum and maximum values to be displayed
-    plot_y_min = 99999 # Our data is 16bit so this should be good enough
-    plot_y_max = -99999 # Our data is 16bit so this should be good enough
+    plot_y_min = 99999   # Our data is 16bit so this should be good enough
+    plot_y_max = -99999  # Our data is 16bit so this should be good enough
     # I won't be here to resolve this
     plot_date_min = datetime.date(9998, 12, 31)
     # Doubt if we have any this old
@@ -388,15 +399,15 @@ def generate_plot(plot_name, subjects, stats, type="Value"):
     sensor_dict = defaultdict(list)
     sensors = list()
 
-    if type == "Range":
-        lower_subject = 'mean' # Since Range force to the mean
+    if plot_type == "Range":
+        lower_subject = 'mean'  # Since Range force to the mean
     else:
         lower_subject = subjects[0].lower()
 
     # Convert the list of stats read from the file into a list of stats
     # organized by the sensor and contains a python date element
     for filename, obj in stats.items():
-        debug (filename)
+        debug(filename)
         # Figure out the date for plotting
         (year, month, day_of_month, sensor) = \
             get_ymds_from_filename(filename)
@@ -412,7 +423,7 @@ def generate_plot(plot_name, subjects, stats, type="Value"):
 
         # While we are here figure out the following...
         # Figure out the min and max range for the Y-Axis value
-        if type == "Range":
+        if plot_type == "Range":
             if min < plot_y_min:
                 plot_y_min = min
             if max > plot_y_max:
@@ -453,30 +464,29 @@ def generate_plot(plot_name, subjects, stats, type="Value"):
             stddev_values.append(stddev)
 
         # Draw the min to max line for these dates
-        if type == "Range":
+        if plot_type == "Range":
             min_plot.vlines(dates, min_values, max_values,
-                colors=SENSOR_COLORS[sensor], linestyles='solid',
-                linewidths=1)
+                            colors=SENSOR_COLORS[sensor], linestyles='solid',
+                            linewidths=1)
 
         # Plot the lists of dates and values for the subject
         values = list()
         if lower_subject == 'minimum':
-            values = min_values;
+            values = min_values
         if lower_subject == 'maximum':
-            values = max_values;
+            values = max_values
         if lower_subject == 'mean':
-            values = mean_values;
+            values = mean_values
         if lower_subject == 'stddev':
-            values = stddev_values;
+            values = stddev_values
 
         # Draw thw marker for these dates
         min_plot.plot(dates, values, marker=MARKER,
-            color=SENSOR_COLORS[sensor], linestyle='None',
-            markersize=float(MARKER_SIZE), label=sensor)
+                      color=SENSOR_COLORS[sensor], linestyle='None',
+                      markersize=float(MARKER_SIZE), label=sensor)
     # END - for sensor
 
-
-    #-------------------------------------------------------------------------
+    # ------------------------------------------------------------------------
     # Adjust the y range to help move them from the edge of the plot
     y_diff = plot_y_max - plot_y_min
     if y_diff < 2:
@@ -489,19 +499,19 @@ def generate_plot(plot_name, subjects, stats, type="Value"):
         # With a minimum of delta added to each end of the range
         plot_y_min -= delta
         plot_y_max += delta
-    debug (plot_y_min)
-    debug (plot_y_max)
+    debug(plot_y_min)
+    debug(plot_y_max)
 
     # Adjust the day range to help move them from the edge of the plot
     date_diff = plot_date_max - plot_date_min
-    debug (date_diff.days)
+    debug(date_diff.days)
     for increment in range(0, int(date_diff.days/365) + 1):
         # Add 5 days to each end of the range for each year
         # With a minimum of 5 days added to each end of the range
         plot_date_min -= TIME_DELTA_5_DAYS
         plot_date_max += TIME_DELTA_5_DAYS
-    debug (plot_date_min)
-    debug (plot_date_max)
+    debug(plot_date_min)
+    debug(plot_date_max)
 
     # X Axis details
     min_plot.xaxis.set_major_locator(auto_date_locator)
@@ -519,18 +529,19 @@ def generate_plot(plot_name, subjects, stats, type="Value"):
 
     # Y Axis - Label
     # We are going to make the Y Axis Label the title for now (See Title)
-    #mpl_plot.ylabel(' '.join(subjects))
+    # mpl_plot.ylabel(' '.join(subjects))
 
     # Plot - Title
     plot_name += ' - ' + ' '.join(subjects)
-    #mpl_plot.title(plot_name)
+    # mpl_plot.title(plot_name)
     # The Title gets covered up by the legend so use the Y Axis Label
     mpl_plot.ylabel(plot_name)
 
     # Configure the legend
     legend = mpl_plot.legend(sensors,
-        bbox_to_anchor=(0.0, 1.01, 1.0, 0.5), loc=3, ncol=5,
-        mode="expand", borderaxespad=0.0, numpoints=1, prop={'size':12})
+                             bbox_to_anchor=(0.0, 1.01, 1.0, 0.5),
+                             loc=3, ncol=5, mode="expand", borderaxespad=0.0,
+                             numpoints=1, prop={'size': 12})
 
     # Change the legend background color to match the plot background color
     frame = legend.get_frame()
@@ -552,7 +563,7 @@ def generate_plot(plot_name, subjects, stats, type="Value"):
 # END - generate_plot
 
 
-#=============================================================================
+# ============================================================================
 def generate_plots(plot_name, stat_files):
     '''
     Description:
@@ -564,9 +575,9 @@ def generate_plots(plot_name, stat_files):
 
     # Read each file into a dictionary
     for stat_file in stat_files:
-        debug (stat_file)
+        debug(stat_file)
         stats[stat_file] = \
-            dict((key, value) for (key, value) in read_stats(stat_file))
+            dict((key, value) for(key, value) in read_stats(stat_file))
 
     plot_subjects = ['Minimum', 'Maximum', 'Mean']
     generate_plot(plot_name, plot_subjects, stats, "Range")
@@ -576,7 +587,7 @@ def generate_plots(plot_name, stat_files):
 # END - generate_plots
 
 
-#=============================================================================
+# ============================================================================
 def process_band_type(sensor_info, band_type):
     '''
     Description:
@@ -589,15 +600,15 @@ def process_band_type(sensor_info, band_type):
     single_sensor_files = list()
     multi_sensor_files = list()
     single_sensor_name = ''
-    sensor_count = 0 # How many sensors were found....
+    sensor_count = 0  # How many sensors were found....
     for (search_string, sensor_name) in sensor_info:
         single_sensor_files = glob.glob(search_string)
-        if single_sensor_files and single_sensor_files != None:
+        if single_sensor_files and single_sensor_files is not None:
             if len(single_sensor_files) > 0:
-                sensor_count += 1 # We found another sensor
+                sensor_count += 1  # We found another sensor
                 single_sensor_name = sensor_name
-                generate_sensor_stats ("%s %s" % (sensor_name, band_type),
-                    single_sensor_files)
+                generate_sensor_stats("%s %s" % (sensor_name, band_type),
+                                      single_sensor_files)
                 multi_sensor_files += single_sensor_files
 
     # Cleanup the memory for this while we process the multi-sensor list
@@ -606,11 +617,11 @@ def process_band_type(sensor_info, band_type):
     # We always use the multi sensor variable here because it will only have
     # the single sensor in it, if that is the case
     if sensor_count > 1:
-        generate_plots ("Multi Sensor %s" % band_type,
-            multi_sensor_files)
+        generate_plots("Multi Sensor %s" % band_type,
+                       multi_sensor_files)
     elif sensor_count == 1:
-        generate_plots ("%s %s" % (single_sensor_name, band_type),
-            multi_sensor_files)
+        generate_plots("%s %s" % (single_sensor_name, band_type),
+                       multi_sensor_files)
     # Else do not plot
 
     # Remove the processed files
@@ -634,57 +645,93 @@ L7_SATELLITE_NAME = 'Landsat 7'
 TERRA_SATELLITE_NAME = 'Terra'
 AQUA_SATELLITE_NAME = 'Aqua'
 
-# Only Landsat band 6 files
-THERMAL_SENSOR_INFO = [('lndsr.LT4*band6.stats', L4_SATELLITE_NAME),
-                       ('lndsr.LT5*band6.stats', L5_SATELLITE_NAME),
-                       ('lndsr.LE7*band6.stats', L7_SATELLITE_NAME)]
+# ----------------------------------------------------------------------------
+# Only MODIS SR band 5 files
+SR_SWIR_MODIS_B5_SENSOR_INFO = \
+    [('MOD*sur_refl*b05.stats', TERRA_SATELLITE_NAME),
+     ('MYD*sur_refl*b05.stats', AQUA_SATELLITE_NAME)]
 
-# Only MODIS band 5 files
-SWIR_MODIS_B5_SENSOR_INFO = [('MOD*sur_refl*b05.stats', TERRA_SATELLITE_NAME),
-                             ('MYD*sur_refl*b05.stats', AQUA_SATELLITE_NAME)]
+# ----------------------------------------------------------------------------
+# MODIS SR band 6 maps to Landsat SR band 5
+SR_SWIR1_SENSOR_INFO = [('LT4*_sr_band5.stats', L4_SATELLITE_NAME),
+                        ('LT5*_sr_band5.stats', L5_SATELLITE_NAME),
+                        ('LE7*_sr_band5.stats', L7_SATELLITE_NAME),
+                        ('MOD*sur_refl*6.stats', TERRA_SATELLITE_NAME),
+                        ('MYD*sur_refl*6.stats', AQUA_SATELLITE_NAME)]
 
-# MODIS band 6 maps to Landsat band 5
-SWIR1_SENSOR_INFO = [('lndsr.LT4*band5.stats', L4_SATELLITE_NAME),
-                     ('lndsr.LT5*band5.stats', L5_SATELLITE_NAME),
-                     ('lndsr.LE7*band5.stats', L7_SATELLITE_NAME),
-                     ('MOD*sur_refl*6.stats', TERRA_SATELLITE_NAME),
-                     ('MYD*sur_refl*6.stats', AQUA_SATELLITE_NAME)]
+# MODIS SR band 7 maps to Landsat SR band 7
+SR_SWIR2_SENSOR_INFO = [('LT4*_sr_band7.stats', L4_SATELLITE_NAME),
+                        ('LT5*_sr_band7.stats', L5_SATELLITE_NAME),
+                        ('LE7*_sr_band7.stats', L7_SATELLITE_NAME),
+                        ('MOD*sur_refl*7.stats', TERRA_SATELLITE_NAME),
+                        ('MYD*sur_refl*7.stats', AQUA_SATELLITE_NAME)]
 
-# MODIS band 7 maps to Landsat band 7
-SWIR2_SENSOR_INFO = [('lndsr.LT4*band7.stats', L4_SATELLITE_NAME),
-                     ('lndsr.LT5*band7.stats', L5_SATELLITE_NAME),
-                     ('lndsr.LE7*band7.stats', L7_SATELLITE_NAME),
-                     ('MOD*sur_refl*7.stats', TERRA_SATELLITE_NAME),
-                     ('MYD*sur_refl*7.stats', AQUA_SATELLITE_NAME)]
+# MODIS SR band 3 maps to Landsat SR band 1
+SR_BLUE_SENSOR_INFO = [('LT4*_sr_band1.stats', L4_SATELLITE_NAME),
+                       ('LT5*_sr_band1.stats', L5_SATELLITE_NAME),
+                       ('LE7*_sr_band1.stats', L7_SATELLITE_NAME),
+                       ('MOD*sur_refl*3.stats', TERRA_SATELLITE_NAME),
+                       ('MYD*sur_refl*3.stats', AQUA_SATELLITE_NAME)]
 
-# MODIS band 3 maps to Landsat band 1
-BLUE_SENSOR_INFO = [('lndsr.LT4*band1.stats', L4_SATELLITE_NAME),
-                    ('lndsr.LT5*band1.stats', L5_SATELLITE_NAME),
-                    ('lndsr.LE7*band1.stats', L7_SATELLITE_NAME),
-                    ('MOD*sur_refl*3.stats', TERRA_SATELLITE_NAME),
-                    ('MYD*sur_refl*3.stats', AQUA_SATELLITE_NAME)]
+# MODIS SR band 4 maps to Landsat SR band 2
+SR_GREEN_SENSOR_INFO = [('LT4*_sr_band2.stats', L4_SATELLITE_NAME),
+                        ('LT5*_sr_band2.stats', L5_SATELLITE_NAME),
+                        ('LE7*_sr_band2.stats', L7_SATELLITE_NAME),
+                        ('MOD*sur_refl*4.stats', TERRA_SATELLITE_NAME),
+                        ('MYD*sur_refl*4.stats', AQUA_SATELLITE_NAME)]
 
-# MODIS band 4 maps to Landsat band 2
-GREEN_SENSOR_INFO = [('lndsr.LT4*band2.stats', L4_SATELLITE_NAME),
-                     ('lndsr.LT5*band2.stats', L5_SATELLITE_NAME),
-                     ('lndsr.LE7*band2.stats', L7_SATELLITE_NAME),
-                     ('MOD*sur_refl*4.stats', TERRA_SATELLITE_NAME),
-                     ('MYD*sur_refl*4.stats', AQUA_SATELLITE_NAME)]
+# MODIS SR band 1 maps to Landsat SR band 3
+SR_RED_SENSOR_INFO = [('LT4*_sr_band3.stats', L4_SATELLITE_NAME),
+                      ('LT5*_sr_band3.stats', L5_SATELLITE_NAME),
+                      ('LE7*_sr_band3.stats', L7_SATELLITE_NAME),
+                      ('MOD*sur_refl*1.stats', TERRA_SATELLITE_NAME),
+                      ('MYD*sur_refl*1.stats', AQUA_SATELLITE_NAME)]
 
-# MODIS band 1 maps to Landsat band 3
-RED_SENSOR_INFO = [('lndsr.LT4*band3.stats', L4_SATELLITE_NAME),
-                   ('lndsr.LT5*band3.stats', L5_SATELLITE_NAME),
-                   ('lndsr.LE7*band3.stats', L7_SATELLITE_NAME),
-                   ('MOD*sur_refl*1.stats', TERRA_SATELLITE_NAME),
-                   ('MYD*sur_refl*1.stats', AQUA_SATELLITE_NAME)]
+# MODIS SR band 2 maps to Landsat SR band 4
+SR_NIR_SENSOR_INFO = [('LT4*_sr_band4.stats', L4_SATELLITE_NAME),
+                      ('LT5*_sr_band4.stats', L5_SATELLITE_NAME),
+                      ('LE7*_sr_band4.stats', L7_SATELLITE_NAME),
+                      ('MOD*sur_refl*2.stats', TERRA_SATELLITE_NAME),
+                      ('MYD*sur_refl*2.stats', AQUA_SATELLITE_NAME)]
 
-# MODIS band 2 maps to Landsat band 4
-NIR_SENSOR_INFO = [('lndsr.LT4*band4.stats', L4_SATELLITE_NAME),
-                   ('lndsr.LT5*band4.stats', L5_SATELLITE_NAME),
-                   ('lndsr.LE7*band4.stats', L7_SATELLITE_NAME),
-                   ('MOD*sur_refl*2.stats', TERRA_SATELLITE_NAME),
-                   ('MYD*sur_refl*2.stats', AQUA_SATELLITE_NAME)]
+# ----------------------------------------------------------------------------
+# Only Landsat TOA band 6 files
+TOA_THERMAL_SENSOR_INFO = [('LT4*_toa_band6.stats', L4_SATELLITE_NAME),
+                           ('LT5*_toa_band6.stats', L5_SATELLITE_NAME),
+                           ('LE7*_toa_band6.stats', L7_SATELLITE_NAME)]
 
+# ----------------------------------------------------------------------------
+# Landsat TOA band 5
+TOA_SWIR1_SENSOR_INFO = [('LT4*_toa_band5.stats', L4_SATELLITE_NAME),
+                         ('LT5*_toa_band5.stats', L5_SATELLITE_NAME),
+                         ('LE7*_toa_band5.stats', L7_SATELLITE_NAME)]
+
+# Landsat TOA band 7
+TOA_SWIR2_SENSOR_INFO = [('LT4*_toa_band7.stats', L4_SATELLITE_NAME),
+                         ('LT5*_toa_band7.stats', L5_SATELLITE_NAME),
+                         ('LE7*_toa_band7.stats', L7_SATELLITE_NAME)]
+
+# Landsat TOA band 1
+TOA_BLUE_SENSOR_INFO = [('LT4*_toa_band1.stats', L4_SATELLITE_NAME),
+                        ('LT5*_toa_band1.stats', L5_SATELLITE_NAME),
+                        ('LE7*_toa_band1.stats', L7_SATELLITE_NAME)]
+
+# Landsat TOA band 2
+TOA_GREEN_SENSOR_INFO = [('LT4*_toa_band2.stats', L4_SATELLITE_NAME),
+                         ('LT5*_toa_band2.stats', L5_SATELLITE_NAME),
+                         ('LE7*_toa_band2.stats', L7_SATELLITE_NAME)]
+
+# Landsat TOA band 3
+TOA_RED_SENSOR_INFO = [('LT4*_toa_band3.stats', L4_SATELLITE_NAME),
+                       ('LT5*_toa_band3.stats', L5_SATELLITE_NAME),
+                       ('LE7*_toa_band3.stats', L7_SATELLITE_NAME)]
+
+# Landsat TOA band 4
+TOA_NIR_SENSOR_INFO = [('LT4*_toa_band4.stats', L4_SATELLITE_NAME),
+                       ('LT5*_toa_band4.stats', L5_SATELLITE_NAME),
+                       ('LE7*_toa_band4.stats', L7_SATELLITE_NAME)]
+
+# ----------------------------------------------------------------------------
 # Only MODIS band 20 files
 EMIS_20_SENSOR_INFO = [('MOD*Emis_20.stats', TERRA_SATELLITE_NAME),
                        ('MYD*Emis_20.stats', AQUA_SATELLITE_NAME)]
@@ -709,6 +756,7 @@ EMIS_31_SENSOR_INFO = [('MOD*Emis_31.stats', TERRA_SATELLITE_NAME),
 EMIS_32_SENSOR_INFO = [('MOD*Emis_32.stats', TERRA_SATELLITE_NAME),
                        ('MYD*Emis_32.stats', AQUA_SATELLITE_NAME)]
 
+# ----------------------------------------------------------------------------
 # Only MODIS Day files
 LST_DAY_SENSOR_INFO = [('MOD*LST_Day_*.stats', TERRA_SATELLITE_NAME),
                        ('MYD*LST_Day_*.stats', AQUA_SATELLITE_NAME)]
@@ -717,48 +765,55 @@ LST_DAY_SENSOR_INFO = [('MOD*LST_Day_*.stats', TERRA_SATELLITE_NAME),
 LST_NIGHT_SENSOR_INFO = [('MOD*LST_Night_*.stats', TERRA_SATELLITE_NAME),
                          ('MYD*LST_Night_*.stats', AQUA_SATELLITE_NAME)]
 
+# ----------------------------------------------------------------------------
 # MODIS and Landsat files
-NDVI_SENSOR_INFO = [('lndsr.LT4*-NDVI.stats', L4_SATELLITE_NAME),
-                    ('lndsr.LT5*-NDVI.stats', L5_SATELLITE_NAME),
-                    ('lndsr.LE7*-NDVI.stats', L7_SATELLITE_NAME),
+NDVI_SENSOR_INFO = [('LT4*_sr_ndvi.stats', L4_SATELLITE_NAME),
+                    ('LT5*_sr_ndvi.stats', L5_SATELLITE_NAME),
+                    ('LE7*_sr_ndvi.stats', L7_SATELLITE_NAME),
                     ('MOD*_NDVI.stats', TERRA_SATELLITE_NAME),
                     ('MYD*_NDVI.stats', AQUA_SATELLITE_NAME)]
 
+# ----------------------------------------------------------------------------
 # MODIS and Landsat files
-EVI_SENSOR_INFO = [('lndsr.LT4*-EVI.stats', L4_SATELLITE_NAME),
-                   ('lndsr.LT5*-EVI.stats', L5_SATELLITE_NAME),
-                   ('lndsr.LE7*-EVI.stats', L7_SATELLITE_NAME),
+EVI_SENSOR_INFO = [('LT4*_sr_evi.stats', L4_SATELLITE_NAME),
+                   ('LT5*_sr_evi.stats', L5_SATELLITE_NAME),
+                   ('LE7*_sr_evi.stats', L7_SATELLITE_NAME),
                    ('MOD*_EVI.stats', TERRA_SATELLITE_NAME),
                    ('MYD*_EVI.stats', AQUA_SATELLITE_NAME)]
 
+# ----------------------------------------------------------------------------
 # Only Landsat SAVI files
-SAVI_SENSOR_INFO = [('lndsr.LT4*-SAVI.stats', L4_SATELLITE_NAME),
-                    ('lndsr.LT5*-SAVI.stats', L5_SATELLITE_NAME),
-                    ('lndsr.LE7*-SAVI.stats', L7_SATELLITE_NAME)]
+SAVI_SENSOR_INFO = [('LT4*_sr_savi.stats', L4_SATELLITE_NAME),
+                    ('LT5*_sr_savi.stats', L5_SATELLITE_NAME),
+                    ('LE7*_sr_savi.stats', L7_SATELLITE_NAME)]
 
+# ----------------------------------------------------------------------------
 # Only Landsat MSAVI files
-MSAVI_SENSOR_INFO = [('lndsr.LT4*-MSAVI.stats', L4_SATELLITE_NAME),
-                     ('lndsr.LT5*-MSAVI.stats', L5_SATELLITE_NAME),
-                     ('lndsr.LE7*-MSAVI.stats', L7_SATELLITE_NAME)]
+MSAVI_SENSOR_INFO = [('LT4*_sr_msavi.stats', L4_SATELLITE_NAME),
+                     ('LT5*_sr_msavi.stats', L5_SATELLITE_NAME),
+                     ('LE7*_sr_msavi.stats', L7_SATELLITE_NAME)]
 
+# ----------------------------------------------------------------------------
 # Only Landsat NBR files
-NBR_SENSOR_INFO = [('lndsr.LT4*-nbr.stats', L4_SATELLITE_NAME),
-                   ('lndsr.LT5*-nbr.stats', L5_SATELLITE_NAME),
-                   ('lndsr.LE7*-nbr.stats', L7_SATELLITE_NAME)]
+NBR_SENSOR_INFO = [('LT4*_sr_nbr.stats', L4_SATELLITE_NAME),
+                   ('LT5*_sr_nbr.stats', L5_SATELLITE_NAME),
+                   ('LE7*_sr_nbr.stats', L7_SATELLITE_NAME)]
 
+# ----------------------------------------------------------------------------
 # Only Landsat NBR2 files
-NBR2_SENSOR_INFO = [('lndsr.LT4*-nbr2.stats', L4_SATELLITE_NAME),
-                    ('lndsr.LT5*-nbr2.stats', L5_SATELLITE_NAME),
-                    ('lndsr.LE7*-nbr2.stats', L7_SATELLITE_NAME)]
+NBR2_SENSOR_INFO = [('LT4*_sr_nbr2.stats', L4_SATELLITE_NAME),
+                    ('LT5*_sr_nbr2.stats', L5_SATELLITE_NAME),
+                    ('LE7*_sr_nbr2.stats', L7_SATELLITE_NAME)]
 
+# ----------------------------------------------------------------------------
 # Only Landsat NDMI files
-NDMI_SENSOR_INFO = [('lndsr.LT4*-ndmi.stats', L4_SATELLITE_NAME),
-                    ('lndsr.LT5*-ndmi.stats', L5_SATELLITE_NAME),
-                    ('lndsr.LE7*-ndmi.stats', L7_SATELLITE_NAME)]
+NDMI_SENSOR_INFO = [('LT4*_sr_ndmi.stats', L4_SATELLITE_NAME),
+                    ('LT5*_sr_ndmi.stats', L5_SATELLITE_NAME),
+                    ('LE7*_sr_ndmi.stats', L7_SATELLITE_NAME)]
 ##############################################################################
 
 
-#=============================================================================
+# ============================================================================
 def process_stats():
     '''
     Description:
@@ -766,21 +821,41 @@ def process_stats():
       plots will not be generated for them.
     '''
 
-    #---------------------------------------------------------------------
-    process_band_type(BLUE_SENSOR_INFO, "SR Blue")
-    process_band_type(GREEN_SENSOR_INFO, "SR Green")
-    process_band_type(RED_SENSOR_INFO, "SR Red")
-    process_band_type(NIR_SENSOR_INFO, "SR NIR")
-    process_band_type(SWIR1_SENSOR_INFO, "SR SWIR1")
-    process_band_type(SWIR2_SENSOR_INFO, "SR SWIR2")
+    global SR_BLUE_SENSOR_INFO, SR_GREEN_SENSOR_INFO, SR_RED_SENSOR_INFO
+    global SR_NIR_SENSOR_INFO, SR_SWIR1_SENSOR_INFO, SR_SWIR2_SENSOR_INFO
+    global SR_SWIR_MODIS_B5_SENSOR_INFO, TOA_THERMAL_SENSOR_INFO
+    global TOA_BLUE_SENSOR_INFO, TOA_GREEN_SENSOR_INFO, TOA_RED_SENSOR_INFO
+    global TOA_NIR_SENSOR_INFO, TOA_SWIR1_SENSOR_INFO, TOA_SWIR2_SENSOR_INFO
+    global EMIS_20_SENSOR_INFO, EMIS_22_SENSOR_INFO, EMIS_23_SENSOR_INFO
+    global EMIS_29_SENSOR_INFO, EMIS_31_SENSOR_INFO, EMIS_32_SENSOR_INFO
+    global LST_DAY_SENSOR_INFO, LST_NIGHT_SENSOR_INFO
+    global NDVI_SENSOR_INFO, EVI_SENSOR_INFO, SAVI_SENSOR_INFO
+    global MSAVI_SENSOR_INFO, NBR_SENSOR_INFO, NBR2_SENSOR_INFO
+    global NDMI_SENSOR_INFO
 
-    #---------------------------------------------------------------------
-    process_band_type(THERMAL_SENSOR_INFO, "SR Thermal")
+    # --------------------------------------------------------------------
+    process_band_type(SR_BLUE_SENSOR_INFO, "SR Blue")
+    process_band_type(SR_GREEN_SENSOR_INFO, "SR Green")
+    process_band_type(SR_RED_SENSOR_INFO, "SR Red")
+    process_band_type(SR_NIR_SENSOR_INFO, "SR NIR")
+    process_band_type(SR_SWIR1_SENSOR_INFO, "SR SWIR1")
+    process_band_type(SR_SWIR2_SENSOR_INFO, "SR SWIR2")
 
-    #---------------------------------------------------------------------
-    process_band_type(SWIR_MODIS_B5_SENSOR_INFO, "SR SWIR B5")
+    # --------------------------------------------------------------------
+    process_band_type(SR_SWIR_MODIS_B5_SENSOR_INFO, "SR SWIR B5")
 
-    #---------------------------------------------------------------------
+    # --------------------------------------------------------------------
+    process_band_type(TOA_THERMAL_SENSOR_INFO, "SR Thermal")
+
+    # --------------------------------------------------------------------
+    process_band_type(TOA_BLUE_SENSOR_INFO, "TOA Blue")
+    process_band_type(TOA_GREEN_SENSOR_INFO, "TOA Green")
+    process_band_type(TOA_RED_SENSOR_INFO, "TOA Red")
+    process_band_type(TOA_NIR_SENSOR_INFO, "TOA NIR")
+    process_band_type(TOA_SWIR1_SENSOR_INFO, "TOA SWIR1")
+    process_band_type(TOA_SWIR2_SENSOR_INFO, "TOA SWIR2")
+
+    # --------------------------------------------------------------------
     process_band_type(EMIS_20_SENSOR_INFO, "Emis Band 20")
     process_band_type(EMIS_22_SENSOR_INFO, "Emis Band 22")
     process_band_type(EMIS_23_SENSOR_INFO, "Emis Band 23")
@@ -788,41 +863,55 @@ def process_stats():
     process_band_type(EMIS_31_SENSOR_INFO, "Emis Band 31")
     process_band_type(EMIS_32_SENSOR_INFO, "Emis Band 32")
 
-    #---------------------------------------------------------------------
+    # --------------------------------------------------------------------
     process_band_type(LST_DAY_SENSOR_INFO, "LST Day")
     process_band_type(LST_NIGHT_SENSOR_INFO, "LST Night")
 
-    #---------------------------------------------------------------------
+    # --------------------------------------------------------------------
     process_band_type(NDVI_SENSOR_INFO, "NDVI")
 
-    #---------------------------------------------------------------------
+    # --------------------------------------------------------------------
     process_band_type(EVI_SENSOR_INFO, "EVI")
 
-    #---------------------------------------------------------------------
+    # --------------------------------------------------------------------
     process_band_type(SAVI_SENSOR_INFO, "SAVI")
 
-    #---------------------------------------------------------------------
+    # --------------------------------------------------------------------
     process_band_type(MSAVI_SENSOR_INFO, "MSAVI")
 
-    #---------------------------------------------------------------------
+    # --------------------------------------------------------------------
     process_band_type(NBR_SENSOR_INFO, "NBR")
 
-    #---------------------------------------------------------------------
+    # --------------------------------------------------------------------
     process_band_type(NBR2_SENSOR_INFO, "NBR2")
 
-    #---------------------------------------------------------------------
+    # --------------------------------------------------------------------
     process_band_type(NDMI_SENSOR_INFO, "NDMI")
 
 # END - process_stats
 
 
-#=============================================================================
+# ============================================================================
 def process(args):
     '''
     Description:
       Retrieves the stats directory from the specified location.
       Calls process_stats to generate the plots and combined stats files.
     '''
+
+    global SENSOR_COLORS, BG_COLOR, MARKER, MARKER_SIZE
+
+    # Override the colors if they were specified
+    SENSOR_COLORS['Terra'] = args.terra_color
+    SENSOR_COLORS['Aqua'] = args.aqua_color
+    SENSOR_COLORS['LT4'] = args.lt4_color
+    SENSOR_COLORS['LT5'] = args.lt5_color
+    SENSOR_COLORS['LE7'] = args.le7_color
+    BG_COLOR = args.bg_color
+
+    # Override the marker if they were specified
+    MARKER = args.marker
+    MARKER_SIZE = args.marker_size
 
     local_work_directory = 'lpvs_statistics'
     remote_stats_directory = args.order_directory + '/stats'
@@ -837,9 +926,9 @@ def process(args):
     try:
         output = execute_cmd(cmd)
     except Exception, e:
-        log ("Failed retrieving stats from online cache")
-        log (output)
-        raise Exception (str(e)), None, sys.exc_info()[2]
+        log("Failed retrieving stats from online cache")
+        log(output)
+        raise Exception(str(e)), None, sys.exc_info()[2]
 
     # Change to the statistics directory
     current_directory = os.getcwd()
@@ -850,25 +939,25 @@ def process(args):
 
         # Distribute back to the online cache
         lpvs_files = '*'
-        remote_lpvs_directory = '%s/%s' \
-            % (args.order_directory, local_work_directory)
-        log ("Creating lpvs_statistics directory %s on %s" \
+        remote_lpvs_directory = '%s/%s' % (args.order_directory,
+                                           local_work_directory)
+        log("Creating lpvs_statistics directory %s on %s"
             % (remote_lpvs_directory, args.source_host))
         cmd = ['ssh', '-q', '-o', 'StrictHostKeyChecking=no', args.source_host,
                'mkdir', '-p', remote_lpvs_directory]
         cmd = ' '.join(cmd)
         output = ''
         try:
-            output = execute_cmd (cmd)
+            output = execute_cmd(cmd)
         except Exception, e:
-            log (output)
-            raise Exception (str(e)), None, sys.exc_info()[2]
+            log(output)
+            raise Exception(str(e)), None, sys.exc_info()[2]
 
         # Transfer the lpvs plot and statistic files
         scp_transfer_file('localhost', lpvs_files, args.source_host,
-            remote_lpvs_directory)
+                          remote_lpvs_directory)
 
-        log ("Verifying statistics transfers")
+        log("Verifying statistics transfers")
         # NOTE - Re-purposing the lpvs_files variable
         lpvs_files = glob.glob(lpvs_files)
         for file in lpvs_files:
@@ -879,27 +968,27 @@ def process(args):
             cmd = ['cksum', file]
             cmd = ' '.join(cmd)
             try:
-                local_cksum_value = execute_cmd (cmd)
+                local_cksum_value = execute_cmd(cmd)
             except Exception, e:
-                log (local_cksum_value)
-                raise Exception (str(e)), None, sys.exc_info()[2]
+                log(local_cksum_value)
+                raise Exception(str(e)), None, sys.exc_info()[2]
 
             # Generate a remote checksum value
             remote_file = remote_lpvs_directory + '/' + file
             cmd = ['ssh', '-q', '-o', 'StrictHostKeyChecking=no',
-                args.source_host, 'cksum', remote_file]
+                   args.source_host, 'cksum', remote_file]
             cmd = ' '.join(cmd)
             try:
-                remote_cksum_value = execute_cmd (cmd)
+                remote_cksum_value = execute_cmd(cmd)
             except Exception, e:
-                log (remote_cksum_value)
-                raise Exception (str(e)), None, sys.exc_info()[2]
+                log(remote_cksum_value)
+                raise Exception(str(e)), None, sys.exc_info()[2]
 
             # Checksum validation
             if local_cksum_value.split()[0] != remote_cksum_value.split()[0]:
-                raise Exception (
-                    "Failed checksum validation between %s and %s:%s" \
-                        % (file, args.source_host, remote_file))
+                raise Exception(
+                    "Failed checksum validation between %s and %s:%s"
+                    % (file, args.source_host, remote_file))
     finally:
         # Change back to the previous directory
         os.chdir(current_directory)
@@ -907,19 +996,17 @@ def process(args):
         if not args.keep:
             shutil.rmtree(local_work_directory)
 
-    log ("Plot Processing Complete")
+    log("Plot Processing Complete")
 # END - process
 
 
-#=============================================================================
+# ============================================================================
 if __name__ == '__main__':
     '''
     Description:
       Read parameters from the command line and build a JSON dictionary from
       them.  Pass the JSON dictionary to the process routine.
     '''
-
-    global SENSOR_COLORS, BG_COLOR, MARKER, MARKER_SIZE
 
     # Build the command line argument parser
     parser = build_argument_parser()
@@ -928,30 +1015,17 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # Setup debug
-    set_debug (args.debug)
-
-    # Override the colors if they were specified
-    SENSOR_COLORS['Terra'] = args.terra_color
-    SENSOR_COLORS['Aqua'] = args.aqua_color
-    SENSOR_COLORS['LT4'] = args.lt4_color
-    SENSOR_COLORS['LT5'] = args.lt5_color
-    SENSOR_COLORS['LE7'] = args.le7_color
-    BG_COLOR = args.bg_color
-
-    # Override the marker if they were specified
-    MARKER = args.marker
-    MARKER_SIZE = args.marker_size
+    set_debug(args.debug)
 
     try:
         # Call the main processing routine
-        process (args)
+        process(args)
     except Exception, e:
-        log ("Error: %s" % str(e))
+        log("Error: %s" % str(e))
         tb = traceback.format_exc()
-        log ("Traceback: [%s]" % tb)
+        log("Traceback: [%s]" % tb)
         if hasattr(e, 'output'):
-            log ("Error: Output [%s]" % e.output)
-        sys.exit (EXIT_FAILURE)
+            log("Error: Output [%s]" % e.output)
+        sys.exit(EXIT_FAILURE)
 
-    sys.exit (EXIT_SUCCESS)
-
+    sys.exit(EXIT_SUCCESS)
