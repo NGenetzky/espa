@@ -43,7 +43,8 @@ NAD27 = 'NAD27'
 NAD83 = 'NAD83'
 
 # These contain valid warping options
-valid_resample_methods = ['near', 'bilinear', 'cubic', 'cubicspline', 'lanczos']
+valid_resample_methods = ['near', 'bilinear', 'cubic', 'cubicspline',
+                          'lanczos']
 valid_pixel_size_units = ['meters', 'dd']
 valid_projections = ['sinu', 'aea', 'utm', 'ps', 'lonlat']
 valid_ns = ['north', 'south']
@@ -52,8 +53,8 @@ valid_ns = ['north', 'south']
 valid_datums = [WGS84, NAD27, NAD83]
 
 
-#=============================================================================
-def build_sinu_proj4_string (central_meridian, false_easting, false_northing):
+# ============================================================================
+def build_sinu_proj4_string(central_meridian, false_easting, false_northing):
     '''
     Description:
       Builds a proj.4 string for MODIS
@@ -75,9 +76,10 @@ def build_sinu_proj4_string (central_meridian, false_easting, false_northing):
 # END - build_sinu_proj4_string
 
 
-#=============================================================================
-def build_albers_proj4_string (std_parallel_1, std_parallel_2, origin_lat,
-  central_meridian, false_easting, false_northing, datum):
+# ============================================================================
+def build_albers_proj4_string(std_parallel_1, std_parallel_2, origin_lat,
+                              central_meridian, false_easting, false_northing,
+                              datum):
     '''
     Description:
       Builds a proj.4 string for albers equal area
@@ -96,8 +98,8 @@ def build_albers_proj4_string (std_parallel_1, std_parallel_2, origin_lat,
 # END - build_albers_proj4_string
 
 
-#=============================================================================
-def build_utm_proj4_string (utm_zone, north_south):
+# ============================================================================
+def build_utm_proj4_string(utm_zone, north_south):
     '''
     Description:
       Builds a proj.4 string for utm
@@ -119,21 +121,23 @@ def build_utm_proj4_string (utm_zone, north_south):
     proj4_string = ''
     if str(north_south).lower() == 'north':
         proj4_string = "'+proj=utm +zone=%i +ellps=WGS84 +datum=WGS84" \
-            " +units=m +no_defs'" % utm_zone
+                       " +units=m +no_defs'" % utm_zone
     elif str(north_south).lower() == 'south':
         proj4_string = "'+proj=utm +zone=%i +south +ellps=WGS72" \
-            " +towgs84=0,0,1.9,0,0,0.814,-0.38 +units=m +no_defs'" % utm_zone
+                       " +towgs84=0,0,1.9,0,0,0.814,-0.38 +units=m +no_defs'" \
+                       % utm_zone
     else:
-        raise ValueError("Invalid north_south argument[%s]" \
-            " Argument must be one of 'north' or 'south'" % north_south)
+        raise ValueError("Invalid north_south argument[%s]"
+                         " Argument must be one of 'north' or 'south'"
+                         % north_south)
 
     return proj4_string
 # END - build_utm_proj4_string
 
 
-#=============================================================================
-def build_ps_proj4_string (lat_ts, lon_pole, north_south,
-  false_easting, false_northing):
+# ============================================================================
+def build_ps_proj4_string(lat_ts, lon_pole, north_south,
+                          false_easting, false_northing):
     '''
     Description:
       Builds a proj.4 string for polar stereographic
@@ -153,8 +157,9 @@ def build_ps_proj4_string (lat_ts, lon_pole, north_south,
     elif str(north_south).lower() == 'south':
         lat_o = '+lat_0=%f' % -90
     else:
-        raise ValueError ("Invalid north_south argument[%s]" \
-            " Argument must be one of 'north' or 'south'" % north_south)
+        raise ValueError("Invalid north_south argument[%s]"
+                         " Argument must be one of 'north' or 'south'"
+                         % north_south)
 
     proj4_string = "'+proj=stere"
     proj4_string += " +lat_ts=%f %s +lon_0=%f +k_0=1.0 +x_0=%f +y_0=%f" \
@@ -165,7 +170,7 @@ def build_ps_proj4_string (lat_ts, lon_pole, north_south,
 # END - build_ps_proj4_string
 
 
-#=============================================================================
+# ============================================================================
 def build_geographic_proj4_string():
     '''
     Description:
@@ -181,8 +186,8 @@ def build_geographic_proj4_string():
 # END - build_geographic_proj4_string
 
 
-#=============================================================================
-def convert_target_projection_to_proj4 (parms):
+# ============================================================================
+def convert_target_projection_to_proj4(parms):
     '''
     Description:
       Checks to see if the reproject parameter was set.  If set the
@@ -197,31 +202,31 @@ def convert_target_projection_to_proj4 (parms):
 
     if target_projection == "sinu":
         projection = \
-            build_sinu_proj4_string (float(parms['central_meridian']),
-                                     float(parms['false_easting']),
-                                     float(parms['false_northing']))
+            build_sinu_proj4_string(float(parms['central_meridian']),
+                                    float(parms['false_easting']),
+                                    float(parms['false_northing']))
 
     elif target_projection == "aea":
         projection = \
-            build_albers_proj4_string (float(parms['std_parallel_1']),
-                                       float(parms['std_parallel_2']),
-                                       float(parms['origin_lat']),
-                                       float(parms['central_meridian']),
-                                       float(parms['false_easting']),
-                                       float(parms['false_northing']),
-                                       parms['datum'])
+            build_albers_proj4_string(float(parms['std_parallel_1']),
+                                      float(parms['std_parallel_2']),
+                                      float(parms['origin_lat']),
+                                      float(parms['central_meridian']),
+                                      float(parms['false_easting']),
+                                      float(parms['false_northing']),
+                                      parms['datum'])
 
     elif target_projection == "utm":
         projection = \
-            build_utm_proj4_string (int(parms['utm_zone']),
-                                    parms['north_south'])
+            build_utm_proj4_string(int(parms['utm_zone']),
+                                   parms['north_south'])
 
     elif target_projection == "ps":
-        projection = build_ps_proj4_string (float(parms['latitude_true_scale']),
-                                            float(parms['longitude_pole']),
-                                            parms['north_south'],
-                                            float(parms['false_easting']),
-                                            float(parms['false_northing']))
+        projection = build_ps_proj4_string(float(parms['latitude_true_scale']),
+                                           float(parms['longitude_pole']),
+                                           parms['north_south'],
+                                           float(parms['false_easting']),
+                                           float(parms['false_northing']))
 
     elif target_projection == "lonlat":
         projection = build_geographic_proj4_string()
@@ -230,7 +235,7 @@ def convert_target_projection_to_proj4 (parms):
 # END - convert_target_projection_to_proj4
 
 
-#=============================================================================
+# ============================================================================
 def build_argument_parser():
     '''
     Description:
@@ -242,22 +247,26 @@ def build_argument_parser():
 
     # Create a command line argument parser
     description = "Alters product extents, projections and pixel sizes"
-    parser = ArgumentParser (description=description)
+    parser = ArgumentParser(description=description)
 
     # Add parameters
-    parameters.add_debug_parameter (parser)
+    parameters.add_debug_parameter(parser)
 
-    parameters.add_reprojection_parameters (parser, valid_projections,
-        valid_ns, valid_pixel_size_units, valid_resample_methods, valid_datums)
+    parameters.add_reprojection_parameters(parser,
+                                           valid_projections,
+                                           valid_ns,
+                                           valid_pixel_size_units,
+                                           valid_resample_methods,
+                                           valid_datums)
 
-    parameters.add_work_directory_parameter (parser)
+    parameters.add_work_directory_parameter(parser)
 
     return parser
 # END - build_argument_parser
 
 
-#=============================================================================
-def validate_parameters (parms):
+# ============================================================================
+def validate_parameters(parms):
     '''
     Description:
       Make sure all the parameters needed for this and called routines
@@ -267,15 +276,20 @@ def validate_parameters (parms):
     global valid_resample_methods, valid_pixel_size_units, valid_projections
     global valid_ns, valid_datums
 
-    parameters.validate_reprojection_parameters (parms, valid_projections,
-        valid_ns, valid_pixel_size_units, valid_resample_methods, valid_datums)
+    parameters.validate_reprojection_parameters(parms,
+                                                valid_projections,
+                                                valid_ns,
+                                                valid_pixel_size_units,
+                                                valid_resample_methods,
+                                                valid_datums)
 # END - validate_parameters
 
 
-#=============================================================================
-def build_warp_command (source_file, output_file, output_format='envi',
-  min_x=None, min_y=None, max_x=None, max_y=None,
-  pixel_size=None, projection=None, resample_method=None, no_data_value=None):
+# ============================================================================
+def build_warp_command(source_file, output_file, output_format='envi',
+                       min_x=None, min_y=None, max_x=None, max_y=None,
+                       pixel_size=None, projection=None,
+                       resample_method=None, no_data_value=None):
     '''
     Description:
       Builds the GDAL warp command to convert the data
@@ -284,9 +298,10 @@ def build_warp_command (source_file, output_file, output_format='envi',
     cmd = ['gdalwarp', '-wm', '2048', '-multi', '-of', output_format]
 
     # Subset the image using the specified extents
-    if (min_x is not None) and (min_y is not None) \
-      and (max_x is not None) and (max_y is not None):
-        debug ("Image Extents: %s, %s, %s, %s" % (min_x, min_y, max_x, max_y))
+    if ((min_x is not None) and (min_y is not None)
+            and (max_x is not None) and (max_y is not None)):
+
+        debug("Image Extents: %s, %s, %s, %s" % (min_x, min_y, max_x, max_y))
         cmd += ['-te', min_x.strip(), min_y.strip(),
                 max_x.strip(), max_y.strip()]
 
@@ -297,7 +312,7 @@ def build_warp_command (source_file, output_file, output_format='envi',
     # Reproject the data
     if projection is not None:
         cmd += ['-t_srs']
-        cmd += [projection] # ***DO NOT*** split the projection string
+        cmd += [projection]  # ***DO NOT*** split the projection string
 
     # Specify the resampling method
     if resample_method is not None:
@@ -313,8 +328,8 @@ def build_warp_command (source_file, output_file, output_format='envi',
 # END - build_warp_command
 
 
-#=============================================================================
-def parse_hdf_subdatasets (hdf_file):
+# ============================================================================
+def parse_hdf_subdatasets(hdf_file):
     '''
     Description:
       Finds all the subdataset names in an hdf file
@@ -322,46 +337,55 @@ def parse_hdf_subdatasets (hdf_file):
 
     cmd = ['gdalinfo', hdf_file]
     cmd = ' '.join(cmd)
-    output = util.execute_cmd (cmd)
+    output = util.execute_cmd(cmd)
     name = ''
     description = ''
-    for line in output.split ('\n'):
+    for line in output.split('\n'):
         line_lower = line.strip().lower()
 
         # logic heavily based on the output order from gdalinfo
-        if line_lower.startswith ('subdataset') \
-          and line_lower.find('_name') != -1:
+        if (line_lower.startswith('subdataset')
+                and line_lower.find('_name') != -1):
+
             parts = line.split('=')
             name = parts[1]
-        if line_lower.startswith ('subdataset') \
-          and line_lower.find('_desc') != -1:
+
+        if (line_lower.startswith('subdataset')
+                and line_lower.find('_desc') != -1):
+
             parts = line.split('=')
             description = parts[1]
             yield (description, name)
 # END - parse_hdf_subdatasets
 
 
-#=============================================================================
-def get_no_data_value (filename):
+# ============================================================================
+def get_no_data_value(filename):
+    '''
+    Description:
+      TODO TODO TODO
+    '''
+
     cmd = ['gdalinfo', filename]
     cmd = ' '.join(cmd)
-    output = util.execute_cmd (cmd)
+    output = util.execute_cmd(cmd)
 
     no_data_value = None
-    for line in output.split ('\n'):
+    for line in output.split('\n'):
         line_lower = line.strip().lower()
 
-        if line_lower.startswith ('nodata value'):
-            no_data_value = line_lower.split('=')[1] # take second element
+        if line_lower.startswith('nodata value'):
+            no_data_value = line_lower.split('=')[1]  # take second element
 
     return no_data_value
 # END - get_no_data_value
 
 
-#=============================================================================
-def run_warp (source_file, output_file, output_format='envi',
-  min_x=None, min_y=None, max_x=None, max_y=None,
-  pixel_size=None, projection=None, resample_method=None, no_data_value=None):
+# ============================================================================
+def run_warp(source_file, output_file, output_format='envi',
+             min_x=None, min_y=None, max_x=None, max_y=None,
+             pixel_size=None, projection=None,
+             resample_method=None, no_data_value=None):
     '''
     Description:
       Executes the warping command on the specified source file
@@ -371,15 +395,15 @@ def run_warp (source_file, output_file, output_format='envi',
         # Turn GDAL PAM off to prevent *.aux.xml files
         os.environ['GDAL_PAM_ENABLED'] = 'NO'
 
-        cmd = build_warp_command (source_file, output_file, output_format,
-            min_x, min_y, max_x, max_y, pixel_size, projection,
-            resample_method, no_data_value)
-        debug (cmd)
+        cmd = build_warp_command(source_file, output_file, output_format,
+                                 min_x, min_y, max_x, max_y, pixel_size,
+                                 projection, resample_method, no_data_value)
+        debug(cmd)
         cmd = ' '.join(cmd)
 
-        log ("Warping %s with %s" % (source_file, cmd))
-        output = util.execute_cmd (cmd)
-        log (output)
+        log("Warping %s with %s" % (source_file, cmd))
+        output = util.execute_cmd(cmd)
+        log(output)
 
     except Exception, e:
         raise
@@ -390,8 +414,8 @@ def run_warp (source_file, output_file, output_format='envi',
 # END - run_warp
 
 
-#=============================================================================
-def get_hdf_global_metadata (hdf_file):
+# ============================================================================
+def get_hdf_global_metadata(hdf_file):
     '''
     Description:
         Extract the metadata information from the HDF formatted file
@@ -401,20 +425,20 @@ def get_hdf_global_metadata (hdf_file):
 
     cmd = ['gdalinfo', hdf_file]
     cmd = ' '.join(cmd)
-    output = util.execute_cmd (cmd)
+    output = util.execute_cmd(cmd)
 
     sb = StringIO()
     has_metadata = False
     for line in output.split('\n'):
-        if str(line).strip().lower().startswith ('metadata'):
+        if str(line).strip().lower().startswith('metadata'):
             has_metadata = True
-        if str(line).strip().lower().startswith ('subdatasets'):
+        if str(line).strip().lower().startswith('subdatasets'):
             break
-        if str(line).strip().lower().startswith ('corner'):
+        if str(line).strip().lower().startswith('corner'):
             break
         if has_metadata:
-            sb.write (line.strip())
-            sb.write ('\n')
+            sb.write(line.strip())
+            sb.write('\n')
 
     sb.flush()
     metadata = sb.getvalue()
@@ -424,8 +448,8 @@ def get_hdf_global_metadata (hdf_file):
 # END - get_hdf_global_metadata
 
 
-#=============================================================================
-def hdf_has_subdatasets (hdf_file):
+# ============================================================================
+def hdf_has_subdatasets(hdf_file):
     '''
     Description:
         Determine if the HDF file has subdatasets
@@ -433,47 +457,47 @@ def hdf_has_subdatasets (hdf_file):
 
     cmd = ['gdalinfo', hdf_file]
     cmd = ' '.join(cmd)
-    output = util.execute_cmd (cmd)
+    output = util.execute_cmd(cmd)
 
     for line in output.split('\n'):
-        if str(line).strip().lower().startswith ('subdatasets'):
+        if str(line).strip().lower().startswith('subdatasets'):
             return True
 
     return False
 # END - hdf_has_subdatasets
 
 
-#=============================================================================
-def convert_hdf_to_gtiff (hdf_file):
+# ============================================================================
+def convert_hdf_to_gtiff(hdf_file):
     '''
     Description:
         Convert HDF formatted data to GeoTIFF
     '''
 
-    hdf_name = hdf_file.split ('.hdf')[0]
+    hdf_name = hdf_file.split('.hdf')[0]
     output_format = 'gtiff'
 
-    log ("Retrieving global HDF metadata")
-    metadata = get_hdf_global_metadata (hdf_file)
+    log("Retrieving global HDF metadata")
+    metadata = get_hdf_global_metadata(hdf_file)
     if metadata is not None and len(metadata) > 0:
         metadata_filename = '%s-global_metadata.txt' % hdf_name
 
-        log ("Writing global metadata to %s" % metadata_filename)
-        fd = open (metadata_filename, 'w+')
-        fd.write (str(metadata))
+        log("Writing global metadata to %s" % metadata_filename)
+        fd = open(metadata_filename, 'w+')
+        fd.write(str(metadata))
         fd.flush()
         fd.close()
 
     # Extract the subdatasets into individual GeoTIFF files
-    if hdf_has_subdatasets (hdf_file):
-        for (sds_desc, sds_name) in parse_hdf_subdatasets (hdf_file):
+    if hdf_has_subdatasets(hdf_file):
+        for (sds_desc, sds_name) in parse_hdf_subdatasets(hdf_file):
             # Split the name into parts to extract the subdata name
             sds_parts = sds_name.split(':')
             subdata_name = sds_parts[len(sds_parts) - 1]
             # Quote the sds name due to possible spaces
             # Must be single because have double quotes in sds name
             quoted_sds_name = "'" + sds_name + "'"
-            no_data_value = get_no_data_value (quoted_sds_name)
+            no_data_value = get_no_data_value(quoted_sds_name)
 
             # Split the description into part to extract the string
             # which allows for determining the correct gdal data
@@ -483,42 +507,40 @@ def convert_hdf_to_gtiff (hdf_file):
             sds_parts = sds_parts[len(sds_parts) - 1].split(')')
             hdf_type = sds_parts[0]
 
-            log ("Processing Subdataset %s" % quoted_sds_name)
+            log("Processing Subdataset %s" % quoted_sds_name)
 
             # Remove spaces from the subdataset name for the
             # final output name
             subdata_name = subdata_name.replace(' ', '_')
             output_filename = '%s-%s.tif' % (hdf_name, subdata_name)
 
-            run_warp (quoted_sds_name, output_filename, output_format,
-                #min_x, min_y, max_x, max_y,
-                None, None, None, None,
-                #pixel_size, projection, resample_method,
-                None, None, 'near',
-                no_data_value)
+            run_warp(quoted_sds_name, output_filename, output_format,
+                     None, None, None, None,
+                     None, None, 'near',
+                     no_data_value)
 
     # We only have the one dataset in the HDF file
     else:
         output_filename = '%s.tif' % hdf_name
 
-        no_data_value = get_no_data_value (hdf_file)
-        run_warp (file, output_filename, output_format,
-            min_x, min_y, max_x, max_y,
-            pixel_size, projection, resample_method, no_data_value)
+        no_data_value = get_no_data_value(hdf_file)
+        run_warp(hdf_file, output_filename, output_format,
+                 min_x, min_y, max_x, max_y,
+                 pixel_size, projection, resample_method, no_data_value)
 
     # Remove the HDF file, it is not needed anymore
-    if os.path.exists (hdf_file):
-        os.unlink (hdf_file)
+    if os.path.exists(hdf_file):
+        os.unlink(hdf_file)
 
     # Remove the associated hdr file
     hdr_filename = '%s.hdr' % hdf_file
-    if os.path.exists (hdr_filename):
-        os.unlink (hdr_filename)
+    if os.path.exists(hdr_filename):
+        os.unlink(hdr_filename)
 # END - convert_hdf_to_gtiff
 
 
-#=============================================================================
-def convert_imageXY_to_mapXY (image_x, image_y, transform):
+# ============================================================================
+def convert_imageXY_to_mapXY(image_x, image_y, transform):
     '''
     Description:
       Translate image coordinates into mapp coordinates
@@ -531,63 +553,63 @@ def convert_imageXY_to_mapXY (image_x, image_y, transform):
 # END - convert_imageXY_to_mapXY
 
 
-#=============================================================================
-def update_espa_xml (parms, xml, xml_filename, datum=WGS84):
+# ============================================================================
+def update_espa_xml(parms, xml, xml_filename, datum=WGS84):
 
     try:
         bands = xml.get_bands()
         for band in bands.band:
             img_filename = band.get_file_name()
-            hdr_filename = img_filename.replace ('.img', '.hdr')
-            log ("Updating XML for %s" % img_filename)
+            hdr_filename = img_filename.replace('.img', '.hdr')
+            log("Updating XML for %s" % img_filename)
 
-            ds = gdal.Open (img_filename)
+            ds = gdal.Open(img_filename)
             if ds is None:
                 msg = "GDAL failed to open (%s)" % img_filename
-                raise RuntimeError (msg)
+                raise RuntimeError(msg)
 
             try:
-                ds_band = ds.GetRasterBand (1)
+                ds_band = ds.GetRasterBand(1)
                 ds_transform = ds.GetGeoTransform()
                 ds_srs = osr.SpatialReference()
-                ds_srs.ImportFromWkt (ds.GetProjection())
+                ds_srs.ImportFromWkt(ds.GetProjection())
             except Exception, e:
-                raise ee.ESPAException (ee.ErrorCodes.warping, str(e)), \
-                    None, sys.exc_info()[2]
+                raise ee.ESPAException(ee.ErrorCodes.warping,
+                                       str(e)), None, sys.exc_info()[2]
 
-            projection_name = ds_srs.GetAttrValue ('PROJECTION')
+            projection_name = ds_srs.GetAttrValue('PROJECTION')
 
             number_of_lines = float(ds_band.YSize)
             number_of_samples = float(ds_band.XSize)
             # Need to abs these because they are coming from the transform,
             # which may becorrect for the transform,
             # but not how us humans understand it
-            x_pixel_size =  abs(ds_transform[1])
-            y_pixel_size =  abs(ds_transform[5])
+            x_pixel_size = abs(ds_transform[1])
+            y_pixel_size = abs(ds_transform[5])
 
             del (ds_band)
             del (ds)
 
             # Update the band information in the XML file
-            band.set_nlines (number_of_lines)
-            band.set_nsamps (number_of_samples)
+            band.set_nlines(number_of_lines)
+            band.set_nsamps(number_of_samples)
             band_pixel_size = band.get_pixel_size()
-            band_pixel_size.set_x (x_pixel_size)
-            band_pixel_size.set_y (y_pixel_size)
+            band_pixel_size.set_x(x_pixel_size)
+            band_pixel_size.set_y(y_pixel_size)
 
             # We only support one unit type for each projection
-            if projection_name != None:
-                if projection_name.lower().startswith ('transverse_mercator'):
-                    band_pixel_size.set_units ('meters')
-                elif projection_name.lower().startswith ('polar'):
-                    band_pixel_size.set_units ('meters')
-                elif projection_name.lower().startswith ('albers'):
-                    band_pixel_size.set_units ('meters')
-                elif projection_name.lower().startswith ('sinusoidal'):
-                    band_pixel_size.set_units ('meters')
+            if projection_name is not None:
+                if projection_name.lower().startswith('transverse_mercator'):
+                    band_pixel_size.set_units('meters')
+                elif projection_name.lower().startswith('polar'):
+                    band_pixel_size.set_units('meters')
+                elif projection_name.lower().startswith('albers'):
+                    band_pixel_size.set_units('meters')
+                elif projection_name.lower().startswith('sinusoidal'):
+                    band_pixel_size.set_units('meters')
             else:
                 # Must be Geographic Projection
-                band_pixel_size.set_units ('degrees')
+                band_pixel_size.set_units('degrees')
 
         ######################################################################
         # Fix the projection information for the warped data
@@ -604,223 +626,225 @@ def update_espa_xml (parms, xml, xml_filename, datum=WGS84):
         # Remove the projection parameter object from the structure so that it
         # can be replaced with the new one
         # Geographic doesn't have one
-        if gm.projection_information.utm_proj_params != None:
+        if gm.projection_information.utm_proj_params is not None:
             del gm.projection_information.utm_proj_params
             gm.projection_information.utm_proj_params = None
 
-        if gm.projection_information.ps_proj_params != None:
+        if gm.projection_information.ps_proj_params is not None:
             del gm.projection_information.ps_proj_params
             gm.projection_information.ps_proj_params = None
 
-        if gm.projection_information.albers_proj_params != None:
+        if gm.projection_information.albers_proj_params is not None:
             del gm.projection_information.albers_proj_params
             gm.projection_information.albers_proj_params = None
 
-        if gm.projection_information.sin_proj_params != None:
+        if gm.projection_information.sin_proj_params is not None:
             del gm.projection_information.sin_proj_params
             gm.projection_information.sin_proj_params = None
 
         # Rebuild the projection parameters
-        projection_name = ds_srs.GetAttrValue ('PROJECTION')
-        if projection_name != None:
+        projection_name = ds_srs.GetAttrValue('PROJECTION')
+        if projection_name is not None:
             # ----------------------------------------------------------------
-            if projection_name.lower().startswith ('transverse_mercator'):
-                log ("---- Updating UTM Parameters")
+            if projection_name.lower().startswith('transverse_mercator'):
+                log("---- Updating UTM Parameters")
                 # Get the parameter values
                 zone = int(ds_srs.GetUTMZone())
                 # Get a new UTM projection parameter object and populate it
                 utm_projection = metadata_api.utm_proj_params()
-                utm_projection.set_zone_code (zone)
+                utm_projection.set_zone_code(zone)
                 # Add the object to the projection information
-                gm.projection_information.set_utm_proj_params (utm_projection)
+                gm.projection_information.set_utm_proj_params(utm_projection)
                 # Update the attribute values
-                gm.projection_information.set_projection ("UTM")
-                gm.projection_information.set_datum (WGS84) # WGS84 only
+                gm.projection_information.set_projection("UTM")
+                gm.projection_information.set_datum(WGS84)  # WGS84 only
             # ----------------------------------------------------------------
-            elif projection_name.lower().startswith ('polar'):
-                log ("---- Updating Polar Stereographic Parameters")
+            elif projection_name.lower().startswith('polar'):
+                log("---- Updating Polar Stereographic Parameters")
                 # Get the parameter values
-                latitude_true_scale = ds_srs.GetProjParm ('latitude_of_origin')
-                longitude_pole = ds_srs.GetProjParm ('central_meridian')
-                false_easting = ds_srs.GetProjParm ('false_easting')
-                false_northing = ds_srs.GetProjParm ('false_northing')
+                latitude_true_scale = ds_srs.GetProjParm('latitude_of_origin')
+                longitude_pole = ds_srs.GetProjParm('central_meridian')
+                false_easting = ds_srs.GetProjParm('false_easting')
+                false_northing = ds_srs.GetProjParm('false_northing')
                 # Get a new PS projection parameter object and populate it
                 ps_projection = metadata_api.ps_proj_params()
-                ps_projection.set_latitude_true_scale (latitude_true_scale)
-                ps_projection.set_longitude_pole (longitude_pole)
-                ps_projection.set_false_easting (false_easting)
-                ps_projection.set_false_northing (false_northing)
+                ps_projection.set_latitude_true_scale(latitude_true_scale)
+                ps_projection.set_longitude_pole(longitude_pole)
+                ps_projection.set_false_easting(false_easting)
+                ps_projection.set_false_northing(false_northing)
                 # Add the object to the projection information
-                gm.projection_information.set_ps_proj_params (ps_projection)
+                gm.projection_information.set_ps_proj_params(ps_projection)
                 # Update the attribute values
-                gm.projection_information.set_projection ("PS")
-                gm.projection_information.set_datum (WGS84) # WGS84 only
+                gm.projection_information.set_projection("PS")
+                gm.projection_information.set_datum(WGS84)  # WGS84 only
             # ----------------------------------------------------------------
-            elif projection_name.lower().startswith ('albers'):
-                log ("---- Updating Albers Equal Area Parameters")
+            elif projection_name.lower().startswith('albers'):
+                log("---- Updating Albers Equal Area Parameters")
                 # Get the parameter values
-                standard_parallel1 = ds_srs.GetProjParm ('standard_parallel_1')
-                standard_parallel2 = ds_srs.GetProjParm ('standard_parallel_2')
-                origin_latitude = ds_srs.GetProjParm ('latitude_of_center')
-                central_meridian = ds_srs.GetProjParm ('longitude_of_center')
-                false_easting = ds_srs.GetProjParm ('false_easting')
-                false_northing = ds_srs.GetProjParm ('false_northing')
+                standard_parallel1 = ds_srs.GetProjParm('standard_parallel_1')
+                standard_parallel2 = ds_srs.GetProjParm('standard_parallel_2')
+                origin_latitude = ds_srs.GetProjParm('latitude_of_center')
+                central_meridian = ds_srs.GetProjParm('longitude_of_center')
+                false_easting = ds_srs.GetProjParm('false_easting')
+                false_northing = ds_srs.GetProjParm('false_northing')
                 # Get a new ALBERS projection parameter object and populate it
                 albers_projection = metadata_api.albers_proj_params()
-                albers_projection.set_standard_parallel1 (standard_parallel1)
-                albers_projection.set_standard_parallel2 (standard_parallel2)
-                albers_projection.set_origin_latitude (origin_latitude)
-                albers_projection.set_central_meridian (central_meridian)
-                albers_projection.set_false_easting (false_easting)
-                albers_projection.set_false_northing (false_northing)
+                albers_projection.set_standard_parallel1(standard_parallel1)
+                albers_projection.set_standard_parallel2(standard_parallel2)
+                albers_projection.set_origin_latitude(origin_latitude)
+                albers_projection.set_central_meridian(central_meridian)
+                albers_projection.set_false_easting(false_easting)
+                albers_projection.set_false_northing(false_northing)
                 # Add the object to the projection information
-                gm.projection_information.set_albers_proj_params (albers_projection)
+                gm.projection_information. \
+                    set_albers_proj_params(albers_projection)
                 # Update the attribute values
-                gm.projection_information.set_projection ("ALBERS")
+                gm.projection_information.set_projection("ALBERS")
                 # This projection can have different datums, so use the datum
                 # requested by the user
-                gm.projection_information.set_datum (datum)
+                gm.projection_information.set_datum(datum)
             # ----------------------------------------------------------------
-            elif projection_name.lower().startswith ('sinusoidal'):
-                log ("---- Updating Sinusoidal Parameters")
+            elif projection_name.lower().startswith('sinusoidal'):
+                log("---- Updating Sinusoidal Parameters")
                 # Get the parameter values
-                central_meridian = ds_srs.GetProjParm ('longitude_of_center')
-                false_easting = ds_srs.GetProjParm ('false_easting')
-                false_northing = ds_srs.GetProjParm ('false_northing')
+                central_meridian = ds_srs.GetProjParm('longitude_of_center')
+                false_easting = ds_srs.GetProjParm('false_easting')
+                false_northing = ds_srs.GetProjParm('false_northing')
                 # Get a new SIN projection parameter object and populate it
                 sin_projection = metadata_api.sin_proj_params()
-                sin_projection.set_sphere_radius (SINUSOIDAL_SPHERE_RADIUS)
-                sin_projection.set_central_meridian (central_meridian)
-                sin_projection.set_false_easting (false_easting)
-                sin_projection.set_false_northing (false_northing)
+                sin_projection.set_sphere_radius(SINUSOIDAL_SPHERE_RADIUS)
+                sin_projection.set_central_meridian(central_meridian)
+                sin_projection.set_false_easting(false_easting)
+                sin_projection.set_false_northing(false_northing)
                 # Add the object to the projection information
-                gm.projection_information.set_sin_proj_params (sin_projection)
+                gm.projection_information.set_sin_proj_params(sin_projection)
                 # Update the attribute values
-                gm.projection_information.set_projection ("SIN")
+                gm.projection_information.set_projection("SIN")
                 # This projection doesn't have a datum
                 del gm.projection_information.datum
                 gm.projection_information.datum = None
         else:
             # ----------------------------------------------------------------
             # Must be Geographic Projection
-            log ("---- Updating Geographic Parameters")
-            gm.projection_information.set_projection ('GEO')
-            gm.projection_information.set_datum (WGS84) # WGS84 only
-            gm.projection_information.set_units ('degrees') # always degrees
+            log("---- Updating Geographic Parameters")
+            gm.projection_information.set_projection('GEO')
+            gm.projection_information.set_datum(WGS84)  # WGS84 only
+            gm.projection_information.set_units('degrees')  # always degrees
 
         # Fix the UL and LR center of pixel map coordinates
-        (map_ul_x, map_ul_y) = convert_imageXY_to_mapXY (0.5, 0.5,
-            ds_transform)
-        (map_lr_x, map_lr_y) = convert_imageXY_to_mapXY (
+        (map_ul_x, map_ul_y) = convert_imageXY_to_mapXY(0.5, 0.5,
+                                                        ds_transform)
+        (map_lr_x, map_lr_y) = convert_imageXY_to_mapXY(
             number_of_samples - 0.5, number_of_lines - 0.5, ds_transform)
         for cp in gm.projection_information.corner_point:
             if cp.location == 'UL':
-                cp.set_x (map_ul_x)
-                cp.set_y (map_ul_y)
+                cp.set_x(map_ul_x)
+                cp.set_y(map_ul_y)
             if cp.location == 'LR':
-                cp.set_x (map_lr_x)
-                cp.set_y (map_lr_y)
+                cp.set_x(map_lr_x)
+                cp.set_y(map_lr_y)
 
         # Fix the UL and LR center of pixel latitude and longitude coordinates
         srs_lat_lon = ds_srs.CloneGeogCS()
-        coord_tf = osr.CoordinateTransformation (ds_srs, srs_lat_lon)
+        coord_tf = osr.CoordinateTransformation(ds_srs, srs_lat_lon)
         for corner in gm.corner:
             if corner.location == 'UL':
                 (lon, lat, height) = \
-                    coord_tf.TransformPoint (map_ul_x, map_ul_y)
-                corner.set_longitude (lon)
-                corner.set_latitude (lat)
+                    coord_tf.TransformPoint(map_ul_x, map_ul_y)
+                corner.set_longitude(lon)
+                corner.set_latitude(lat)
             if corner.location == 'LR':
                 (lon, lat, height) = \
-                    coord_tf.TransformPoint (map_lr_x, map_lr_y)
-                corner.set_longitude (lon)
-                corner.set_latitude (lat)
+                    coord_tf.TransformPoint(map_lr_x, map_lr_y)
+                corner.set_longitude(lon)
+                corner.set_latitude(lat)
 
         # Determine the bounding coordinates
         # Initialize using the UL and LR, then walk the edges of the image,
         # because some projections may not have the values in the corners of
         # the image
         # UL
-        (map_x, map_y) = convert_imageXY_to_mapXY (0.0, 0.0, ds_transform)
-        (ul_lon, ul_lat, height) = coord_tf.TransformPoint (map_x, map_y)
+        (map_x, map_y) = convert_imageXY_to_mapXY(0.0, 0.0, ds_transform)
+        (ul_lon, ul_lat, height) = coord_tf.TransformPoint(map_x, map_y)
         # LR
-        (map_x, map_y) = convert_imageXY_to_mapXY (number_of_samples,
-            number_of_lines, ds_transform)
-        (lr_lon, lr_lat, height) = coord_tf.TransformPoint (map_x, map_y)
+        (map_x, map_y) = convert_imageXY_to_mapXY(number_of_samples,
+                                                  number_of_lines,
+                                                  ds_transform)
+        (lr_lon, lr_lat, height) = coord_tf.TransformPoint(map_x, map_y)
 
         # Set the initial values
-        west_lon = min (ul_lon, lr_lon)
-        east_lon = max (ul_lon, lr_lon)
-        north_lat = max (ul_lat, lr_lat)
-        south_lat = min (ul_lat, lr_lat)
+        west_lon = min(ul_lon, lr_lon)
+        east_lon = max(ul_lon, lr_lon)
+        north_lat = max(ul_lat, lr_lat)
+        south_lat = min(ul_lat, lr_lat)
 
         # Walk across the top and bottom of the image
-        for sample in range (0, int(number_of_samples)+1):
+        for sample in range(0, int(number_of_samples)+1):
             (map_x, map_y) = \
-                convert_imageXY_to_mapXY (sample, 0.0, ds_transform)
-            (top_lon, top_lat, height) = coord_tf.TransformPoint (map_x, map_y)
+                convert_imageXY_to_mapXY(sample, 0.0, ds_transform)
+            (top_lon, top_lat, height) = coord_tf.TransformPoint(map_x, map_y)
 
             (map_x, map_y) = \
-                convert_imageXY_to_mapXY (sample, number_of_lines, ds_transform)
+                convert_imageXY_to_mapXY(sample, number_of_lines, ds_transform)
             (bottom_lon, bottom_lat, height) = \
-                coord_tf.TransformPoint (map_x, map_y)
+                coord_tf.TransformPoint(map_x, map_y)
 
-            west_lon = min (top_lon, bottom_lon, west_lon)
-            east_lon = max (top_lon, bottom_lon, east_lon)
-            north_lat = max (top_lat, bottom_lat, north_lat)
-            south_lat = min (top_lat, bottom_lat, south_lat)
+            west_lon = min(top_lon, bottom_lon, west_lon)
+            east_lon = max(top_lon, bottom_lon, east_lon)
+            north_lat = max(top_lat, bottom_lat, north_lat)
+            south_lat = min(top_lat, bottom_lat, south_lat)
 
         # Walk down the left and right of the image
-        for line in range (0, int(number_of_lines)+1):
+        for line in range(0, int(number_of_lines)+1):
             (map_x, map_y) = \
-                convert_imageXY_to_mapXY (0.0, line, ds_transform)
+                convert_imageXY_to_mapXY(0.0, line, ds_transform)
             (left_lon, left_lat, height) = \
-                coord_tf.TransformPoint (map_x, map_y)
+                coord_tf.TransformPoint(map_x, map_y)
 
             (map_x, map_y) = \
-                convert_imageXY_to_mapXY (number_of_samples, line, ds_transform)
+                convert_imageXY_to_mapXY(number_of_samples, line, ds_transform)
             (right_lon, right_lat, height) = \
-                coord_tf.TransformPoint (map_x, map_y)
+                coord_tf.TransformPoint(map_x, map_y)
 
-            west_lon = min (left_lon, right_lon, west_lon)
-            east_lon = max (left_lon, right_lon, east_lon)
-            north_lat = max (left_lat, right_lat, north_lat)
-            south_lat = min (left_lat, right_lat, south_lat)
+            west_lon = min(left_lon, right_lon, west_lon)
+            east_lon = max(left_lon, right_lon, east_lon)
+            north_lat = max(left_lat, right_lat, north_lat)
+            south_lat = min(left_lat, right_lat, south_lat)
 
         # Update the bounding coordinates in the XML
         bounding_coords = gm.get_bounding_coordinates()
-        bounding_coords.set_west (west_lon)
-        bounding_coords.set_east (east_lon)
-        bounding_coords.set_north (north_lat)
-        bounding_coords.set_south (south_lat)
+        bounding_coords.set_west(west_lon)
+        bounding_coords.set_east(east_lon)
+        bounding_coords.set_north(north_lat)
+        bounding_coords.set_south(south_lat)
 
         del (ds_transform)
         del (ds_srs)
 
         # Write out a new XML file after validation
-        log ("---- Validating XML Modifications and Creating Temp Output File")
+        log("---- Validating XML Modifications and Creating Temp Output File")
         tmp_xml_filename = 'tmp-%s' % xml_filename
-        fd = open (tmp_xml_filename, 'w')
+        fd = open(tmp_xml_filename, 'w')
         # Call the export with validation
-        metadata_api.export (fd, xml)
+        metadata_api.export(fd, xml)
         fd.flush()
         fd.close()
 
         # Remove the original
-        if os.path.exists (xml_filename):
-            os.unlink (xml_filename)
+        if os.path.exists(xml_filename):
+            os.unlink(xml_filename)
 
         # Rename the temp file back to the original name
-        os.rename (tmp_xml_filename, xml_filename)
+        os.rename(tmp_xml_filename, xml_filename)
 
     except Exception, e:
-        raise ee.ESPAException (ee.ErrorCodes.warping, str(e)), \
-            None, sys.exc_info()[2]
+        raise ee.ESPAException(ee.ErrorCodes.warping,
+                               str(e)), None, sys.exc_info()[2]
 # END - update_espa_xml
 
 
-#=============================================================================
-def warp_espa_data (parms, xml_filename=None):
+# ============================================================================
+def warp_espa_data(parms, xml_filename=None):
     '''
     Description:
       Warp each espa science product to the parameters specified in the parms
@@ -829,25 +853,25 @@ def warp_espa_data (parms, xml_filename=None):
     global SINUSOIDAL_SPHERE_RADIUS
 
     # Validate the parameters
-    validate_parameters (parms)
-    debug (parms)
+    validate_parameters(parms)
+    debug(parms)
 
     # Verify something was provided for the XML filename
-    if xml_filename == None or xml_filename == '':
-        raise ee.ESPAException (ee.ErrorCodes.warping, "Missing XML Filename")
+    if xml_filename is None or xml_filename == '':
+        raise ee.ESPAException(ee.ErrorCodes.warping, "Missing XML Filename")
 
     if parms['projection'] is not None:
         # Use the provided proj.4 projection information
         projection = parms['projection']
     elif parms['reproject']:
         # Verify and create proj.4 projection information
-        projection = convert_target_projection_to_proj4 (parms)
+        projection = convert_target_projection_to_proj4(parms)
     else:
         projection = None
 
     # Change to the working directory
     current_directory = os.getcwd()
-    os.chdir (parms['work_directory'])
+    os.chdir(parms['work_directory'])
 
     min_x = parms['minx']
     min_y = parms['miny']
@@ -858,7 +882,7 @@ def warp_espa_data (parms, xml_filename=None):
     datum = parms['datum']
 
     try:
-        xml = metadata_api.parse (xml_filename, silence=True)
+        xml = metadata_api.parse(xml_filename, silence=True)
         bands = xml.get_bands()
 
         # These will be poulated with the last bands information
@@ -870,27 +894,27 @@ def warp_espa_data (parms, xml_filename=None):
         # Process through the bands in the XML file
         for band in bands.band:
             img_filename = band.get_file_name()
-            hdr_filename = img_filename.replace ('.img', '.hdr')
-            log ("Processing %s" % img_filename)
+            hdr_filename = img_filename.replace('.img', '.hdr')
+            log("Processing %s" % img_filename)
 
             # Open the image to read the no data value out since the internal
             # ENVI driver for GDAL does not output it, even if it is known
-            ds = gdal.Open (img_filename)
+            ds = gdal.Open(img_filename)
             if ds is None:
-                raise RuntimeError ("GDAL failed to open (%s)" % img_filename)
+                raise RuntimeError("GDAL failed to open (%s)" % img_filename)
 
             try:
-                ds_band = ds.GetRasterBand (1)
+                ds_band = ds.GetRasterBand(1)
             except Exception, e:
-                raise ee.ESPAException (ee.ErrorCodes.warping, str(e)), \
-                    None, sys.exc_info()[2]
+                raise ee.ESPAException(ee.ErrorCodes.warping,
+                                       str(e)), None, sys.exc_info()[2]
 
             # TODO - We don't process any floating point data types.... Yet
             # Save the no data value since gdalwarp does not write it out when
             # using the ENVI format
             no_data_value = ds_band.GetNoDataValue()
             if no_data_value is None:
-                raise RuntimeError ("no_data_value = None")
+                raise RuntimeError("no_data_value = None")
             else:
                 # Convert to an integer then string
                 no_data_value = str(int(no_data_value))
@@ -901,115 +925,116 @@ def warp_espa_data (parms, xml_filename=None):
             tmp_img_filename = 'tmp-%s' % img_filename
             tmp_hdr_filename = 'tmp-%s' % hdr_filename
 
-            run_warp (img_filename, tmp_img_filename, 'envi',
-                min_x, min_y, max_x, max_y,
-                pixel_size, projection, resample_method, no_data_value)
+            run_warp(img_filename, tmp_img_filename, 'envi',
+                     min_x, min_y, max_x, max_y,
+                     pixel_size, projection, resample_method, no_data_value)
 
             ##################################################################
             ##################################################################
             # Get new everything for the re-projected band
             ##################################################################
             ##################################################################
-            ds = gdal.Open (tmp_img_filename)
+            ds = gdal.Open(tmp_img_filename)
             if ds is None:
                 msg = "GDAL failed to open (%s)" % tmp_img_filename
-                raise RuntimeError (msg)
+                raise RuntimeError(msg)
 
             try:
-                ds_band = ds.GetRasterBand (1)
+                ds_band = ds.GetRasterBand(1)
                 ds_transform = ds.GetGeoTransform()
                 ds_srs = osr.SpatialReference()
-                ds_srs.ImportFromWkt (ds.GetProjection())
+                ds_srs.ImportFromWkt(ds.GetProjection())
             except Exception, e:
-                raise ee.ESPAException (ee.ErrorCodes.warping, str(e)), \
-                    None, sys.exc_info()[2]
+                raise ee.ESPAException(ee.ErrorCodes.warping,
+                                       str(e)), None, sys.exc_info()[2]
 
             del (ds_band)
             del (ds)
 
             # Update the tmp ENVI header with our own values for some fields
             sb = StringIO()
-            fd = open (tmp_hdr_filename, 'r')
+            fd = open(tmp_hdr_filename, 'r')
             while 1:
                 line = fd.readline()
                 if not line:
                     break
-                if line.startswith ('data ignore value') \
-                  or line.startswith ('description'):
+                if (line.startswith('data ignore value')
+                        or line.startswith('description')):
                     dummy = 'Nothing'
                 else:
-                    sb.write (line)
+                    sb.write(line)
 
-                if line.startswith ('description'):
+                if line.startswith('description'):
                     # This may be on multiple lines so read lines until found
-                    if not line.strip().endswith ('}'):
+                    if not line.strip().endswith('}'):
                         while 1:
                             next_line = fd.readline()
-                            if not next_line or next_line.strip().endswith('}'):
+                            if (not next_line
+                                    or next_line.strip().endswith('}')):
                                 break
-                    sb.write ('description = {ESPA-generated file}\n')
-                elif line.startswith ('data type'):
-                    sb.write ('data ignore value = %s\n' % no_data_value)
-                elif line.startswith ('map info'):
+                    sb.write('description = {ESPA-generated file}\n')
+                elif line.startswith('data type'):
+                    sb.write('data ignore value = %s\n' % no_data_value)
+                elif line.startswith('map info'):
                     map_info_str = line
 
             fd.close()
             sb.flush()
 
             # Do the actual update here
-            fd = open (tmp_hdr_filename, 'w')
-            fd.write (sb.getvalue())
+            fd = open(tmp_hdr_filename, 'w')
+            fd.write(sb.getvalue())
             fd.flush()
             fd.close()
 
             # Remove the original files, they are replaced in following code
-            if os.path.exists (img_filename):
-                os.unlink (img_filename)
-            if os.path.exists (hdr_filename):
-                os.unlink (hdr_filename)
+            if os.path.exists(img_filename):
+                os.unlink(img_filename)
+            if os.path.exists(hdr_filename):
+                os.unlink(hdr_filename)
 
             # Rename the temps file back to the original name
-            os.rename (tmp_img_filename, img_filename)
-            os.rename (tmp_hdr_filename, hdr_filename)
+            os.rename(tmp_img_filename, img_filename)
+            os.rename(tmp_hdr_filename, hdr_filename)
         # END for each band in the XML file
 
         # Update the XML to reflect the new warped output
-        update_espa_xml (parms, xml, xml_filename, datum)
+        update_espa_xml(parms, xml, xml_filename, datum)
 
         del (xml)
 
     except Exception, e:
-        raise ee.ESPAException (ee.ErrorCodes.warping, str(e)), \
-            None, sys.exc_info()[2]
+        raise ee.ESPAException(ee.ErrorCodes.warping,
+                               str(e)), None, sys.exc_info()[2]
     finally:
         # Change back to the previous directory
-        os.chdir (current_directory)
+        os.chdir(current_directory)
 # END - warp_espa_data
 
 
-#=============================================================================
-def warp_science_products (parms, xml_filename=None):
+# ============================================================================
+def warp_science_products(parms, xml_filename=None):
     '''
     Description:
       Warp each science product to the parameters specified in the parms
     '''
 
     # Validate the parameters
-    validate_parameters (parms)
-    debug (parms)
+    validate_parameters(parms)
+    debug(parms)
 
     if parms['projection'] is not None:
         # Use the provided proj.4 projection information
         projection = parms['projection']
     elif parms['reproject']:
         # Verify and create proj.4 projection information
-        projection = convert_target_projection_to_proj4 (parms)
+        projection = convert_target_projection_to_proj4(parms)
     else:
         projection = None
 
     # Change to the working directory
     current_directory = os.getcwd()
-    os.chdir (parms['work_directory'])
+    os.chdir(parms['work_directory'])
 
     min_x = parms['minx']
     min_y = parms['miny']
@@ -1020,53 +1045,53 @@ def warp_science_products (parms, xml_filename=None):
 
     try:
         # First convert any HDF to GeoTIFF
-        what_to_convert = glob.glob ('*.hdf')
+        what_to_convert = glob.glob('*.hdf')
         for filename in what_to_convert:
-            log ("Converting %s to GeoTIFF" % filename)
-            convert_hdf_to_gtiff (filename)
+            log("Converting %s to GeoTIFF" % filename)
+            convert_hdf_to_gtiff(filename)
 
         # Now warp the GeoTIFF files
-        what_to_warp = glob.glob ('*.TIF')
-        what_to_warp += glob.glob ('*.tif') # capture the browse
+        what_to_warp = glob.glob('*.TIF')
+        what_to_warp += glob.glob('*.tif')  # capture the browse
         output_format = 'gtiff'
         for filename in what_to_warp:
-            log ("Processing %s" % filename)
+            log("Processing %s" % filename)
 
             if "TIF" in filename:
                 output_filename = 'tmp-%s.tif' \
                     % filename.split('.TIF')[0].lower()
-                no_data_value = '0' # Assuming Landsat data
+                no_data_value = '0'  # Assuming Landsat data
             else:
                 output_filename = 'tmp-%s' % filename.lower()
-                no_data_value = get_no_data_value (filename)
+                no_data_value = get_no_data_value(filename)
 
-            run_warp (filename, output_filename, output_format,
-                min_x, min_y, max_x, max_y,
-                pixel_size, projection, resample_method, no_data_value)
+            run_warp(filename, output_filename, output_format,
+                     min_x, min_y, max_x, max_y,
+                     pixel_size, projection, resample_method, no_data_value)
 
             # Remove the original file, it is not needed anymore
-            if os.path.exists (filename):
-                os.unlink (filename)
+            if os.path.exists(filename):
+                os.unlink(filename)
 
             # Rename the temp file back to the original name
-            os.rename (output_filename, filename)
+            os.rename(output_filename, filename)
         # END - for each file
 
         # Now warp the ESPA files
-        if xml_filename != None:
-            warp_espa_data (parms, xml_filename)
+        if xml_filename is not None:
+            warp_espa_data(parms, xml_filename)
 
     except Exception, e:
-        raise ee.ESPAException (ee.ErrorCodes.warping, str(e)), \
-            None, sys.exc_info()[2]
+        raise ee.ESPAException(ee.ErrorCodes.warping,
+                               str(e)), None, sys.exc_info()[2]
     finally:
         # Change back to the previous directory
         os.chdir(current_directory)
 # END - warp_science_products
 
 
-#=============================================================================
-def reformat (metadata_filename, work_directory, input_format, output_format):
+# ============================================================================
+def reformat(metadata_filename, work_directory, input_format, output_format):
     '''
     Description:
       Re-format the bands to the specified format using our raw binary tools
@@ -1082,75 +1107,75 @@ def reformat (metadata_filename, work_directory, input_format, output_format):
 
     # Change to the working directory
     current_directory = os.getcwd()
-    os.chdir (work_directory)
+    os.chdir(work_directory)
 
     try:
         # Convert from our internal ESPA/ENVI format to GeoTIFF
         if input_format == 'envi' and output_format == 'gtiff':
-            gtiff_name = metadata_filename.rstrip ('.xml')
+            gtiff_name = metadata_filename.rstrip('.xml')
             # Call with deletion of source files
             cmd = ['convert_espa_to_gtif', '--del_src_files',
                    '--xml', metadata_filename,
                    '--gtif', gtiff_name]
-            cmd = ' '.join (cmd)
+            cmd = ' '.join(cmd)
 
             output = ''
             try:
-                output = util.execute_cmd (cmd)
+                output = util.execute_cmd(cmd)
 
                 # Rename the XML file back to *.xml from *_gtif.xml
                 meta_gtiff_name = metadata_filename.split('.xml')[0]
                 meta_gtiff_name += '_gtif.xml'
 
-                os.rename (meta_gtiff_name, metadata_filename)
+                os.rename(meta_gtiff_name, metadata_filename)
             except Exception, e:
-                raise ee.ESPAException (ee.ErrorCodes.reformat, str(e)), \
-                    None, sys.exc_info()[2]
+                raise ee.ESPAException(ee.ErrorCodes.reformat,
+                                       str(e)), None, sys.exc_info()[2]
             finally:
                 if len(output) > 0:
-                    log (output)
+                    log(output)
 
         # Convert from our internal ESPA/ENVI format to HDF
         elif input_format == 'envi' and output_format == 'hdf':
             # convert_espa_to_hdf
-            hdf_name = metadata_filename.replace ('.xml', '.hdf')
+            hdf_name = metadata_filename.replace('.xml', '.hdf')
             # Call with deletion of source files
             cmd = ['convert_espa_to_hdf', '--del_src_files',
                    '--xml', metadata_filename,
                    '--hdf', hdf_name]
-            cmd = ' '.join (cmd)
+            cmd = ' '.join(cmd)
 
             output = ''
             try:
-                output = util.execute_cmd (cmd)
+                output = util.execute_cmd(cmd)
 
                 # Rename the XML file back to *.xml from *_hdf.xml
                 meta_hdf_name = metadata_filename.split('.')[0]
                 meta_hdf_name += '_hdf.xml'
 
-                os.rename (meta_hdf_name, metadata_filename)
+                os.rename(meta_hdf_name, metadata_filename)
             except Exception, e:
-                raise ee.ESPAException (ee.ErrorCodes.reformat, str(e)), \
-                    None, sys.exc_info()[2]
+                raise ee.ESPAException(ee.ErrorCodes.reformat,
+                                       str(e)), None, sys.exc_info()[2]
             finally:
                 if len(output) > 0:
-                    log (output)
+                    log(output)
 
         # Requested conversion not implemented
         else:
-            raise ValueError ("Unsupported reformat combination (%s, %s)" \
-                % (input_format, output_format))
+            raise ValueError("Unsupported reformat combination (%s, %s)"
+                             % (input_format, output_format))
 
     except Exception, e:
-        raise ee.ESPAException (ee.ErrorCodes.reformat, str(e)), \
-            None, sys.exc_info()[2]
+        raise ee.ESPAException(ee.ErrorCodes.reformat,
+                               str(e)), None, sys.exc_info()[2]
     finally:
         # Change back to the previous directory
-        os.chdir (current_directory)
+        os.chdir(current_directory)
 # END - reformat
 
 
-#=============================================================================
+# ============================================================================
 if __name__ == '__main__':
     '''
     Description:
@@ -1166,21 +1191,20 @@ if __name__ == '__main__':
     args_dict = vars(parser.parse_args())
 
     # Setup debug
-    set_debug (args.debug)
+    set_debug(args.debug)
 
     # Build our JSON formatted input from the command line parameters
-    options = {k : args_dict[k] for k in args_dict if args_dict[k] != None}
+    options = {k: args_dict[k] for k in args_dict if args_dict[k] is not None}
 
     try:
         # Call the main processing routine
-        warp_science_products (options)
+        warp_science_products(options)
     except Exception, e:
-        log ("Error: %s" % str(e))
+        log("Error: %s" % str(e))
         tb = traceback.format_exc()
-        log ("Traceback: [%s]" % tb)
+        log("Traceback: [%s]" % tb)
         if hasattr(e, 'output'):
-            log ("Error: Output [%s]" % e.output)
-        sys.exit (EXIT_FAILURE)
+            log("Error: Output [%s]" % e.output)
+        sys.exit(EXIT_FAILURE)
 
-    sys.exit (EXIT_SUCCESS)
-
+    sys.exit(EXIT_SUCCESS)
