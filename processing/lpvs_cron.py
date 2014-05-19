@@ -36,7 +36,7 @@ import util
 import settings
 
 
-#=============================================================================
+# ============================================================================
 def usage():
     '''
     Description:
@@ -48,7 +48,7 @@ def usage():
 # END - usage
 
 
-#=============================================================================
+# ============================================================================
 def run_orders():
     '''
     Description:
@@ -62,32 +62,32 @@ def run_orders():
 
     # Use the DEV_CACHE_HOSTNAME if present
     dev_cache_hostname = 'DEV_CACHE_HOSTNAME'
-    if not os.environ.has_key(dev_cache_hostname) \
-      or os.environ.get(dev_cache_hostname) is None \
-      or len(os.environ.get(dev_cache_hostname)) < 1:
+    if (dev_cache_hostname not in os.environ
+            or os.environ.get(dev_cache_hostname) is None
+            or len(os.environ.get(dev_cache_hostname)) < 1):
         cache_host = util.getCacheHostname()
     else:
         cache_host = os.environ.get('DEV_CACHE_HOSTNAME')
 
     # Use the DEV_CACHE_DIRECTORY if present
     dev_cache_directory = 'DEV_CACHE_DIRECTORY'
-    if not os.environ.has_key(dev_cache_directory) \
-      or os.environ.get(dev_cache_directory) is None \
-      or len(os.environ.get(dev_cache_directory)) < 1:
+    if (dev_cache_directory not in os.environ
+            or os.environ.get(dev_cache_directory) is None
+            or len(os.environ.get(dev_cache_directory)) < 1):
         cache_directory = settings.espa_cache_directory
     else:
         cache_directory = os.environ.get('DEV_CACHE_DIRECTORY')
 
     try:
-        log ("Checking for orders to process...")
+        log("Checking for orders to process...")
         orders = server.getLPVSOrdersToProcess()
 
         if orders:
-            log ("Found orders to process:")
+            log("Found orders to process:")
 
             # Process the orders
             for order in orders:
-                log ("Processing order [%s]" % order)
+                log("Processing order [%s]" % order)
 
                 # Build the order directory
                 order_directory = cache_directory + '/' + order
@@ -98,22 +98,22 @@ def run_orders():
                 cmd = ' '.join(cmd)
                 output = ''
                 try:
-                    output = util.execute_cmd (cmd)
+                    output = util.execute_cmd(cmd)
                 except Exception, e:
                     # TODO TODO TODO - Needs web side implementation
-                    server.updateOrderStatus (order, 'LPVS cron driver', 'FAIL')
+                    server.updateOrderStatus(order, 'LPVS cron driver', 'FAIL')
 
                     msg = "Error during execution of plot.py: " + str(e)
-                    raise Exception (msg)
+                    raise Exception(msg)
                 finally:
-                    log (output)
+                    log(output)
 
                 # TODO TODO TODO - Needs web side implementation
-                server.updateOrderStatus (order, 'LPVS cron driver', 'SUCC')
+                server.updateOrderStatus(order, 'LPVS cron driver', 'SUCC')
 
     except Exception, e:
         msg = "Error Processing Plots: " + str(e)
-        raise Exception (msg)
+        raise Exception(msg)
 
     finally:
         server = None
@@ -121,7 +121,7 @@ def run_orders():
 # END - run_orders
 
 
-#=============================================================================
+# ============================================================================
 if __name__ == '__main__':
     '''
     Description:
@@ -134,11 +134,13 @@ if __name__ == '__main__':
 
     # Check required variables that this script should fail on if they are not
     # defined
-    required_vars = ('ESPA_XMLRPC', "ESPA_WORK_DIR", "ANC_PATH", "PATH", "HOME")
+    required_vars = ('ESPA_XMLRPC', "ESPA_WORK_DIR", "ANC_PATH", "PATH",
+                     "HOME")
     for env_var in required_vars:
-        if not os.environ.has_key(env_var) or os.environ.get(env_var) is None \
-          or len(os.environ.get(env_var)) < 1:
-            log ("$%s is not defined... exiting" % env_var)
+        if (env_var not in os.environ or os.environ.get(env_var) is None
+                or len(os.environ.get(env_var)) < 1):
+
+            log("$%s is not defined... exiting" % env_var)
             sys.exit(-1)
 
     op = sys.argv[1]
@@ -147,11 +149,10 @@ if __name__ == '__main__':
 
     elif op == 'clean-cache':
         # TODO TODO TODO
-        #cleanDistroCache()
+        # cleanDistroCache()
         pass
 
     else:
         usage()
 
     sys.exit(EXIT_SUCCESS)
-
