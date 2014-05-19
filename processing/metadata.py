@@ -19,8 +19,8 @@ from espa_constants import *
 from espa_logging import log, debug
 
 
-#==============================================================================
-def get_landsat_metadata (work_dir):
+# ============================================================================
+def get_landsat_metadata(work_dir):
     '''
     Description:
       Returns the Landsat metadata as a python dictionary
@@ -31,15 +31,16 @@ def get_landsat_metadata (work_dir):
     dir_items = os.listdir(work_dir)
 
     for dir_item in dir_items:
-        if (dir_item.find('_MTL') > 0) and \
-          not (dir_item.find('old') > 0) and \
-          not dir_item.startswith('lnd'):
+        if ((dir_item.find('_MTL') > 0) and
+                not (dir_item.find('old') > 0) and
+                not dir_item.startswith('lnd')):
+
             # Save the filename and break out of the directory loop
             metadata_filename = dir_item
-            log ("Located MTL file:%s" %metadata_filename)
+            log("Located MTL file:%s" % metadata_filename)
             break
 
-    if metadata_filename =='':
+    if metadata_filename == '':
         msg = "Could not locate the Landsat MTL file in %s" % work_dir
         raise RuntimeError(msg)
 
@@ -82,7 +83,7 @@ def get_landsat_metadata (work_dir):
     # Read and add the metadata contents to the dictionary
     for line in fixed_data.split('\n'):
         line = line.strip()
-        debug (line)
+        debug(line)
         if not line.startswith('END') and not line.startswith('GROUP'):
             parts = line.split('=')
             if len(parts) == 2:
@@ -90,4 +91,3 @@ def get_landsat_metadata (work_dir):
 
     return metadata
 # END - get_landsat_metadata
-
