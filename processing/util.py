@@ -22,7 +22,7 @@ import random
 import settings
 
 
-def execute_cmd (cmd):
+def execute_cmd(cmd):
     '''
     Description:
       Execute a command line and return SUCCESS or ERROR
@@ -34,23 +34,24 @@ def execute_cmd (cmd):
     output = ''
     proc = None
     try:
-        proc = subprocess.Popen (cmd, stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
+        proc = subprocess.Popen(cmd, stdin=subprocess.PIPE,
+                                stdout=subprocess.PIPE,
+                                stderr=subprocess.STDOUT, shell=True)
         output = proc.communicate()[0]
 
         if proc.returncode < 0:
             message = "Application terminated by signal [%s]" % cmd
-            raise Exception (message)
+            raise Exception(message)
 
         if proc.returncode != 0:
             message = "Application failed to execute [%s]" % cmd
-            raise Exception (message)
+            raise Exception(message)
 
         application_exitcode = proc.returncode >> 8
         if application_exitcode != 0:
             message = "Application [%s] returned error code [%d]" \
-                % (cmd, application_exitcode)
-            raise Exception (message)
+                      % (cmd, application_exitcode)
+            raise Exception(message)
 
     finally:
         del proc
@@ -107,7 +108,7 @@ def getSensor(scene_name):
       Returns the sensor of a given scene
     '''
 
-    if scene_name[0:3].lower() =='lt5' or scene_name[0:3].lower() == 'lt4':
+    if scene_name[0:3].lower() == 'lt5' or scene_name[0:3].lower() == 'lt4':
         # Landsat TM
         return 'LT'
     elif scene_name[0:3].lower() == 'le7':
@@ -160,7 +161,7 @@ def getModisHorizontalVertical(scene_name):
       Returns the MODIS horizontal and vertical specifiers of the scene
     '''
 
-    element =  scene_name.split('.')[2]
+    element = scene_name.split('.')[2]
     return (element[0:3], element[3:])
 
 
@@ -206,19 +207,19 @@ def getCacheHostname():
       network
     '''
 
-    #140 is here twice so the load is 2/3 + 1/3.  machines are mismatched
+    # 140 is here twice so the load is 2/3 + 1/3.  machines are mismatched
     host_list = settings.espa_cache_host_list
 
     def check_host_status(hostname):
         cmd = "ping -q -c 1 %s" % hostname
         output = ''
         try:
-            output = execute_cmd (cmd)
+            output = execute_cmd(cmd)
         except Exception, e:
             return -1
         return 0
 
-    def get_hostname():  
+    def get_hostname():
         hostname = random.choice(host_list)
         if check_host_status(hostname) == 0:
             return hostname
@@ -232,4 +233,3 @@ def getCacheHostname():
                 raise Exception("No online cache hosts available...")
 
     return get_hostname()
-
