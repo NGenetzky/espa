@@ -9,7 +9,7 @@ order_buffer_length = 2048
 
 # Set the hadoop timeouts to a ridiculous number so jobs don't get killed
 # before they are done
-hadoop_timeout = 172800000 # which is 2 days
+hadoop_timeout = 172800000  # which is 2 days
 
 
 ##############################################################################
@@ -38,7 +38,7 @@ espa_base_output_path = '/data2/LSRD'
 ##############################################################################
 # Used in lpvs_cron.py
 
-# Path to the completed orders 
+# Path to the completed orders
 espa_cache_directory = '/data2/LSRD'
 # Can override this by setting the environment variable DEV_CACHE_DIRECTORY
 
@@ -82,4 +82,3 @@ max_distribution_attempts = 5
 # 140 is here twice so the load is 2/3 + 1/3.  machines are mismatched
 espa_cache_host_list = ['edclxs67p', 'edclxs140p', 'edclxs140p']
 # Can override this by setting the environment variable DEV_CACHE_HOSTNAME
-
