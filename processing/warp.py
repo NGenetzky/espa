@@ -68,9 +68,10 @@ def build_sinu_proj4_string(central_meridian, false_easting, false_northing):
     global SINUSOIDAL_SPHERE_RADIUS
 
     proj4_string = "'+proj=sinu +lon_0=%f +x_0=%f +y_0=%f +a=%f +b=%f" \
-        " +units=m +no_defs'" \
-        % (central_meridian, false_easting, false_northing,
-           SINUSOIDAL_SPHERE_RADIUS, SINUSOIDAL_SPHERE_RADIUS)
+                   " +units=m +no_defs'" % (central_meridian, false_easting,
+                                            false_northing,
+                                            SINUSOIDAL_SPHERE_RADIUS,
+                                            SINUSOIDAL_SPHERE_RADIUS)
 
     return proj4_string
 # END - build_sinu_proj4_string
@@ -90,9 +91,10 @@ def build_albers_proj4_string(std_parallel_1, std_parallel_2, origin_lat,
     '''
 
     proj4_string = "'+proj=aea +lat_1=%f +lat_2=%f +lat_0=%f +lon_0=%f" \
-        " +x_0=%f +y_0=%f +ellps=GRS80 +datum=%s +units=m +no_defs'" \
-        % (std_parallel_1, std_parallel_2, origin_lat, central_meridian,
-           false_easting, false_northing, datum)
+                   " +x_0=%f +y_0=%f +ellps=GRS80 +datum=%s +units=m" \
+                   " +no_defs'" % (std_parallel_1, std_parallel_2, origin_lat,
+                                   central_meridian, false_easting,
+                                   false_northing, datum)
 
     return proj4_string
 # END - build_albers_proj4_string
