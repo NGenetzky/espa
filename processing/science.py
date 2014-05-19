@@ -32,7 +32,7 @@ import metadata
 import metadata_api
 import solr
 # We do not offer browse products for the time being.
-#import browse
+# import browse
 import settings
 
 
@@ -68,7 +68,7 @@ order_to_product_mapping = {
 }
 
 
-#=============================================================================
+# ============================================================================
 def build_argument_parser():
     '''
     Description:
@@ -81,22 +81,22 @@ def build_argument_parser():
     parser = ArgumentParser(description=description)
 
     # Parameters
-    parameters.add_debug_parameter (parser)
+    parameters.add_debug_parameter(parser)
 
-    parameters.add_scene_parameter (parser)
+    parameters.add_scene_parameter(parser)
 
-    parameters.add_work_directory_parameter (parser)
+    parameters.add_work_directory_parameter(parser)
 
-    parameters.add_data_type_parameter (parser, parameters.valid_data_types)
+    parameters.add_data_type_parameter(parser, parameters.valid_data_types)
 
-    parameters.add_science_product_parameters (parser)
+    parameters.add_science_product_parameters(parser)
 
     return parser
 # END - build_argument_parser
 
 
-#=============================================================================
-def validate_landsat_parameters (parms):
+# ============================================================================
+def validate_landsat_parameters(parms):
     '''
     Description:
       Make sure all the parameter options needed for this and called routines
@@ -106,7 +106,7 @@ def validate_landsat_parameters (parms):
     # Test for presence of top-level parameters
     keys = ['scene', 'options']
     for key in keys:
-        if not parameters.test_for_parameter (parms, key):
+        if not parameters.test_for_parameter(parms, key):
             return ERROR
 
     # Access to the options parameters
@@ -116,13 +116,13 @@ def validate_landsat_parameters (parms):
     keys = ['data_type']
 
     for key in keys:
-        if not parameters.test_for_parameter (options, key):
+        if not parameters.test_for_parameter(options, key):
             return ERROR
 
     # Test specific parameters for acceptable values if needed
     if options['data_type'] not in parameters.valid_data_types:
-        raise NotImplementedError ("Unsupported data_type [%s]" % \
-            options['data_type'])
+        raise NotImplementedError("Unsupported data_type [%s]"
+                                  % options['data_type'])
 
     # Force these parameters to false if not provided
     keys = ['include_sr', 'include_sr_toa', 'include_sr_thermal',
@@ -132,32 +132,33 @@ def validate_landsat_parameters (parms):
             'include_swe', 'include_solr_index']
 
     for key in keys:
-        if not parameters.test_for_parameter (options, key):
+        if not parameters.test_for_parameter(options, key):
             options[key] = False
 
     # Determine if browse was requested and specify the default resolution if
     # a resolution was not specified
     if options['include_sr_browse']:
-        if not parameters.test_for_parameter (options, 'browse_resolution'):
+        if not parameters.test_for_parameter(options, 'browse_resolution'):
             options['browse_resolution'] = settings.default_browse_resolution
 
     # Determine if SOLR was requested and specify the default collection name
     # if a collection name was not specified
     if options['include_solr_index']:
-        if not parameters.test_for_parameter (options, 'collection_name'):
+        if not parameters.test_for_parameter(options, 'collection_name'):
             options['collection_name'] = settings.default_solr_collection_name
 # END - validate_landsat_parameters
 
 
-def remove_products (xml_filename, products_to_remove=None):
+# ============================================================================
+def remove_products(xml_filename, products_to_remove=None):
     '''
     Description:
       Remove the specified products from the XML file.  The file is read into
       memory, processed, and written back out with out the specified products.
     '''
 
-    if products_to_remove != None:
-        espa_xml = metadata_api.parse (xml_filename, silence=True)
+    if products_to_remove is not None:
+        espa_xml = metadata_api.parse(xml_filename, silence=True)
         bands = espa_xml.get_bands()
 
         file_names = []
@@ -165,41 +166,42 @@ def remove_products (xml_filename, products_to_remove=None):
         # Remove them from the file system first
         for band in bands.band:
             if band.product in products_to_remove:
-                file_name = band.file_name.rsplit ('.')[0]
-                file_names += glob.glob ('%s*' % file_name)
+                file_name = band.file_name.rsplit('.')[0]
+                file_names += glob.glob('%s*' % file_name)
 
         # Only remove files if we found some
         if len(file_names) > 0:
 
             cmd = ['rm', '-rf'] + file_names
             cmd = ' '.join(cmd)
-            log ('REMOVING INTERMEDIAT PRODUCTS NOT REQUESTED COMMAND:' + cmd)
+            log('REMOVING INTERMEDIAT PRODUCTS NOT REQUESTED COMMAND:' + cmd)
 
             try:
-                output = util.execute_cmd (cmd)
+                output = util.execute_cmd(cmd)
             except Exception, e:
-                raise ee.ESPAException (ee.ErrorCodes.remove_products, str(e)), \
-                    None, sys.exc_info()[2]
+                raise ee.ESPAException(ee.ErrorCodes.remove_products,
+                                       str(e)), None, sys.exc_info()[2]
             finally:
-                log (output)
+                log(output)
 
             # Remove them from the XML by creating a new list of all the others
-            bands.band[:] = [band for band in bands.band if band.product not in products_to_remove]
+            bands.band[:] = [band for band in bands.band
+                             if band.product not in products_to_remove]
 
             try:
                 # Export the file with validation
                 xml_fd = open(xml_filename, 'w')
                 # Export to the file and specify the namespace/schema
                 metadata_api.export(xml_fd, espa_xml,
-                    xmlns="http://espa.cr.usgs.gov/v1.0",
-                    xmlns_xsi="http://www.w3.org/2001/XMLSchema-instance",
-                    schema_uri="http://espa.cr.usgs.gov/static/schema/espa_internal_metadata_v1_0.xsd")
+                                    xmlns="http://espa.cr.usgs.gov/v1.0",
+                                    xmlns_xsi="http://www.w3.org/2001/XMLSchema-instance",
+                                    schema_uri="http://espa.cr.usgs.gov/static/schema/espa_internal_metadata_v1_0.xsd")
                 xml_fd.close()
             except Exception, e:
-                raise ee.ESPAException (ee.ErrorCodes.remove_products, str(e)), \
-                    None, sys.exc_info()[2]
+                raise ee.ESPAException(ee.ErrorCodes.remove_products,
+                                       str(e)), None, sys.exc_info()[2]
             finally:
-                log (output)
+                log(output)
         # END - if file_names
 
         # Cleanup
@@ -209,8 +211,8 @@ def remove_products (xml_filename, products_to_remove=None):
 # END - remove_products
 
 
-#=============================================================================
-def build_landsat_science_products (parms):
+# ============================================================================
+def build_landsat_science_products(parms):
     '''
     Description:
       Build all the requested science products for Landsat data.
@@ -226,10 +228,10 @@ def build_landsat_science_products (parms):
     # Figure out the metadata filename
     try:
         landsat_metadata = \
-            metadata.get_landsat_metadata (options['work_directory'])
+            metadata.get_landsat_metadata(options['work_directory'])
     except Exception, e:
-        raise ee.ESPAException (ee.ErrorCodes.metadata, str(e)), \
-            None, sys.exc_info()[2]
+        raise ee.ESPAException(ee.ErrorCodes.metadata,
+                               str(e)), None, sys.exc_info()[2]
     metadata_filename = landsat_metadata['metadata_filename']
 
     xml_filename = metadata_filename.replace('_MTL.txt', '.xml')
@@ -254,43 +256,44 @@ def build_landsat_science_products (parms):
             cmd += ['--del_src_files']
 
         cmd = ' '.join(cmd)
-        log ('CONVERT LPGS TO ESPA COMMAND:' + cmd)
+        log('CONVERT LPGS TO ESPA COMMAND:' + cmd)
 
         try:
-            output = util.execute_cmd (cmd)
+            output = util.execute_cmd(cmd)
         except Exception, e:
-            raise ee.ESPAException (ee.ErrorCodes.reformat, str(e)), \
-                None, sys.exc_info()[2]
+            raise ee.ESPAException(ee.ErrorCodes.reformat,
+                                   str(e)), None, sys.exc_info()[2]
         finally:
             if len(output) > 0:
-                log (output)
+                log(output)
 
         # --------------------------------------------------------------------
         # Generate LEDAPS products SR, TOA, TH
-        if options['include_sr'] \
-          or options['include_sr_browse'] \
-          or options['include_sr_toa'] \
-          or options['include_sr_thermal'] \
-          or options['include_sr_nbr'] \
-          or options['include_sr_nbr2'] \
-          or options['include_sr_ndvi'] \
-          or options['include_sr_ndmi'] \
-          or options['include_sr_savi'] \
-          or options['include_sr_msavi'] \
-          or options['include_sr_evi'] \
-          or options['include_swe']:
+        if (options['include_sr']
+                or options['include_sr_browse']
+                or options['include_sr_toa']
+                or options['include_sr_thermal']
+                or options['include_sr_nbr']
+                or options['include_sr_nbr2']
+                or options['include_sr_ndvi']
+                or options['include_sr_ndmi']
+                or options['include_sr_savi']
+                or options['include_sr_msavi']
+                or options['include_sr_evi']
+                or options['include_swe']):
+
             cmd = ['do_ledaps.py', '--xml', xml_filename]
             cmd = ' '.join(cmd)
-            log ('LEDAPS COMMAND:' + cmd)
+            log('LEDAPS COMMAND:' + cmd)
 
             try:
-                output = util.execute_cmd (cmd)
+                output = util.execute_cmd(cmd)
             except Exception, e:
-                raise ee.ESPAException (ee.ErrorCodes.ledaps, str(e)), \
-                    None, sys.exc_info()[2]
+                raise ee.ESPAException(ee.ErrorCodes.ledaps,
+                                       str(e)), None, sys.exc_info()[2]
             finally:
                 if len(output) > 0:
-                    log (output)
+                    log(output)
 
         # --------------------------------------------------------------------
         # Generate SR browse product
@@ -300,21 +303,22 @@ def build_landsat_science_products (parms):
         # format and it should also cleanup any of it's temporary files.
 #        if options['include_sr_browse']:
 #            try:
-#                browse.do_sr_browse (sr_filename, scene,
+#                browse.do_sr_browse(sr_filename, scene,
 #                    options['browse_resolution'])
 #            except Exception, e:
-#                raise ee.ESPAException (ee.ErrorCodes.browse, str(e)), \
-#                    None, sys.exc_info()[2]
+#                raise ee.ESPAException(ee.ErrorCodes.browse,
+#                                       str(e)), None, sys.exc_info()[2]
 
         # --------------------------------------------------------------------
         # Generate any specified indices
-        if options['include_sr_nbr'] \
-          or options['include_sr_nbr2'] \
-          or options['include_sr_ndvi'] \
-          or options['include_sr_ndmi'] \
-          or options['include_sr_savi'] \
-          or options['include_sr_msavi'] \
-          or options['include_sr_evi']:
+        if (options['include_sr_nbr']
+                or options['include_sr_nbr2']
+                or options['include_sr_ndvi']
+                or options['include_sr_ndmi']
+                or options['include_sr_savi']
+                or options['include_sr_msavi']
+                or options['include_sr_evi']):
+
             cmd = ['do_spectral_indices.py', '--xml', xml_filename]
 
             # Add the specified index options
@@ -334,15 +338,15 @@ def build_landsat_science_products (parms):
                 cmd += ['--evi']
 
             cmd = ' '.join(cmd)
-            log ('SPECTRAL INDICES COMMAND:' + cmd)
+            log('SPECTRAL INDICES COMMAND:' + cmd)
             try:
-                output = util.execute_cmd (cmd)
+                output = util.execute_cmd(cmd)
             except Exception, e:
-                raise ee.ESPAException (ee.ErrorCodes.spectral_indices,
-                    str(e)), None, sys.exc_info()[2]
+                raise ee.ESPAException(ee.ErrorCodes.spectral_indices,
+                                       str(e)), None, sys.exc_info()[2]
             finally:
                 if len(output) > 0:
-                    log (output)
+                    log(output)
         # END - if indices
 
         # --------------------------------------------------------------------
@@ -358,25 +362,25 @@ def build_landsat_science_products (parms):
                    '--demfile', dem_filename]
             cmd = ' '.join(cmd)
 
-            log ('CREATE DEM COMMAND:' + cmd)
+            log('CREATE DEM COMMAND:' + cmd)
             try:
-                output = util.execute_cmd (cmd)
+                output = util.execute_cmd(cmd)
             except Exception, e:
-                raise ee.ESPAException (ee.ErrorCodes.create_dem, str(e)), \
-                    None, sys.exc_info()[2]
+                raise ee.ESPAException(ee.ErrorCodes.create_dem,
+                                       str(e)), None, sys.exc_info()[2]
             finally:
                 if len(output) > 0:
-                    log (output)
+                    log(output)
 
         # --------------------------------------------------------------------
         # Generate SOLR index
         if options['include_solr_index']:
             try:
-                solr.do_solr_index (landsat_metadata, scene, solr_filename,
-                    options['collection_name'])
+                solr.do_solr_index(landsat_metadata, scene, solr_filename,
+                                   options['collection_name'])
             except Exception, e:
-                raise ee.ESPAException (ee.ErrorCodes.solr, str(e)), \
-                    None, sys.exc_info()[2]
+                raise ee.ESPAException(ee.ErrorCodes.solr,
+                                       str(e)), None, sys.exc_info()[2]
 
         # --------------------------------------------------------------------
         # Generate CFMask product
@@ -392,26 +396,27 @@ def build_landsat_science_products (parms):
                     toa_refl_count += 1
                 if band.product == 'toa_bt':
                     toa_bt_count += 1
-            if (toa_refl_count != 7) or (toa_bt_count !=2):
-                raise ee.ESPAException (ee.ErrorCodes.cfmask,
-                    "Could not find or missing LEDAPS TOA reflectance"
-                    " files in %s" % options['work_directory'])
-            del bands    # Not needed anymore
-            del espa_xml # Not needed anymore
+            if (toa_refl_count != 7) or (toa_bt_count != 2):
+                raise ee.ESPAException(ee.ErrorCodes.cfmask,
+                                       "Could not find or missing LEDAPS TOA"
+                                       " reflectance files in %s"
+                                       % options['work_directory'])
+            del bands     # Not needed anymore
+            del espa_xml  # Not needed anymore
 
             cmd = ['cfmask', '--verbose', '--max_cloud_pixels',
                    settings.cfmask_max_cloud_pixels, '--xml', xml_filename]
             cmd = ' '.join(cmd)
 
-            log ('CREATE CFMASK COMMAND:' + cmd)
+            log('CREATE CFMASK COMMAND:' + cmd)
             try:
-                output = util.execute_cmd (cmd)
+                output = util.execute_cmd(cmd)
             except Exception, e:
-                raise ee.ESPAException (ee.ErrorCodes.cfmask, str(e)), \
-                    None, sys.exc_info()[2]
+                raise ee.ESPAException(ee.ErrorCodes.cfmask,
+                                       str(e)), None, sys.exc_info()[2]
             finally:
                 if len(output) > 0:
-                    log (output)
+                    log(output)
 
 #        # --------------------------------------------------------------------
 #        # Generate Surface Water Extent product
@@ -422,42 +427,42 @@ def build_landsat_science_products (parms):
 #                   dem_filename]
 #            cmd = ' '.join(cmd)
 #
-#            log ('CREATE SWE COMMAND:' + cmd)
+#            log('CREATE SWE COMMAND:' + cmd)
 #            try:
-#                output = util.execute_cmd (cmd)
+#                output = util.execute_cmd(cmd)
 #            except Exception, e:
-#                raise ee.ESPAException (ee.ErrorCodes.swe, str(e)), \
+#                raise ee.ESPAException(ee.ErrorCodes.swe, str(e)), \
 #                    None, sys.exc_info()[2]
 #            finally:
 #                if len(output) > 0:
-#                    log (output)
+#                    log(output)
 
         # --------------------------------------------------------------------
         # Remove the intermediate non-product files
         non_products = []
         for item in non_product_files:
-            non_products += glob.glob (item)
+            non_products += glob.glob(item)
 
         # Add L1T source files if not requested
         if not options['include_sourcefile']:
             for item in l1t_source_files:
-                non_products += glob.glob (item)
+                non_products += glob.glob(item)
         if not options['include_source_metadata']:
             for item in l1t_source_metadata_files:
-                non_products += glob.glob (item)
+                non_products += glob.glob(item)
 
         cmd = ['rm', '-rf'] + non_products
         cmd = ' '.join(cmd)
-        log ('REMOVING INTERMEDIATE DATA COMMAND:' + cmd)
+        log('REMOVING INTERMEDIATE DATA COMMAND:' + cmd)
 
         try:
-            output = util.execute_cmd (cmd)
+            output = util.execute_cmd(cmd)
         except Exception, e:
-            raise ee.ESPAException (ee.ErrorCodes.cleanup_work_dir, str(e)), \
-                None, sys.exc_info()[2]
+            raise ee.ESPAException(ee.ErrorCodes.cleanup_work_dir,
+                                   str(e)), None, sys.exc_info()[2]
         finally:
             if len(output) > 0:
-                log (output)
+                log(output)
 
         # Remove generated products that were not requested
         products_to_remove = []
@@ -480,10 +485,10 @@ def build_landsat_science_products (parms):
                 [order_to_product_mapping['include_cfmask']]
 
         try:
-            remove_products (xml_filename, products_to_remove)
+            remove_products(xml_filename, products_to_remove)
         except Exception, e:
-            raise ee.ESPAException (ee.ErrorCodes.remove_products, str(e)), \
-                None, sys.exc_info()[2]
+            raise ee.ESPAException(ee.ErrorCodes.remove_products,
+                                   str(e)), None, sys.exc_info()[2]
 
     finally:
         # Change back to the previous directory
@@ -493,7 +498,7 @@ def build_landsat_science_products (parms):
 # END - build_landsat_science_products
 
 
-#=============================================================================
+# ============================================================================
 if __name__ == '__main__':
     '''
     Description:
@@ -509,17 +514,17 @@ if __name__ == '__main__':
     args_dict = vars(parser.parse_args())
 
     # Setup debug
-    set_debug (args.debug)
+    set_debug(args.debug)
 
     # Build our JSON formatted input from the command line parameters
-    scene = args_dict.pop ('scene')
-    options = {k : args_dict[k] for k in args_dict if args_dict[k] != None}
+    scene = args_dict.pop('scene')
+    options = {k: args_dict[k] for k in args_dict if args_dict[k] is not None}
 
     # Build the JSON parameters dictionary
     json_parms['scene'] = scene
     if sensor not in parameters.valid_sensors:
-        log ("Error: Data sensor %s is not implemented" % sensor)
-        sys.exit (EXIT_FAILURE)
+        log("Error: Data sensor %s is not implemented" % sensor)
+        sys.exit(EXIT_FAILURE)
 
     json_parms['options'] = options
 
@@ -528,17 +533,16 @@ if __name__ == '__main__':
     try:
         # Call the main processing routine
         if sensor in parameters.valid_landsat_sensors:
-            validate_landsat_parameters (parms)
-            build_landsat_science_products (parms)
-        #elif sensor in parameters.valid_OTHER_sensors:
-        #    build_OTHER_science_products (parms)
+            validate_landsat_parameters(parms)
+            build_landsat_science_products(parms)
+        # elif sensor in parameters.valid_OTHER_sensors:
+        #    build_OTHER_science_products(parms)
     except Exception, e:
-        log ("Error: %s" % str(e))
+        log("Error: %s" % str(e))
         tb = traceback.format_exc()
-        log ("Traceback: [%s]" % tb)
+        log("Traceback: [%s]" % tb)
         if hasattr(e, 'output'):
-            log ("Error: Output [%s]" % e.output)
-        sys.exit (EXIT_FAILURE)
+            log("Error: Output [%s]" % e.output)
+        sys.exit(EXIT_FAILURE)
 
-    sys.exit (EXIT_SUCCESS)
-
+    sys.exit(EXIT_SUCCESS)
