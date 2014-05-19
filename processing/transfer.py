@@ -28,8 +28,8 @@ from espa_logging import log
 import util
 
 
-#==============================================================================
-def copy_file_to_file (source_file, destination_file):
+# ============================================================================
+def copy_file_to_file(source_file, destination_file):
     '''
     Description:
       Use unix 'cp' to copy a file from one place to another on the localhost.
@@ -41,20 +41,20 @@ def copy_file_to_file (source_file, destination_file):
     # Transfer the data and raise any errors
     output = ''
     try:
-        output = util.execute_cmd (cmd)
+        output = util.execute_cmd(cmd)
     except Exception, e:
-        log ("Error: Failed to copy file")
+        log("Error: Failed to copy file")
         raise e
     finally:
         if len(output) > 0:
-            log (output)
+            log(output)
 
-    log ("Transfer complete - CP")
+    log("Transfer complete - CP")
 # END - copy_file_to_directory
 
 
-#==============================================================================
-def remote_copy_file_to_file (source_host, source_file, destination_file):
+# ============================================================================
+def remote_copy_file_to_file(source_host, source_file, destination_file):
     '''
     Description:
       Use unix 'cp' to copy a file from one place to another on a remote
@@ -68,19 +68,19 @@ def remote_copy_file_to_file (source_host, source_file, destination_file):
     # Transfer the data and raise any errors
     output = ''
     try:
-        output = util.execute_cmd (cmd)
+        output = util.execute_cmd(cmd)
     except Exception, e:
-        log ("Error: Failed to copy file")
+        log("Error: Failed to copy file")
         raise e
     finally:
         if len(output) > 0:
-            log (output)
+            log(output)
 
-    log ("Transfer complete - SSH-CP")
+    log("Transfer complete - SSH-CP")
 # END - remote_copy_file_to_directory
 
 
-#==============================================================================
+# ============================================================================
 def ftp_from_remote_location(username, pw, host, remotefile, localfile):
     '''
     Author: David Hill
@@ -111,7 +111,7 @@ def ftp_from_remote_location(username, pw, host, remotefile, localfile):
 
     url = 'ftp://%s/%s' % (host, remotefile)
 
-    log ("Transferring file from %s to %s" % (url, localfile))
+    log("Transferring file from %s to %s" % (url, localfile))
     ftp = None
     try:
         with open(localfile, 'wb') as loc_file:
@@ -127,11 +127,11 @@ def ftp_from_remote_location(username, pw, host, remotefile, localfile):
         if ftp:
             ftp.quit()
 
-    log ("Transfer complete - FTP")
+    log("Transfer complete - FTP")
 # END - ftp_from_remote_location
 
 
-#==============================================================================
+# ============================================================================
 def ftp_to_remote_location(username, pw, localfile, host, remotefile):
     '''
     Author: David Hill
@@ -145,7 +145,8 @@ def ftp_to_remote_location(username, pw, localfile, host, remotefile):
       username = Username for ftp account
       pw = Password for ftp account
       host = The ftp server host
-      remotefile = Full path of where to store the file (Directories must exist)
+      remotefile = Full path of where to store the file
+                   (Directories must exist)
       localfile = Full path of file to transfer out
 
     Returns: None
@@ -159,26 +160,26 @@ def ftp_to_remote_location(username, pw, localfile, host, remotefile):
 
     pw = urllib.unquote(pw)
 
-    log ("Transferring file from %s to %s" % \
-        (localfile, 'ftp://%s/%s' % (host, remotefile)))
+    log("Transferring file from %s to %s"
+        % (localfile, 'ftp://%s/%s' % (host, remotefile)))
 
     ftp = None
 
     try:
-        log ("Logging into %s with %s:%s" % (host, username, pw))
+        log("Logging into %s with %s:%s" % (host, username, pw))
         ftp = ftplib.FTP(host, user=username, passwd=pw, timeout=30)
         ftp.storbinary("STOR " + remotefile, open(localfile, 'rb'), 1024)
     finally:
         if ftp:
             ftp.quit()
 
-    log ("Transfer complete - FTP")
+    log("Transfer complete - FTP")
 # END - ftp_to_remote_location
 
 
-#==============================================================================
-def scp_transfer_file (source_host, source_file,
-                       destination_host, destination_file):
+# ============================================================================
+def scp_transfer_file(source_host, source_file,
+                      destination_host, destination_file):
     '''
     Description:
       Using SCP transfer a file from a source location to a destination
@@ -191,7 +192,8 @@ def scp_transfer_file (source_host, source_file,
         file must be a directory.  ***No checking is performed in this code***
     '''
 
-    cmd = ['scp', '-q', '-o', 'StrictHostKeyChecking=no', '-c', 'arcfour', '-C']
+    cmd = ['scp', '-q', '-o', 'StrictHostKeyChecking=no', '-c', 'arcfour',
+           '-C']
 
     # Build the source portion of the command
     # Single quote the source to allow for wild cards
@@ -209,20 +211,22 @@ def scp_transfer_file (source_host, source_file,
     # Transfer the data and raise any errors
     output = ''
     try:
-        output = util.execute_cmd (cmd)
+        output = util.execute_cmd(cmd)
     except Exception, e:
-        log (output)
-        log ("Error: Failed to transfer data")
+        log(output)
+        log("Error: Failed to transfer data")
         raise e
 
-    log ("Transfer complete - SCP")
+    log("Transfer complete - SCP")
 # END - scp_transfer_file
 
 
 # Define the number of bytes to read from the URL file
 BLOCK_SIZE = 16384
-#==============================================================================
-def http_transfer_file (source_host, source_file, destination_file):
+
+
+# ============================================================================
+def http_transfer_file(source_host, source_file, destination_file):
     '''
     Description:
       Using http transfer a file from a source location to a destination
@@ -232,10 +236,10 @@ def http_transfer_file (source_host, source_file, destination_file):
     global BLOCK_SIZE
 
     url_path = 'http://%s/%s' % (source_host, source_file)
-    log (url_path)
+    log(url_path)
 
-    url = urllib2.urlopen (url_path)
-    local_fd = open (destination_file, 'wb')
+    url = urllib2.urlopen(url_path)
+    local_fd = open(destination_file, 'wb')
 
     metadata = url.info()
     file_size = int(metadata.getheaders("Content-Length")[0])
@@ -256,15 +260,15 @@ def http_transfer_file (source_host, source_file, destination_file):
     if retrieved_bytes != file_size:
         raise Exception("Transfer Failed - HTTP")
     else:
-        log ("Transfer complete - HTTP")
+        log("Transfer complete - HTTP")
 # END - scp_transfer_file
 
 
-#==============================================================================
-def transfer_file (source_host, source_file,
-                   destination_host, destination_file,
-                   source_username=None, source_pw=None,
-                   destination_username=None, destination_pw=None):
+# ============================================================================
+def transfer_file(source_host, source_file,
+                  destination_host, destination_file,
+                  source_username=None, source_pw=None,
+                  destination_username=None, destination_pw=None):
     '''
     Description:
       Using cp/FTP/SCP transfer a file from a source location to a destination
@@ -276,41 +280,41 @@ def transfer_file (source_host, source_file,
 
     '''
 
-    log ("Transfering [%s:%s] to [%s:%s]" % \
-        (source_host, source_file, destination_host, destination_file))
+    log("Transfering [%s:%s] to [%s:%s]"
+        % (source_host, source_file, destination_host, destination_file))
 
     # If both source and destination are localhost we can just copy the data
     if source_host == 'localhost' and destination_host == 'localhost':
-        copy_file_to_file (source_file, destination_file)
+        copy_file_to_file(source_file, destination_file)
         return
 
     # If both source and destination hosts are the same, we can use ssh to copy
     # the files locally on the remote host
     if source_host == destination_host:
-        remote_copy_file_to_file (source_host, source_file, destination_file)
+        remote_copy_file_to_file(source_host, source_file, destination_file)
         return
 
     # Try FTP first before SCP if usernames and passwords are provided
     if source_username is not None and source_pw is not None:
         try:
-            ftp_from_remote_location (source_username, source_pw, source_host,
-                source_file, destination_file)
+            ftp_from_remote_location(source_username, source_pw, source_host,
+                                     source_file, destination_file)
             return
         except Exception, e:
-            log ("Warning: FTP failures will attempt transfer using SCP")
-            log ("FTP Errors: %s" % str(e))
+            log("Warning: FTP failures will attempt transfer using SCP")
+            log("FTP Errors: %s" % str(e))
 
     elif destination_username is not None and destination_pw is not None:
         try:
-            ftp_to_remote_location (destination_username, destination_pw,
-                source_file, destination_host, destination_file)
+            ftp_to_remote_location(destination_username, destination_pw,
+                                   source_file, destination_host,
+                                   destination_file)
             return
         except Exception, e:
-            log ("Warning: FTP failures will attempt transfer using SCP")
-            log ("FTP Errors: %s" % str(e))
+            log("Warning: FTP failures will attempt transfer using SCP")
+            log("FTP Errors: %s" % str(e))
 
     # As a last resort try SCP
-    scp_transfer_file (source_host, source_file,
-                       destination_host, destination_file)
+    scp_transfer_file(source_host, source_file,
+                      destination_host, destination_file)
 # END - transfer_file
-
