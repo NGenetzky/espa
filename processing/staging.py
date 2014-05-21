@@ -96,11 +96,15 @@ def initialize_processing_directory(orderid, scene):
     else:
         order_directory = os.environ.get(espa_base_working_dir_envvar)
 
-    # If the directory is '.' or empty, use the current working directory
-    if order_directory == '' or order_directory == '.':
+    # Get the absolute path to the directory, and default to the current one
+    if order_directory == '':
+        # If the directory is empty, use the current working directory
         order_directory = os.getcwd()
+    else:
+        # Get the absolute path
+        order_directory = os.path.abspath(order_directory)
 
-    # Specify a random directory using orderid
+    # Specify a specific directory using the orderid
     order_directory += '/' + str(orderid)
 
     # Specify the scene sub-directory
