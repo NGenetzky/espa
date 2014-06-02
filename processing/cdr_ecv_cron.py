@@ -27,6 +27,7 @@ import time
 import json
 import xmlrpclib
 from datetime import datetime
+import urllib
 
 # espa-common objects and methods
 from espa_constants import *
@@ -51,6 +52,26 @@ def runScenes():
     server = xmlrpclib.ServerProxy(rpcurl)
     hadoop_executable = "%s/bin/hadoop/bin/hadoop" % home_dir
 
+    # Verify xmlrpc server
+    if server is None:
+        log("xmlrpc server was None... exiting")
+        sys.exit(EXIT_FAILURE)
+
+    user = server.getConfiguration('landsatds.usrname')
+    if len(user) == 0:
+        log("landsatds.username is not defined... exiting")
+        sys.exit(EXIT_FAILURE)
+
+    pw = urllib.quote(server.getConfiguration('landsatds.password'))
+    if len(pw) == 0:
+        log("landsatds.password is not defined... exiting")
+        sys.exit(EXIT_FAILURE)
+
+    host = server.getConfiguration('landsatds.host')
+    if len(host) == 0:
+        log("landsatds.host is not defined... exiting")
+        sys.exit(EXIT_FAILURE)
+
     try:
         log("Checking for scenes to process...")
         scenes = server.getScenesToProcess()
@@ -69,11 +90,23 @@ def runScenes():
             fd = open(espaorderfile, 'w+')
             for scene in scenes:
                 line = json.loads(scene)
+
                 (orderid, sceneid, options) = (line['orderid'],
                                                line['scene'],
                                                line['options'])
+
                 line['xmlrpcurl'] = rpcurl
+
+                # Add the usernames and passwords to the options
+                options['source_username'] = user
+                options['destination_username'] = user
+                options['source_pw'] = pw
+                options['destination_pw'] = pw
+
+                line['options'] = options
+
                 line_entry = json.dumps(line)
+                log(line_entry)
 
                 # Pad the entry so hadoop will properly split the jobs
                 filler = ""

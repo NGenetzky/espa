@@ -351,28 +351,29 @@ def add_reprojection_parameters(parser, projection_values, ns_values,
                         help="perform resizing of the pixels on the products")
     parser.add_argument('--pixel_size',
                         action='store', dest='pixel_size',
-                        help="new size of the pixels")
+                        help="desired pixel size for output products")
     parser.add_argument('--pixel_size_units',
                         action='store', dest='pixel_size_units',
                         choices=pixel_size_units,
-                        help="one of (%s)" % ', '.join(pixel_size_units))
+                        help="units pixel size is specified in: one of (%s)"
+                             % ', '.join(pixel_size_units))
 
     parser.add_argument('--image_extents',
                         action='store_true', dest='image_extents',
                         default=False,
-                        help="subset the data")
+                        help="specify desired output image extents")
     parser.add_argument('--minx',
                         action='store', dest='minx',
-                        help="minimum X for the image subset")
+                        help="minimum X for the image extent")
     parser.add_argument('--miny',
                         action='store', dest='miny',
-                        help="minimum Y for the image subset")
+                        help="minimum Y for the image extent")
     parser.add_argument('--maxx',
                         action='store', dest='maxx',
-                        help="maximum X for the image subset")
+                        help="maximum X for the image extent")
     parser.add_argument('--maxy',
                         action='store', dest='maxy',
-                        help="maximum Y for the image subset")
+                        help="maximum Y for the image extent")
 
     parser.add_argument('--resample_method',
                         action='store', dest='resample_method', default='near',

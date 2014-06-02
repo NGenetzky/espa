@@ -269,6 +269,7 @@ def distribute_product(destination_host, destination_directory,
 
     output = ''
     try:
+        debug("mkdir cmd:" + cmd)
         output = util.execute_cmd(cmd)
     except Exception, e:
         raise ee.ESPAException(ee.ErrorCodes.packaging_product,
@@ -299,6 +300,7 @@ def distribute_product(destination_host, destination_directory,
            'cksum', destination_product_file]
     cmd = ' '.join(cmd)
     try:
+        debug("ssh cmd:" + cmd)
         cksum_value = util.execute_cmd(cmd)
     except Exception, e:
         log(cksum_value)
@@ -342,6 +344,7 @@ def distribute_statistics(work_directory,
 
         output = ''
         try:
+            debug("mkdir cmd:" + cmd)
             output = util.execute_cmd(cmd)
         except Exception, e:
             raise ee.ESPAException(ee.ErrorCodes.packaging_product,
@@ -367,6 +370,7 @@ def distribute_statistics(work_directory,
             cmd = ['cksum', file_name]
             cmd = ' '.join(cmd)
             try:
+                debug("cksum cmd:" + cmd)
                 local_cksum_value = util.execute_cmd(cmd)
             except Exception, e:
                 log(local_cksum_value)

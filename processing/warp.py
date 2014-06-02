@@ -62,12 +62,13 @@ def build_sinu_proj4_string(central_meridian, false_easting, false_northing):
 
     Example:
       +proj=sinu +lon_0=0 +x_0=0 +y_0=0 +a=6371007.181 +b=6371007.181
-      +units=m +no_defs
+      +ellps=WGS84 +datum=WGS84 +units=m +no_defs
     '''
 
     global SINUSOIDAL_SPHERE_RADIUS
 
     proj4_string = "'+proj=sinu +lon_0=%f +x_0=%f +y_0=%f +a=%f +b=%f" \
+                   " +ellps=WGS84 +datum=WGS84" \
                    " +units=m +no_defs'" % (central_meridian, false_easting,
                                             false_northing,
                                             SINUSOIDAL_SPHERE_RADIUS,

@@ -118,7 +118,7 @@ def ftp_from_remote_location(username, pw, host, remotefile, localfile):
             def callback(data):
                 loc_file.write(data)
 
-            ftp = ftplib.FTP(host, timeout=30)
+            ftp = ftplib.FTP(host, timeout=60)
             ftp.login(user=username, passwd=pw)
             ftp.set_debuglevel(0)
             ftp.retrbinary("RETR " + remotefile, callback)
@@ -167,7 +167,7 @@ def ftp_to_remote_location(username, pw, localfile, host, remotefile):
 
     try:
         log("Logging into %s with %s:%s" % (host, username, pw))
-        ftp = ftplib.FTP(host, user=username, passwd=pw, timeout=30)
+        ftp = ftplib.FTP(host, user=username, passwd=pw, timeout=60)
         ftp.storbinary("STOR " + remotefile, open(localfile, 'rb'), 1024)
     finally:
         if ftp:
