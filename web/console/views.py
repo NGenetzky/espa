@@ -37,6 +37,7 @@ class ShowOrders(View):
         t = loader.get_template(self.template)
         c = RequestContext(request, {'scenes': scenes})
 
+
         return HttpResponse(t.render(c))
 
 
