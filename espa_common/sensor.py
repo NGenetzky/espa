@@ -356,8 +356,8 @@ class LandsatETM(Landsat):
 def instance(product_id):
     '''
     Supported MODIS products
-    MOD09A1	 MOD09GA MOD09GQ MOD09Q1 MYD09A1 MYD09GA MYD09GQ MYD09Q1
-    MOD13A1	 MOD13A2 MOD13A3 MOD13Q1 MYD13A1 MYD13A2 MYD13A3 MYD13Q1
+    MOD09A1 MOD09GA MOD09GQ MOD09Q1 MYD09A1 MYD09GA MYD09GQ MYD09Q1
+    MOD13A1 MOD13A2 MOD13A3 MOD13Q1 MYD13A1 MYD13A2 MYD13A3 MYD13Q1
 
     MODIS FORMAT:   MOD09GQ.A2000072.h02v09.005.2008237032813
 
@@ -368,7 +368,20 @@ def instance(product_id):
 
     '''
 
+    #remove known file extensions before comparison
+    #do not alter the case of the actual product_id!
+    if product_id.lower().endswith(settings.MODIS_INPUT_FILENAME_EXTENSION):
+        index = product_id.lower().index(settings.MODIS_INPUT_FILENAME_EXTENSION)
+        #leave original case intact
+        product_id = product_id[0:index] 
+    elif product_id.lower().endswith(settings.LANDSAT_INPUT_FILENAME_EXTENSION):
+        index = product_id.lower().index(settings.LANDSAT_INPUT_FILENAME_EXTENSION)
+        #leave original case intact
+        product_id = product_id[0:index]
+
+    #ok to modify case here for comparison in regex
     _id = product_id.lower().strip()
+
 
     instances = {
         'tm': (r'^lt[4|5]\d{3}\d{3}\d{4}\d{3}[a-z]{3}[a-z0-9]{2}$',

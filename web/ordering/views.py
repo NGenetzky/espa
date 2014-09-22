@@ -49,6 +49,14 @@ class AbstractView(View):
             else:
                 return ""
 
+    def _get_system_status(self, ctx):
+        
+        ctx['submitted_units'] = Scene.objects.filter(status='submitted').count()
+        ctx['onorder_units'] = Scene.objects.filter(status='on order').count()
+        ctx['oncache_units'] = Scene.objects.filter(status='on cache').count()
+        ctx['queued_units'] = Scene.objects.filter(status='queued').count()
+        ctx['process_units'] = Scene.objects.filter(status='processing').count()
+
     def _display_system_message(self, ctx):
         '''Utility method to populate the context with systems messages if
         there are any configured for display
@@ -113,6 +121,9 @@ class AbstractView(View):
 
         if include_system_message:
             self._display_system_message(context)
+
+        if request.user.is_staff:
+            self._get_system_status(context)
 
         return context
 

@@ -46,6 +46,9 @@
 #  005          10-30-2013      Adam Dosch          Missing import for commands module! WTF
 #                                                   Missing import for datetime module! WTF
 #                                                   Removing some debugging code.
+#  006          09-11-2014      Adam Dosch          Adding 'espatst' as a valid username
+#                                                   argument
+#                                                   Adding fix for homedir in crontab gen
 #
 ##########################################################################################
 
@@ -140,7 +143,7 @@ def send_email(sender, recipient, subject, body):
     smtp.sendmail(sender, recipient, msg.as_string())
     smtp.quit()
 
-def update_crontab(frequency, backDate=True):
+def update_crontab(frequency, user, backDate=True):
     """
     Update crontab to schedule new cron entry for next password change for account.
     
@@ -176,7 +179,7 @@ def update_crontab(frequency, backDate=True):
         if "change_credentials.py" in cronline:
             (month, day) = datetime.datetime.strftime(datetime.datetime.now() + datetime.timedelta(days=newfrequency), "%m|%d").split("|")
             
-            data[idx] = "00 05 %s %s * /usr/local/bin/python /home/%s/espa-site/tools/change_credentials.py -u %s -f %s\n" % (day, month, "espa", "espa", 60)
+            data[idx] = "00 05 %s %s * /usr/local/bin/python /home/%s/espa-site/tools/change_credentials.py -u %s -f %s\n" % (day, month, user, user, 60)
     
     # Re-write out new temp file with any crontab updates we did above
     try:
@@ -308,7 +311,7 @@ def main():
     #Set up option handling
     parser = argparse.ArgumentParser(description="Changes credentials supplied for -u/--username and updated Django configuration table for ESPA admin site.  Right now it needs to run on the same host where the MySQL database lives for ESPA.  This script will also auto-update a crontab for the user running this")
     
-    parser.add_argument("-u", "--username", action="store", nargs=1, dest="username", choices=['espa','espadev'], help="Username to changed credentials for (e.g. [espa|espadev] )")
+    parser.add_argument("-u", "--username", action="store", nargs=1, dest="username", choices=['espa','espadev','espatst'], help="Username to changed credentials for (e.g. [espa|espadev|espatst] )")
     parser.add_argument("-f", "--frequency", action="store", type=int, default=60, dest="frequency", help="Frequency (in days) to change the following credentials")
     
     parser.add_argument("-v", "--verbose", action='store_true', dest="verbose", default=False, help=argparse.SUPPRESS)
@@ -449,7 +452,7 @@ def main():
     
     
     # Lastly, regardless of success or not, let's set up the next cron job
-    update_crontab(args.frequency)
+    update_crontab(args.frequency, username)
     
 if __name__ == '__main__':
     main()
