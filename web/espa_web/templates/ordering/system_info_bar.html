@@ -1,8 +1,10 @@
 
 <div id="system-info">
-    <span class="navitemleft">Submitted: <a href="">{{ submitted_units }}</a></span>
-    <span class="navitemleft">OnOrder: <a href="">{{ onorder_units }}</a></span>
-    <span class="navitemleft">Queued: <a href="">{{ queued_units }}</a></span>
+    <span class="navitemleft">Submitted: <a href="{% url 'show_orders' 'submitted'%}">{{ submitted_units }}</a></span>
+    <span class="navitemleft">OnOrder: <a href="{% url 'show_orders' 'onorder' %}">{{ onorder_units }}</a></span>
+    <span class="navitemleft">OnCache: <a href="{% url 'show_orders' 'oncache' %}">{{ oncache_units }}</a></span>
+    <span class="navitemleft">Queued: <a href="{% url 'show_orders' 'queued' %}">{{ queued_units }}</a></span>
+    <span class="navitemleft">Processing: <a href="{% url 'show_orders' 'processing' %}">{{ process_units }}</a></span>
 
     <span class="navitemright">OnDemand: <b>ON</b>/<a href="">Off</a></span>
 </div>

@@ -35,8 +35,7 @@ class ShowOrders(View):
         scenes = Scene.objects.filter(status=status_in)
 
         t = loader.get_template(self.template)
-        c = RequestContext(request, {'scenes': scenes})
-
+        c = RequestContext(request, {'status_in': status_in, 'scenes': scenes})
 
         return HttpResponse(t.render(c))
 
