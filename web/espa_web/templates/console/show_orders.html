@@ -1,0 +1,65 @@
+{% extends 'ordering/base.html' %}
+
+{% block title %} ESPA Console {% endblock %}
+{% block header %} Console: Index {% endblock %}
+
+{% block style %}
+
+div.boxbody {
+    margin:0 auto;
+    width:750px;
+    border:none;
+}
+
+div.boxbody table {
+    width:750px;
+    padding:10px;
+}
+
+div.boxbody table td {
+    padding:5px 10px;
+}
+
+tr {
+    line-height:1.6em;
+}
+
+tr.evenrow {
+    background-color:#DEDEDE;
+}
+
+tr.evenrow td{
+    background-color:#DEDEDE;
+}
+
+{% endblock %}
+
+{% block nav %}{% include 'ordering/bulk_ordering_nav.html' %}{% endblock %}
+
+{% block content %}
+
+<div id="wrapper">
+
+
+{% if scenes %}
+<h4>Orders for status: {{ status_in }}</h4>
+
+<div class='boxbody'>
+<table class='noborder'>
+{% for scene in scenes %}
+    <tr class="{% cycle 'oddrow' 'evenrow' %}">
+        <td>eherre</td>
+    </tr>    
+{% endfor %}
+</table>
+</div>
+
+{% else %}
+
+<h4>No orders found for {{ status_in }} status</h4>
+
+{% endif %}
+
+</div>
+
+{% endblock %}
