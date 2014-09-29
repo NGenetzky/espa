@@ -57,6 +57,15 @@ class AbstractView(View):
         ctx['queued_units'] = Scene.objects.filter(status='queued').count()
         ctx['process_units'] = Scene.objects.filter(status='processing').count()
 
+        try:
+            ondemand_enabled = Config.objects.get(key='ondemand_enabled')
+            if ondemand_enabled.value.lower() == 'true':
+                ctx['ondemand_enabled'] = True
+            else:
+                ctx['ondemand_enabled'] = False
+        except Config.DoesNotExist:
+            ctx['ondemand_enabled'] = False
+
     def _display_system_message(self, ctx):
         '''Utility method to populate the context with systems messages if
         there are any configured for display
