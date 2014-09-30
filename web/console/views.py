@@ -1,3 +1,4 @@
+import json
 import time
 
 from django.contrib.auth.models import User
@@ -28,6 +29,25 @@ class Index(AbstractView):
 
         return HttpResponse(t.render(c))
 
+class UpdateOnDemandStatus(View):
+    def get(self, request, state_in):
+        if not request.user.is_staff:
+            response = {'result': 'error', 'message': 'Not authorized to perform this action'}
+            return HttpResponse(json.dumps(response), content_type="application/json")
+    
+        ondemand_enabled, created = Configuration.objects.get_or_create(key="ondemand_enabled")
+        if state_in.lower() == 'on':
+            ondemand_enabled.value = 'true'
+        elif state_in.lower() == 'off':
+            ondemand_enabled.value = 'false'
+        else:
+            response = {'result': 'error', 'message': 'Invalid option. Valid options are: on, off'}
+            return HttpResponse(json.dumps(response), content_type="application/json")
+
+        ondemand_enabled.save()
+
+        response = {'result': 'success', 'message': 'success'}
+        return HttpResponse(json.dumps(response), content_type="application/json")
 
 class ShowOrders(AbstractView):
     template = 'console/show_orders.html'

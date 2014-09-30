@@ -50,7 +50,7 @@ class AbstractView(View):
                 return ""
 
     def _get_system_status(self, ctx):
-        
+        ctx['display_sys_status'] = True 
         ctx['submitted_units'] = Scene.objects.filter(status='submitted').count()
         ctx['onorder_units'] = Scene.objects.filter(status='onorder').count()
         ctx['oncache_units'] = Scene.objects.filter(status='oncache').count()

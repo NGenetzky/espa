@@ -6,5 +6,11 @@
     <span class="navitemleft">Queued: <a href="{% url 'show_orders' 'queued' %}">{{ queued_units }}</a></span>
     <span class="navitemleft">Processing: <a href="{% url 'show_orders' 'processing' %}">{{ process_units }}</a></span>
 
-    <span class="navitemright">OnDemand: <b>ON</b>/<a href="">Off</a></span>
+    <span class="navitemright">OnDemand:
+    {% if ondemand_enabled %}
+        <span id="ondemand-on" class="option-select">On</span><span id="ondemand-off" class='option-not-select'>Off</span>
+    {% else %}
+        <span id="ondemand-on" class="option-not-select">On</span><span id="ondemand-off" class="option-select">Off</span>
+    {% endif %}
+    </span>
 </div>

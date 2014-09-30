@@ -255,6 +255,22 @@ h5 {
     line-height:20px;
 }
 
+.option-select {
+    font-weight: bold;
+    background-color: lightgray;
+    border: 1px solid black;
+    padding: 1px 2px 1px 2px;
+    cursor: pointer;
+}
+
+.option-not-select {
+    background-color: white;
+    font-weight: normal;
+    border: 1px solid black;
+    padding: 1px 2px 1px 2px;
+    cursor: pointer;
+}
+
 span.navitemleft {
     padding-left:15px;
     font-weight:bold;
