@@ -38,7 +38,7 @@ tr.evenrow td{
 
 {% block content %}
 
-<div id="wrapper">
+<div class="wrapper">
 
 
 {% if scenes %}
@@ -46,18 +46,30 @@ tr.evenrow td{
 
 <div class='boxbody'>
 <table class='noborder'>
+<thead>
+<tr>
+    <th>Name</th>
+    <th>Status</th>
+    <th>Order</th>
+    <th>TRAM Id</th>
+    <th>Job Name</th>
+</tr>
+</thead>
+<tbody>
 {% for scene in scenes %}
     <tr class="{% cycle 'oddrow' 'evenrow' %}">
-        <td>eherre</td>
-    </tr>    
+        <td class='noborder'>{{ scene.name }}</td>
+        <td class='noborder'>{{ scene.get_status_display }}</td>
+        <td class='noborder'>{{ scene.order.orderid }}</td>
+        <td class='noborder'>{{ scene.tram_order_id }}</td>
+        <td class='noborder'>{{ scene.job_name }}</td>
+    </tr>
 {% endfor %}
+</tbody>  
 </table>
 </div>
-
 {% else %}
-
 <h4>No orders found for {{ status_in }} status</h4>
-
 {% endif %}
 
 </div>

@@ -13,8 +13,9 @@ from django.views.generic.edit import FormView
 
 from forms import StatusMessageForm
 from ordering.models import Configuration, Scene
+from ordering.views import AbstractView
 
-class Index(View):
+class Index(AbstractView):
     template = 'console/index.html'
 
     def get(self, request, *args, **kwargs):
@@ -22,10 +23,13 @@ class Index(View):
         if not user.is_staff:
             return HttpResponseRedirect(reverse('login'))
 
-        return render(request, self.template)
+        c = self._get_request_context(request)
+        t = loader.get_template(self.template)
+
+        return HttpResponse(t.render(c))
 
 
-class ShowOrders(View):
+class ShowOrders(AbstractView):
     template = 'console/show_orders.html'
 
     def get(self, request, status_in):
@@ -35,12 +39,12 @@ class ShowOrders(View):
         scenes = Scene.objects.filter(status=status_in)
 
         t = loader.get_template(self.template)
-        c = RequestContext(request, {'status_in': status_in, 'scenes': scenes})
+        c = self._get_request_context(request, {'status_in': status_in, 'scenes': scenes})
 
         return HttpResponse(t.render(c))
 
 
-class StatusMessage(SuccessMessageMixin, FormView):
+class StatusMessage(SuccessMessageMixin, AbstractView, FormView):
     template_name = 'console/statusmsg.html'
     form_class = StatusMessageForm
     success_url = 'statusmsg'
@@ -62,6 +66,7 @@ class StatusMessage(SuccessMessageMixin, FormView):
 
     def get_context_data(self, **kwargs):
         context = super(StatusMessage, self).get_context_data(**kwargs)
+        self._get_system_status(context)
 
         try:
             update_date = Configuration.objects.get(key="system_message_updated_date")

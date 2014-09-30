@@ -248,6 +248,13 @@ h5 {
     color:#FFFFFF;
 }
 
+#system-info {
+    padding-top:8px;
+    padding-bottom:8px;
+    overflow:auto;
+    line-height:20px;
+}
+
 span.navitemleft {
     padding-left:15px;
     font-weight:bold;

@@ -52,8 +52,8 @@ class AbstractView(View):
     def _get_system_status(self, ctx):
         
         ctx['submitted_units'] = Scene.objects.filter(status='submitted').count()
-        ctx['onorder_units'] = Scene.objects.filter(status='on order').count()
-        ctx['oncache_units'] = Scene.objects.filter(status='on cache').count()
+        ctx['onorder_units'] = Scene.objects.filter(status='onorder').count()
+        ctx['oncache_units'] = Scene.objects.filter(status='oncache').count()
         ctx['queued_units'] = Scene.objects.filter(status='queued').count()
         ctx['process_units'] = Scene.objects.filter(status='processing').count()
 
