@@ -1,10 +1,10 @@
 #! /usr/bin/env python
 
 '''
-    FILE: cdr_ecv_cron.py
+    FILE: ondemand_cron.py
 
-    PURPOSE: Master run script for new Hadoop jobs.  Queries the xmlrpc
-             service to find scenes that need to be processed and
+    PURPOSE: Master script for new Hadoop jobs.  Queries the xmlrpc
+             service to find requests that need to be processed and
              builds/executes a Hadoop job to process them.
 
     PROJECT: Land Satellites Data Systems Science Research and Development
@@ -21,14 +21,16 @@
                                                enhancements.
     Sept/2014         Ron Dilley               Updated to use espa_common and
                                                our python logging setup
+    Oct/2014          Ron Dilley               Renamed and incorporates all of
+                                               our ondemand cron processing
 '''
 
 import os
 import sys
 import json
 import xmlrpclib
-from datetime import datetime
 import urllib
+from datetime import datetime
 from argparse import ArgumentParser
 
 # espa-common objects and methods
@@ -40,21 +42,17 @@ from espa_common import settings, utilities
 from espa_common.logger_factory import EspaLogging as EspaLogging
 
 
-LOGGER_NAME = 'espa.cron'
-
-
 # ============================================================================
-def process_products(args):
+def process_requests(args, logger_name, queue_priority, request_priority):
     '''
     Description:
-      Queries the xmlrpc service to see if there are any products that need
-      to be processed with the specified priority and/or user.  If there are,
-      this method builds and executes a hadoop job and updates the status for
-      each order through the xmlrpc service."
+      Queries the xmlrpc service to see if there are any requests that need
+      to be processed with the specified type, priority and/or user.  If there
+      are, this method builds and executes a hadoop job and updates the status
+      for each request through the xmlrpc service."
     '''
 
     # Get the logger for this task
-    logger_name = '.'.join([LOGGER_NAME, args.priority.lower()])
     logger = EspaLogging.get_logger(logger_name)
 
     rpcurl = os.environ.get('ESPA_XMLRPC')
@@ -91,47 +89,41 @@ def process_products(args):
         msg = "landsatds.host is not defined... exiting"
         raise Exception(msg)
 
-    # adding this so we can disable on-demand processing via the admin console
+    # Use ondemand_enabled to determine if we should be processing or not
     ondemand_enabled = server.get_configuration('ondemand_enabled')
 
-    # determine the appropriate priority value to request
-    priority = args.priority
-    if priority == 'all':
-        priority = None  # for 'get_scenes_to_process' None means all
-
-    # determine the appropriate hadoop queue to use
-    hadoop_job_queue = settings.HADOOP_QUEUE_MAPPING[args.priority]
+    # Determine the appropriate hadoop queue to use
+    hadoop_job_queue = settings.HADOOP_QUEUE_MAPPING[queue_priority]
 
     if not ondemand_enabled.lower() == 'true':
         raise Exception("on demand disabled... exiting")
 
     try:
-        logger.info("Checking for scenes to process...")
-        scenes = server.get_scenes_to_process(args.limit, args.user, priority,
-                                              ['landsat', 'modis'])
-        if scenes:
+        logger.info("Checking for requests to process...")
+        requests = server.get_scenes_to_process(args.limit, args.user,
+                                                request_priority,
+                                                list(args.product_types))
+        if requests:
             # Figure out the name of the order file
             stamp = datetime.now()
-            espa_job_name = ('%s_%s_%s_%s_%s_%s-%s-espa_job'
-                             % (str(stamp.month), str(stamp.day),
-                                str(stamp.year), str(stamp.hour),
-                                str(stamp.minute), str(stamp.second),
-                                str(args.priority)))
+            job_name = ('%s_%s_%s_%s_%s_%s-%s-espa_job'
+                        % (str(stamp.month), str(stamp.day),
+                           str(stamp.year), str(stamp.hour),
+                           str(stamp.minute), str(stamp.second),
+                           str(queue_priority)))
 
-            logger.info(' '.join(["Found scenes to process,",
-                                  "generating job number:", espa_job_name]))
+            logger.info(' '.join(["Found requests to process,",
+                                  "generating job name:", job_name]))
 
-            espa_job_filename = '%s%s' % (espa_job_name, '.txt')
-            espa_job_filepath = os.path.join('/tmp', espa_job_filename)
+            job_filename = '%s%s' % (job_name, '.txt')
+            job_filepath = os.path.join('/tmp', job_filename)
 
             # Create the order file full of all the scenes requested
-            with open(espa_job_filepath, 'w+') as espa_fd:
-                for scene in scenes:
-                    line = json.loads(scene)
+            with open(job_filepath, 'w+') as espa_fd:
+                for request in requests:
+                    line = json.loads(request)
 
-                    (orderid, sceneid, options) = (line['orderid'],
-                                                   line['scene'],
-                                                   line['options'])
+                    (orderid, options) = (line['orderid'], line['options'])
 
                     line['xmlrpcurl'] = rpcurl
 
@@ -149,20 +141,23 @@ def process_products(args):
                     # Pad the entry so hadoop will properly split the jobs
                     filler_count = (settings.ORDER_BUFFER_LENGTH -
                                     len(line_entry))
-                    order_line = ''.join([line_entry,
-                                          ('#' * filler_count), '\n'])
+                    request_line = ''.join([line_entry,
+                                            ('#' * filler_count), '\n'])
 
-                    # Write out the order line
-                    espa_fd.write(order_line)
+                    # Write out the request line
+                    espa_fd.write(request_line)
                 # END - for scene
             # END - with espa_fd
 
             # Specify the location of the order file on the hdfs
-            hdfs_target = 'requests/%s' % espa_job_filename
+            hdfs_target = 'requests/%s' % job_filename
+
+            # Specify the mapper application
+            mapper = "ondemand_mapper.py"
 
             # Define command line to store the job file in hdfs
             hadoop_store_command = [hadoop_executable, 'dfs', '-copyFromLocal',
-                                    espa_job_filepath, hdfs_target]
+                                    job_filepath, hdfs_target]
 
             jars = os.path.join(home_dir, 'bin/hadoop/contrib/streaming',
                                 'hadoop-streaming*.jar')
@@ -173,10 +168,9 @@ def process_products(args):
                  '-D', 'mapred.task.timeout=%s' % settings.HADOOP_TIMEOUT,
                  '-D', 'mapred.reduce.tasks=0',
                  '-D', 'mapred.job.queue.name=%s' % hadoop_job_queue,
-                 '-D', 'mapred.job.name="%s"' % espa_job_name,
+                 '-D', 'mapred.job.name="%s"' % job_name,
                  '-file', '%s/espa-site/processing/cdr_ecv.py' % home_dir,
-                 '-file', ('%s/espa-site/processing/cdr_ecv_mapper.py'
-                           % home_dir),
+                 '-file', '%s/espa-site/processing/%s' % (home_dir, mapper),
                  '-file', '%s/espa-site/processing/modis.py' % home_dir,
                  '-file', '%s/espa-site/processing/browse.py' % home_dir,
                  '-file', '%s/espa-site/processing/distribution.py' % home_dir,
@@ -184,6 +178,7 @@ def process_products(args):
                            % home_dir),
                  '-file', '%s/espa-site/processing/metadata.py' % home_dir,
                  '-file', '%s/espa-site/processing/parameters.py' % home_dir,
+                 '-file', '%s/espa-site/processing/plotting.py' % home_dir,
                  '-file', '%s/espa-site/processing/science.py' % home_dir,
                  '-file', '%s/espa-site/processing/solr.py' % home_dir,
                  '-file', '%s/espa-site/processing/staging.py' % home_dir,
@@ -196,8 +191,7 @@ def process_products(args):
                  '-file', '%s/espa-site/espa_common/sensor.py' % home_dir,
                  '-file', '%s/espa-site/espa_common/settings.py' % home_dir,
                  '-file', '%s/espa-site/espa_common/utilities.py' % home_dir,
-                 '-mapper', ('%s/espa-site/processing/cdr_ecv_mapper.py'
-                             % home_dir),
+                 '-mapper', '%s/espa-site/processing/%s' % (home_dir, mapper),
                  '-cmdenv', 'ESPA_WORK_DIR=$ESPA_WORK_DIR',
                  '-cmdenv', 'HOME=$HOME',
                  '-cmdenv', 'USER=$USER',
@@ -231,8 +225,8 @@ def process_products(args):
             # Update the scene list as queued so they don't get pulled down
             # again now that these jobs have been stored in hdfs
             product_list = list()
-            for scene in scenes:
-                line = json.loads(scene)
+            for request in requests:
+                line = json.loads(request)
                 orderid = line['orderid']
                 sceneid = line['scene']
                 product_list.append((orderid, sceneid))
@@ -241,11 +235,11 @@ def process_products(args):
                             % (sceneid, orderid))
 
             server.queue_products(product_list, 'CDR_ECV cron driver',
-                                  espa_job_name)
+                                  job_name)
 
             logger.info("Deleting local request file copy [%s]"
-                        % espa_job_filepath)
-            os.unlink(espa_job_filepath)
+                        % job_filepath)
+            os.unlink(job_filepath)
 
             # ----------------------------------------------------------------
             logger.info("Running hadoop job...")
@@ -286,17 +280,17 @@ def process_products(args):
                     logger.info(output)
 
         else:
-            logger.info("No scenes to process....")
+            logger.info("No requests to process....")
 
     except xmlrpclib.ProtocolError, e:
         logger.exception("A protocol error occurred")
 
     except Exception, e:
-        logger.exception("Error Processing Scenes")
+        logger.exception("Error Processing Ondemand Requests")
 
     finally:
         server = None
-# END - process_products
+# END - process_requests
 
 
 # ============================================================================
@@ -313,11 +307,18 @@ if __name__ == '__main__':
 
     # Add parameters
     valid_priorities = sorted(settings.HADOOP_QUEUE_MAPPING.keys())
+    valid_product_types = ['landsat', 'modis', 'plot']
     parser.add_argument('--priority',
                         action='store', dest='priority', required=True,
                         choices=valid_priorities,
                         help="only process requests with this priority:"
                              " one of (%s)" % ', '.join(valid_priorities))
+
+    parser.add_argument('--product-types',
+                        action='store', dest='product_types', required=True,
+                        nargs='*',
+                        help=("only process requests for"
+                              " the specified products"))
 
     parser.add_argument('--limit',
                         action='store', dest='limit', required=False,
@@ -332,8 +333,20 @@ if __name__ == '__main__':
     # Parse the command line arguments
     args = parser.parse_args()
 
+    # Validate product_types
+    if ((set(['landsat', 'plot']) == set(args.product_types))
+            or (set(['modis', 'plot']) == set(args.product_types))
+            or (set(['landsat', 'modis', 'plot']) == set(args.product_types))):
+        print("Invalid --product-types: 'plot' cannot be combined with any"
+              " other product types")
+        sys.exit(EXIT_FAILURE)
+    sys.exit(EXIT_SUCCESS)
+
     # Configure and get the logger for this task
-    logger_name = '.'.join([LOGGER_NAME, args.priority.lower()])
+    if 'plot' in args.product_types:
+        logger_name = 'espa.cron.plot'
+    else:
+        logger_name = '.'.join(['espa.cron', args.priority.lower()])
     EspaLogging.configure(logger_name)
     logger = EspaLogging.get_logger(logger_name)
 
@@ -348,9 +361,23 @@ if __name__ == '__main__':
             logger.critical("$%s is not defined... exiting" % env_var)
             sys.exit(EXIT_FAILURE)
 
+    # Determine the appropriate priority value to use for the queue and request
+    queue_priority = args.priority.lower()
+    request_priority = queue_priority
+    if 'plot' in args.product_types:
+        if queue_priority == 'all':
+            # If all was specified default to high queue
+            queue_priority = 'high'
+        # The request priority is always None for plotting to get all of them
+        request_priority = None
+    else:
+        if request_priority == 'all':
+            # We need to use a value of None to get all of them
+            request_priority = None
+
     # Setup and submit products to hadoop for processing
     try:
-        process_products(args)
+        process_requests(args, logger_name, queue_priority, request_priority)
     except Exception, e:
         logger.exception("Processing failed")
         sys.exit(EXIT_FAILURE)

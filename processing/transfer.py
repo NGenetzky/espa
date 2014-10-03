@@ -1,4 +1,3 @@
-#! /usr/bin/env python
 
 '''
 License:
@@ -25,9 +24,9 @@ from espa_constants import *
 
 # imports from espa/espa_common
 try:
-    from espa_logging import EspaLogging
+    from logger_factory import EspaLogging
 except:
-    from espa_common.espa_logging import EspaLogging
+    from espa_common.logger_factory import EspaLogging
 
 try:
     import utilities
@@ -283,7 +282,7 @@ def http_transfer_file(source_host, source_file, destination_file):
         raise Exception("Transfer Failed - HTTP")
     else:
         logger.info("Transfer complete - HTTP")
-# END - scp_transfer_file
+# END - http_transfer_file
 
 
 # ============================================================================
