@@ -42,7 +42,11 @@ tr.evenrow td{
 
 
 {% if scenes %}
-<h4>Orders for status: {{ status_in }}</h4>
+<h4>Products for status: {{ status_in }}</h4>
+
+{% if status_in == 'error' %}
+    <input id="restart-scenes" type="button" value="Restart Failed Products"></input>
+{% endif %}
 
 <div class='boxbody'>
 <table class='noborder'>
@@ -60,7 +64,7 @@ tr.evenrow td{
     <tr class="{% cycle 'oddrow' 'evenrow' %}">
         <td class='noborder'>{{ scene.name }}</td>
         <td class='noborder'>{{ scene.get_status_display }}</td>
-        <td class='noborder'>{{ scene.order.orderid }}</td>
+        <td class='noborder'><a href="{% url 'display_order' scene.order.id %}">{{ scene.order.id }}</a></td>
         <td class='noborder'>{{ scene.tram_order_id }}</td>
         <td class='noborder'>{{ scene.job_name }}</td>
     </tr>
@@ -74,4 +78,20 @@ tr.evenrow td{
 
 </div>
 
+{% endblock %}
+
+{% block scripts %}
+    $(document).ready(function() {
+        $('#restart-scenes').click(function() {
+            if (confirm("Reset all products?")) {
+                $.getJSON('{% url 'restart_failed_all' %}', function(data) {
+                    if (data.result == 'success') {
+                        location.reload();
+                    } else {
+                        alert('Update failed: ' + data.message);
+                    }
+                });
+            }
+        });
+    });
 {% endblock %}

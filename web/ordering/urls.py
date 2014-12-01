@@ -17,8 +17,6 @@ author David V. Hill
 Url module for the ordering/ application within the espa_web project
 '''
 
-admin.autodiscover()
-
 urlpatterns = patterns('',
     url(r'^rpc$',
         rpc.rpc_handler),

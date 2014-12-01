@@ -135,17 +135,14 @@ def view_orders(email):
 
     response_wrapper = []
     for order in orders:
-        #retrieve the selected product options for this order
-        json_opts = json.loads(order.product_options)
-
         #build json list of order statuses
-        order_json['ordernum'] = order.orderid
+        order_json['ordernum'] = order.id
         order_json['status'] = order.status
         order_json['email'] = order.email
         order_json['order_date'] = str(order.order_date)
         order_json['completion_date'] = str(order.completion_date)
         order_json['note'] = order.note
-        so = [x for x, y in json_opts.iteritems() if y is True]
+        so = [x for x, y in order.product_options.iteritems() if y is True]
         order_json['selected_options'] = so
         response_wrapper.append(order_json)
 

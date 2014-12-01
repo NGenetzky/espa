@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/1.6/ref/settings/
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 import os
 import ConfigParser
+import mongoengine
 
 #this is the location of the main project directory
 #NOT the directory this file lives in!!!
@@ -71,12 +72,13 @@ ALLOWED_HOSTS = ['*']
 # Application definition
 
 INSTALLED_APPS = (
-    'django.contrib.admin',
+#    'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'mongoengine.django.mongo_auth',
     'ordering',
     'console',
 )
@@ -101,14 +103,18 @@ WSGI_APPLICATION = 'espa_web.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.mysql',       # Add 'postgresql_psycopg2', 'postgresql', 'mysql', 'sqlite3' or 'oracle'.
-        'NAME': config.get('config', 'db'),         # Or path to database file if using sqlite3.
-        'USER': config.get('config', 'dbuser'),     # Not used with sqlite3.
-        'PASSWORD': config.get('config', 'dbpass'), # Not used with sqlite3.
-        'HOST': config.get('config', 'dbhost'),     # Set to empty string for localhost. Not used with sqlite3.
-        'PORT': config.get('config', 'dbport'),     # Set to empty string for default. Not used with sqlite3.
+        'ENGINE': 'django.db.backends.dummy'
     }
 }
+SESSION_ENGINE = 'mongoengine.django.sessions'
+
+mongoengine.connect('espa')
+#connString="mongodb://espadev:espa123@l8srlscp20.cr.usgs.gov,l8srlscp21.cr.usgs.gov,l8srlscp22.cr.usgs.gov/espadev"
+#mongoengine.connect('espadev', 
+#                    host=connString,
+#                    replicaSet='lsrdRs',
+#                    tz_aware=True,
+#                    connectTimeoutMS='300000')
 
 # Internationalization
 # https://docs.djangoproject.com/en/1.6/topics/i18n/
@@ -191,11 +197,13 @@ SERVICE_LOCATOR = {
     }
 }
 
+AUTH_USER_MODEL = 'mongo_auth.MongoUser'
+#MONGOENGINE_USER_DOCUMENT = 'mongoengine.django.auth.User'
 # add the EE Authentication Backend in addition to the ModelBackend
 # authentication stops at the first success... so this order does matter
 #leave the standard ModelBackend in first so the builtin admin account
 #never hits EE
-AUTHENTICATION_BACKENDS = ('django.contrib.auth.backends.ModelBackend',
+AUTHENTICATION_BACKENDS = ('mongoengine.django.auth.MongoEngineBackend',
                            'espa_web.auth_backends.EEAuthBackend',)
 
 # sets the login_url to the named url action ('login') contained in urls.py

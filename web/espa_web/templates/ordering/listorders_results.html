@@ -74,7 +74,7 @@ tr.evenrow td{
 <table class='noborder'>
 {% for order in orders %}
     <tr class="{% cycle 'oddrow' 'evenrow' %}">
-    <td class='noborder'><a href="{% url 'generic_order_status_detail' order.orderid %}">{{ order.orderid }}</a></td>
+    <td class='noborder'><a href="{% url 'generic_order_status_detail' order.id %}">{{ order.id }}</a></td>
     <td class='noborder'>{{ order.get_status_display }}</td>
     <td class='noborder'> {{ order.note }}</td>
     </tr> 

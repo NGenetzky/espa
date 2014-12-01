@@ -1,7 +1,7 @@
 from cStringIO import StringIO
 from django.conf import settings
 from suds.client import Client as SoapClient
-from ordering.models import Scene
+from ordering.models import Product
 
 import urllib2
 import collections
@@ -45,7 +45,7 @@ class LTAService(object):
         string 'T271' for LE7 after day 151 of year 2003 (SLC OFF)
         '''
 
-        if not Scene.sceneid_is_sane(sceneid):
+        if not Product.sceneid_is_sane(sceneid):
             return ''
 
         ''' returns the proper product code (e.g. T273) given a scene id '''

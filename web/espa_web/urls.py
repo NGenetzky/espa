@@ -12,7 +12,7 @@ author David V Hill
 URL module for the main espa_web project
 '''
 
-admin.autodiscover()
+#admin.autodiscover()
 
 urlpatterns = patterns('',
                        url(r'^ordering/',
@@ -20,9 +20,6 @@ urlpatterns = patterns('',
 
                        url(r'^console/',
                            include('console.urls')),
-
-                       url(r'^admin/',
-                           include(admin.site.urls)),
 
                        url(r'^login/$',
                            django_views.login,

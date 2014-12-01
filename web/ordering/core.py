@@ -5,7 +5,7 @@ Original Author: David V. Hill
 '''
 
 
-from models import Scene
+from models import Product
 from models import Order
 from models import Configuration
 from models import UserProfile
@@ -34,7 +34,7 @@ def send_initial_email(order):
 
     m = list()
     m.append("Thank you for your order.\n\n")
-    m.append("%s has been received and is currently " % order.orderid)
+    m.append("%s has been received and is currently " % order.id)
     m.append("being processed.  ")
     m.append("Another email will be sent when this order is complete.\n\n")
     m.append("You may view the status of your order and download ")
@@ -42,9 +42,9 @@ def send_initial_email(order):
     m.append("Requested products\n")
     m.append("-------------------------------------------\n")
 
-    scenes = Scene.objects.filter(order__id=order.id)
+    products = Product.objects.filter(order__id=order.id)
 
-    for s in scenes:
+    for s in products:
         
         product_name = s.name
         
@@ -55,7 +55,7 @@ def send_initial_email(order):
 
     email_msg = ''.join(m)
 
-    subject = 'Processing order %s received' % order.orderid
+    subject = 'Processing order %s received' % order.id
     return espa_common.utilities.send_email(recipient=order.user.email,
                                             subject=subject,
                                             body=email_msg)
@@ -130,21 +130,21 @@ def handle_onorder_landsat_products():
 
     orderby = 'order__order_date'
 
-    landsat_products = Scene.objects.filter(**filter_args).order_by(orderby)
+    landsat_products = Product.objects.filter(**filter_args).order_by(orderby)
     if len(landsat_products) > 0:
 
         landsat_oncache = scenes_on_cache([l.name for l in landsat_products])
 
         filter_args = {'status': 'onorder', 'name__in': landsat_oncache}
         update_args = {'status': 'oncache'}
-        Scene.objects.filter(**filter_args).update(**update_args)
+        Product.objects.filter(**filter_args).update(**update_args)
 
 
 @transaction.atomic
 def handle_submitted_landsat_products():
     filter_args = {'status': 'submitted', 'sensor_type': 'landsat'}
     orderby = 'order__order_date'
-    landsat_products = Scene.objects.filter(**filter_args).order_by(orderby)
+    landsat_products = Product.objects.filter(**filter_args).order_by(orderby)
 
     #landsat_products =  Scene.objects.filter(status='submitted',
     #                                         sensor_type='landsat')\
@@ -183,7 +183,7 @@ def handle_submitted_landsat_products():
                            'note': 'TMA data cannot be processed'
                            }
 
-            Scene.objects.filter(**filter_args).update(**update_args)
+            Product.objects.filter(**filter_args).update(**update_args)
 
             #Scene.objects.filter(status='submitted', name__in=landsat_nlaps)\
             #    .update(status='unavailable',
@@ -206,7 +206,7 @@ def handle_submitted_landsat_products():
 
             update_args = {'status': 'oncache'}
 
-            Scene.objects.filter(**filter_args).update(**update_args)
+            Product.objects.filter(**filter_args).update(**update_args)
 
             #Scene.objects.filter(status='submitted',
             #                     name__in=landsat_oncache)\
@@ -236,7 +236,7 @@ def handle_submitted_landsat_products():
                        'sensor_type': 'landsat'
                        }
 
-        orders = Scene.objects.filter(**filter_args).values('order').distinct()
+        orders = Product.objects.filter(**filter_args).values('order').distinct()
 
         order_wrapper = lta.OrderWrapperServiceClient()
 
@@ -326,7 +326,7 @@ def handle_submitted_landsat_products():
 def handle_submitted_modis_products():
 
     filter_args = {'status': 'submitted', 'sensor_type': 'modis'}
-    modis_products = Scene.objects.filter(**filter_args)
+    modis_products = Product.objects.filter(**filter_args)
 
     if len(modis_products) > 0:
 
@@ -343,7 +343,7 @@ def handle_submitted_modis_products():
 
         update_args = {'status': 'oncache'}
 
-        Scene.objects.filter(**filter_args).update(**update_args)
+        Product.objects.filter(**filter_args).update(**update_args)
         
 
 @transaction.atomic
@@ -446,7 +446,7 @@ def get_scenes_to_process(limit=500,
     #products = Scene.objects.filter(status='oncache')\
     #    .order_by('order__order_date')[:limit]
 
-    products = Scene.objects.filter(**kwargs).order_by(orderby)[:limit]
+    products = Product.objects.filter(**kwargs).order_by(orderby)[:limit]
 
     if len(products) == 0:
         return []
@@ -460,13 +460,11 @@ def get_scenes_to_process(limit=500,
         #in here, check to see if its a plot product or a normal product
         #if plot, specify correct json options vs. product options
 
-        options = json.loads(p.order.product_options)
-
-        orderline = json.dumps({'orderid': p.order.orderid,
+        orderline = json.dumps({'orderid': p.order.id,
                                 'scene': p.name,
                                 'priority': p.order.priority,
                                 'product_type': p.sensor_type,
-                                'options': options
+                                'options': p.order.product_options
                                 })
 
         results.append(orderline)
@@ -502,7 +500,7 @@ def purge_expired_orders():
         for o in orders:
             diff = cutoff - o.completion_date
             if diff.days >= 0:
-                scenes = Scene.objects.filter(order__id = o.id)
+                scenes = Product.objects.filter(order__id = o.id)
                 for s in scenes:
                     ds.delete(s.name, s.product_distro_location)
                 o.delete()
@@ -639,7 +637,7 @@ def queue_products(order_name_tuple_list, processing_location, job_name):
         helper_logger("Queuing %s:%s from %s for job %s"
                       % (order, products, processing_location, job_name))
 
-        Scene.objects.filter(**filter_args).update(**update_args)
+        Product.objects.filter(**filter_args).update(**update_args)
 
     return True
 
@@ -655,7 +653,7 @@ def mark_scene_complete(name,
 
     print ("Marking scene:%s complete for order:%s" % (name, orderid))
     o = Order.objects.get(orderid=orderid)
-    s = Scene.objects.get(name=name, order__id=o.id)
+    s = Product.objects.get(name=name, order__id=o.id)
     if s:
         s.status = 'complete'
         s.processing_location = processing_loc
@@ -808,7 +806,7 @@ def load_ee_orders():
 
         # go look to see if it already exists in the db
         try:
-            order = Order.objects.get(orderid=order_id)
+            order = Order.objects.get(id=order_id)
         except Order.DoesNotExist:
 
             # retrieve the username from the EE registration service
@@ -852,14 +850,12 @@ def load_ee_orders():
             # TODO: This code should be housed in the models module.
             # TODO: This logic should not be visible at this level.
             order = Order()
-            order.orderid = order_id
+            order.id = order_id
             order.user = user
             order.order_type = 'level2_ondemand'
             order.status = 'ordered'
             order.note = 'EarthExplorer order id: %s' % eeorder
-            order.product_options = json.dumps(Order.get_default_ee_options(),
-                                               sort_keys=True,
-                                               indent=4)
+            order.product_options = Order.get_default_ee_options()
             order.ee_order_id = eeorder
             order.order_source = 'ee'
             order.order_date = datetime.datetime.now()
@@ -872,7 +868,7 @@ def load_ee_orders():
 
             scene = None
             try:
-                scene = Scene.objects.get(order=order,
+                scene = Product.objects.get(order=order,
                                           ee_unit_id=s['unit_num'])
 
                 if scene.status == 'complete':
@@ -885,7 +881,7 @@ def load_ee_orders():
                         log_msg = "Error updating lta for \
                         [eeorder:%s ee_unit_num:%s \
                         scene name:%s order:%s" \
-                        % (eeorder, s['unit_num'], scene.name, order.orderid)
+                        % (eeorder, s['unit_num'], scene.name, order.id)
 
                         helper_logger(log_msg)
 
@@ -905,7 +901,7 @@ def load_ee_orders():
                         log_msg = "Error updating lta for \
                         [eeorder:%s ee_unit_num:%s \
                         scene name:%s order:%s" \
-                        % (eeorder, s['unit_num'], scene.name, order.orderid)
+                        % (eeorder, s['unit_num'], scene.name, order.id)
 
                         helper_logger(log_msg)
 
@@ -914,10 +910,10 @@ def load_ee_orders():
                         status code:%s" % (msg, status)
 
                         helper_logger(log_msg)
-            except Scene.DoesNotExist:
+            except Product.DoesNotExist:
                 # TODO: This code should be housed in the models module.
                 # TODO: This logic should not be visible at this level.
-                scene = Scene()
+                product = Product()
 
                 product = espa_common.sensor.instance(s['sceneid'])
 
@@ -928,13 +924,13 @@ def load_ee_orders():
                 elif isinstance(product, espa_common.sensor.Modis):
                     sensor_type = 'modis'
 
-                scene.sensor_type = sensor_type
-                scene.name = product.product_id
-                scene.ee_unit_id = s['unit_num']
-                scene.order = order
-                scene.order_date = datetime.datetime.now()
-                scene.status = 'submitted'
-                scene.save()
+                product.sensor_type = sensor_type
+                product.name = product.product_id
+                product.ee_unit_id = s['unit_num']
+                product.order = order
+                product.order_date = datetime.datetime.now()
+                product.status = 'submitted'
+                product.save()
 
             # Update LTA
             success, msg, status =\
@@ -946,7 +942,7 @@ def load_ee_orders():
                 [eeorder:%s ee_unit_num:%s scene \
                 name:%s order:%s" % (eeorder, s['unit_num'],
                                      scene.name,
-                                     order.orderid)
+                                     order.id)
 
                 helper_logger(log_msg)
 

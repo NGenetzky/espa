@@ -1,4 +1,5 @@
 {% extends 'ordering/base.html' %}
+{% load static %}
 
 {% block title %} ESPA Console {% endblock %}
 {% block header %} Console: Index {% endblock %}
@@ -6,6 +7,11 @@
 {% block nav %}{% include 'ordering/bulk_ordering_nav.html' %}{% endblock %}
 
 {% block content %}
+
+{% if display_sys_status %}
+    {% include "ordering/system_info_bar.html" %}
+{% endif %}
+
 
 <div class="wrapper">
 
@@ -17,4 +23,8 @@
 
 </div>
 
+{% endblock %}
+
+{% block js_files %}
+    <script src="{% static 'js/system_info_bar.js' %}"></script>
 {% endblock %}

@@ -6,28 +6,29 @@ from espa_common import sensor
 
 from django.db import models
 from django.db import transaction
-from django.contrib.auth.models import User
 from django.db.models import Q
+from mongoengine.django.auth import User
+from mongoengine import *
 
 
-class UserProfile (models.Model):
+class UserProfile (Document):
     '''Extends the information attached to ESPA users with a one-to-one
     relationship. The other options were to extend the actual Django User
     model or create an entirely new User model.  This is the cleanest and
     recommended method per the Django docs.
     '''
     # reference to the User this Profile belongs to
-    user = models.OneToOneField(User)
+    user = ReferenceField(User)
 
     # The EE contactid of this user
-    contactid = models.CharField(max_length=10)
+    contactid = StringField(max_length=10)
 
 
-class Order(models.Model):
+class Order(Document):
     '''Persistent object that models a user order for processing.'''
 
     def __unicode__(self):
-        return self.orderid
+        return self.id
 
     ORDER_TYPES = (
         ('level2_ondemand', 'Level 2 On Demand'),
@@ -52,63 +53,51 @@ class Order(models.Model):
     )
 
     # orderid should be in the format email_MMDDYY_HHMMSS
-    orderid = models.CharField(max_length=255, unique=True, db_index=True)
+    id = StringField(max_length=255, primary_key=True) # db_index=True)
+    #id = ObjectIdField(primary_key=True)
 
     # This field is in the User object now, but should actually be pulled from
     # the EarthExplorer profile
     # the users email address
-    email = models.EmailField(db_index=True)
+    email = EmailField() #db_index=True
 
     # reference the user that placed this order
-    user = models.ForeignKey(User)
+    user = ReferenceField(User)
 
     # order_type describes the order characteristics so we can use logic to
     # handle multiple varieties of orders
-    order_type = models.CharField(max_length=50,
-                                  choices=ORDER_TYPES,
-                                  db_index=True)
+    order_type = StringField(max_length=50,
+                             choices=ORDER_TYPES) #db_index=True
 
-    priority = models.CharField(max_length=10,
-                                choices=ORDER_PRIORITY,
-                                db_index=True)
+    priority = StringField(max_length=10,
+                           choices=ORDER_PRIORITY) #db_index=True)
 
     # date the order was placed
-    order_date = models.DateTimeField('date ordered',
-                                      blank=True,
-                                      db_index=True)
+    order_date = DateTimeField('date ordered') #db_index=True)
 
     # date the order completed (all scenes completed or marked unavailable)
-    completion_date = models.DateTimeField('date completed',
-                                           blank=True,
-                                           null=True,
-                                           db_index=True)
+    completion_date = StringField('date completed') #db_index=True)
 
-    initial_email_sent = models.DateTimeField('initial_email_sent',
-                                              blank=True,
-                                              null=True,
-                                              db_index=True)
+    initial_email_sent = DateTimeField('initial_email_sent') #db_index=True)
 
-    completion_email_sent = models.DateTimeField('completion_email_sent',
-                                                 blank=True,
-                                                 null=True,
-                                                 db_index=True)
+    completion_email_sent = DateTimeField('completion_email_sent') #db_index=True)
 
     #o ne of order.STATUS
-    status = models.CharField(max_length=20, choices=STATUS, db_index=True)
+    status = StringField(max_length=20, choices=STATUS) # db_index=True)
 
     # space for users to add notes to orders
-    note = models.CharField(max_length=2048, blank=True, null=True)
+    note = StringField(max_length=2048) #blank=True, null=True)
 
     # json for all product options
-    product_options = models.TextField(blank=False, null=False)
+    #product_options = StringField(max_length=4000) #blank=False, null=False)
+    product_options = DictField()
 
     # one of Order.ORDER_SOURCE
-    order_source = models.CharField(max_length=10,
-                                    choices=ORDER_SOURCE,
-                                    db_index=True)
+    order_source = StringField(max_length=10,
+                               choices=ORDER_SOURCE) #db_index=True)
 
     # populated when the order is placed through EE vs ESPA
-    ee_order_id = models.CharField(max_length=13, blank=True)
+    ee_order_id = StringField(max_length=13) # blank=True)
 
     @staticmethod
     def get_default_product_options():
@@ -284,9 +273,9 @@ class Order(models.Model):
         Return:
         A tuple of orders, scenes
         '''
-        order = Order.objects.get(orderid=orderid)
-        scenes = Scene.objects.filter(order__orderid=orderid)
-        return order, scenes
+        order = Order.objects.get(id=orderid)
+        products = Product.objects.filter(order=order.id)
+        return order, products
 
     @staticmethod
     def list_all_orders(email):
@@ -300,18 +289,19 @@ class Order(models.Model):
         '''
         #TODO: Modify this query to remove reference to Order.email once all
         # pre-espa-2.3.0 orders (EE Auth) are out of the system
+        user_obj = User.objects(email=email).first()
         o = Order.objects.filter(
-            Q(email=email) | Q(user__email=email)
+            Q(email=email) | Q(user=user_obj)
             ).order_by('-order_date')
         #return Order.objects.filter(email=email).order_by('-order_date')
         return o
 
     @staticmethod
-    @transaction.atomic
+    #@transaction.atomic
     def enter_new_order(username,
                         order_source,
                         scene_list,
-                        option_string,
+                        option_dict,
                         order_type,
                         note=''):
         '''Places a new espa order in the database
@@ -320,7 +310,7 @@ class Order(models.Model):
         username -- Username of user placing this order
         order_source -- Should always be 'espa'
         scene_list -- A list containing scene ids
-        option_string -- Dictionary of options for the order
+        option_dict -- Dictionary of options for the order
         note -- Optional user supplied note
 
         Return:
@@ -344,14 +334,14 @@ class Order(models.Model):
 
         # create the order
         order = Order()
-        order.orderid = Order.generate_order_id(user.email)
+        order.id = Order.generate_order_id(user.email)
         order.user = user
         order.note = note
         order.status = 'ordered'
         order.order_source = order_source
         order.order_type = order_type
         order.order_date = datetime.datetime.now()
-        order.product_options = option_string
+        order.product_options = option_dict
         order.priority = priority
         order.save()
 
@@ -367,18 +357,18 @@ class Order(models.Model):
             elif isinstance(sensor.instance(s), sensor.Modis):
                 sensor_type = 'modis'
 
-            scene = Scene()
-            scene.name = s
-            scene.order = order
-            scene.order_date = datetime.datetime.now()
-            scene.status = 'submitted'
-            scene.sensor_type = sensor_type
-            scene.save()
+            product = Product()
+            product.name = s
+            product.order = order
+            product.order_date = datetime.datetime.now()
+            product.status = 'submitted'
+            product.sensor_type = sensor_type
+            product.save()
 
         return order
 
 
-class Scene(models.Model):
+class Product(Document):
     '''Persists a scene object as defined from the ordering and tracking
     perspective'''
 
@@ -405,61 +395,56 @@ class Scene(models.Model):
     )
 
     #scene file name, with no suffix
-    name = models.CharField(max_length=256, db_index=True)
+    name = StringField(max_length=256) # db_index=True)
 
     #flags product as either landsat, modis or plot
-    sensor_type = models.CharField(max_length=50,
-                                   choices=SENSOR_PRODUCT,
-                                   db_index=True)
+    sensor_type = StringField(max_length=50, choices=SENSOR_PRODUCT) #db_index=True)
 
     #scene system note, used to add message to users
-    note = models.CharField(max_length=2048, blank=True, null=True)
+    note = StringField(max_length=2048) # blank=True, null=True)
 
-    #Reference to the Order this Scene is associated with
-    order = models.ForeignKey(Order)
+    #Reference to the Order this Product is associated with
+    order = ReferenceField(Order)
 
     #holds the name of the processing job that is producing this product
-    job_name = models.CharField(max_length=255, blank=True, null=True)
+    job_name = StringField(max_length=255) # blank=True, null=True)
 
     #full path including filename where this scene has been distributed to
     #minus the host and port. signifies that this scene is distributed
-    product_distro_location = models.CharField(max_length=1024, blank=True)
+    product_distro_location = StringField(max_length=1024) # blank=True)
 
     #full path for scene download on the distribution node
-    product_dload_url = models.CharField(max_length=1024, blank=True)
+    product_dload_url = StringField(max_length=1024) # blank=True)
 
     #full path (with filename) for scene checksum on distribution filesystem
-    cksum_distro_location = models.CharField(max_length=1024, blank=True)
+    cksum_distro_location = StringField(max_length=1024) #blank=True)
 
     #full url this file can be downloaded from
-    cksum_download_url = models.CharField(max_length=1024, blank=True)
+    cksum_download_url = StringField(max_length=1024) # blank=True)
 
     # This will only be populated if the scene had to be placed on order
     #through EE to satisfy the request.
-    tram_order_id = models.CharField(max_length=13, blank=True, null=True)
+    tram_order_id = StringField(max_length=13) # blank=True, null=True)
 
     # Flags for order origination.  These will only be populated if the scene
     # request came from EE.
-    ee_unit_id = models.IntegerField(max_length=11, blank=True, null=True)
+    ee_unit_id = IntField() #max_length=11, blank=True, null=True)
 
     # General status flags for this scene
 
     #Status.... one of Submitted, Ready For Processing, Processing,
     #Processing Complete, Distributed, or Purged
-    status = models.CharField(max_length=30, choices=STATUS, db_index=True)
+    status = StringField(max_length=30, choices=STATUS) # db_index=True)
 
     #Where is this scene being processed at?  (which machine)
-    processing_location = models.CharField(max_length=256, blank=True)
+    processing_location = StringField(max_length=256) # blank=True)
 
     #Time this scene was finished processing
-    completion_date = models.DateTimeField('date completed',
-                                           blank=True,
-                                           null=True,
-                                           db_index=True)
+    completion_date = DateTimeField('date completed') #db_index=True)
 
     #Final contents of log file... should be put added when scene is marked
     #complete.
-    log_file_contents = models.TextField('log_file', blank=True, null=True)
+    log_file_contents = StringField('log_file') # blank=True, null=True)
 
     @staticmethod
     def sceneid_is_sane(sceneid):
@@ -480,11 +465,11 @@ class Scene(models.Model):
             return False
 
 
-class Configuration(models.Model):
+class Configuration(Document):
     '''Implements a key/value datastore on top of a relational database
     '''
-    key = models.CharField(max_length=255, unique=True)
-    value = models.CharField(max_length=2048)
+    key = StringField(max_length=255, unique=True)
+    value = StringField(max_length=2048)
 
     def __unicode__(self):
         return ('%s : %s') % (self.key, self.value)
@@ -498,37 +483,30 @@ class Configuration(models.Model):
             return ''
 
 
-class DownloadSection(models.Model):
+class DownloadSection(Document):
     ''' Persists grouping of download items and controls appearance order'''
-    title = models.CharField('name', max_length=255)
-    text = models.TextField('section_text')
-    display_order = models.IntegerField()
-    visible = models.BooleanField('visible')
+    title = StringField('name', max_length=255)
+    text = StringField('section_text')
+    display_order = IntField()
+    visible = BooleanField('visible')
 
 
-class Download(models.Model):
-    section = models.ForeignKey(DownloadSection)
-    target_name = models.CharField('target_name', max_length=255)
-    target_url = models.URLField('target_url', max_length=255)
-    checksum_name = models.CharField('checksum_name',
-                                     max_length=255,
-                                     blank=True,
-                                     null=True)
-    checksum_url = models.URLField('checksum_url',
-                                   max_length=255,
-                                   blank=True,
-                                   null=True)
-    readme_text = models.TextField('readme_text', blank=True, null=True)
-    display_order = models.IntegerField()
-    visible = models.BooleanField('visible')
+class Download(Document):
+    section = ReferenceField(DownloadSection)
+    target_name = StringField('target_name', max_length=255)
+    target_url = URLField('target_url')
+    checksum_name = StringField('checksum_name',
+                                     max_length=255)
+    checksum_url = URLField('checksum_url')
+    readme_text = StringField('readme_text')
+    display_order = IntField()
+    visible = BooleanField('visible')
 
 
-class Tag(models.Model):
-    tag = models.CharField('tag', max_length=255)
-    description = models.TextField('description', blank=True, null=True)
-    last_updated = models.DateTimeField('last_updated',
-                                        blank=True,
-                                        null=True)
+class Tag(Document):
+    tag = StringField('tag', max_length=255)
+    description = StringField('description')
+    last_updated = DateTimeField('last_updated')
 
     def __unicode__(self):
         return self.tag
@@ -538,15 +516,13 @@ class Tag(models.Model):
         super(Tag, self).save(*args, **kwargs)
 
 
-class DataPoint(models.Model):
-    tags = models.ManyToManyField(Tag)
-    key = models.CharField('key', max_length=250)
-    command = models.CharField('command', max_length=2048)
-    description = models.TextField('description', blank=True, null=True)
-    enable = models.BooleanField('enable')
-    last_updated = models.DateTimeField('last_updated',
-                                        blank=True,
-                                        null=True)
+class DataPoint(Document):
+    tags = ListField(ReferenceField(Tag))
+    key = StringField('key', max_length=250)
+    command = StringField('command', max_length=2048)
+    description = StringField('description')
+    enable = BooleanField('enable')
+    last_updated = DateTimeField('last_updated')
 
     def __unicode__(self):
         return "%s:%s" % (self.key, self.command)
@@ -559,12 +535,13 @@ class DataPoint(models.Model):
     def get_data_points(tagnames=[]):
         js = {}
 
-        if len(tagnames) > 0:
-            dps = DataPoint.objects.filter(enable=True, tags__tag__in=tagnames)
-        else:
-            dps = DataPoint.objects.filter(enable=True)
+        # TODO fix this
+        #if len(tagnames) > 0:
+        #    dps = DataPoint.objects.filter(enable=True, tags__tag__in=tagnames)
+        #else:
+        #    dps = DataPoint.objects.filter(enable=True)
 
-        for d in dps:
-            js[d.key] = d.command
+        #for d in dps:
+        #    js[d.key] = d.command
 
         return json.dumps(js)

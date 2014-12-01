@@ -17,8 +17,6 @@
     {% block style %}{% endblock %}
     </style>
     
-   
-    
 </head>
 
 <body>
@@ -56,12 +54,6 @@
 	    <!-- Start nav -->
         {% block nav %}<div id="nav"><span class="navitemleft"><a href="{% url 'index' %}">Home</a></span></div>{% endblock %}
        <!-- End nav -->
-
-        {% block systeminfo %}
-        {% if display_sys_status %}
-            {% include "ordering/system_info_bar.html" %}
-        {% endif %}
-        {% endblock %}
 
         <div id="content">
             {% block content %} content {% endblock %}
@@ -122,10 +114,6 @@
     </script>
     <script src="{% static 'js/jquery-1.10.2.min.js' %}"></script>
     <script src="{% static 'js/jquery.cookie.js' %}"></script>
-
-    {% if display_sys_status %}
-        <script src="{% static 'js/system_info_bar.js' %}"></script>
-    {% endif %}
 
     {% block js_files %}{% endblock %}
 

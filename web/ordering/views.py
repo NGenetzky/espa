@@ -7,7 +7,7 @@ import django.contrib.auth
 from espa_common import utilities
 
 from ordering import validators
-from ordering.models import Scene
+from ordering.models import Product
 from ordering.models import Order
 from ordering.models import Configuration as Config
 from ordering.models import Download
@@ -27,7 +27,7 @@ from django.template import RequestContext
 from django.utils.feedgenerator import Rss201rev2Feed
 from django.views.generic import View
 
-from django.contrib.auth.models import User
+from mongoengine.django.auth import User
 
 
 class AbstractView(View):
@@ -48,23 +48,6 @@ class AbstractView(View):
                 return "display:none"
             else:
                 return ""
-
-    def _get_system_status(self, ctx):
-        ctx['display_sys_status'] = True 
-        ctx['submitted_units'] = Scene.objects.filter(status='submitted').count()
-        ctx['onorder_units'] = Scene.objects.filter(status='onorder').count()
-        ctx['oncache_units'] = Scene.objects.filter(status='oncache').count()
-        ctx['queued_units'] = Scene.objects.filter(status='queued').count()
-        ctx['process_units'] = Scene.objects.filter(status='processing').count()
-
-        try:
-            ondemand_enabled = Config.objects.get(key='ondemand_enabled')
-            if ondemand_enabled.value.lower() == 'true':
-                ctx['ondemand_enabled'] = True
-            else:
-                ctx['ondemand_enabled'] = False
-        except Config.DoesNotExist:
-            ctx['ondemand_enabled'] = False
 
     def _display_system_message(self, ctx):
         '''Utility method to populate the context with systems messages if
@@ -130,9 +113,6 @@ class AbstractView(View):
 
         if include_system_message:
             self._display_system_message(context)
-
-        if request.user.is_staff:
-            self._get_system_status(context)
 
         return context
 
@@ -366,21 +346,20 @@ class NewOrder(AbstractView):
                vipl.append("plot")
                order_type = "lpcs"
                
-            option_string = json.dumps(order_options,
-                                       sort_keys=True,
-                                       indent=4)
-
             desc = self._get_order_description(request.POST)
 
             order = Order.enter_new_order(request.user.username,
                                           'espa',
                                           vipl,
-                                          option_string,
+                                          order_options,
                                           order_type,
                                           note=desc
                                           )
 
-            email = order.user.email
+            if order.email:
+                email = order.email
+            else:
+                email = order.user.email
 
             url = reverse('list_orders', kwargs={'email': email})
 
@@ -532,7 +511,7 @@ class StatusFeed(Feed):
         return item.product_dload_url
 
     def item_description(self, item):
-        orderid = item.order.orderid
+        orderid = item.order.id
         orderdate = item.order.order_date
 
         return "scene_status:%s,orderid:%s,orderdate:%s" \
@@ -543,7 +522,7 @@ class StatusFeed(Feed):
         #email = obj[0].email
         email = self._get_email(obj[0])
 
-        SO = Scene.objects
+        SO = Product.objects
 
         r = SO.filter(Q(order__email=email) | Q(order__user__email=email))\
               .filter(status='complete')\
