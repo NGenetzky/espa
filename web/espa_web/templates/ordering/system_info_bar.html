@@ -5,6 +5,7 @@
     <span class="navitemleft">Queued: <a href="{% url 'show_orders' 'queued' %}">{{ queued_units }}</a></span>
     <span class="navitemleft">Processing: <a href="{% url 'show_orders' 'processing' %}">{{ process_units }}</a></span>
     <span class="navitemleft">Error: <a href="{% url 'show_orders' 'error' %}">{{ error_units }}</a></span>
+    <span class="navitemleft">Retry: <a href="{% url 'show_orders' 'retry' %}">{{ retry_units }}</a></span>
 
     <span class="navitemright">OnDemand:
     {% if ondemand_enabled %}

@@ -10,28 +10,15 @@ History:
   Created Jan/2014 by Ron Dilley, USGS/EROS
 '''
 
-import os
-import errno
-import sys
-import uuid
-import shutil
 import ftplib
 import urllib
-import urllib2
+import requests
+from contextlib import closing
 
-# espa-common objects and methods
-from espa_constants import *
-
-# imports from espa/espa_common
-try:
-    from logger_factory import EspaLogging
-except:
-    from espa_common.logger_factory import EspaLogging
-
-try:
-    import utilities
-except:
-    from espa_common import utilities
+# imports from espa_common through processing.__init__.py
+from processing import EspaLogging
+from processing import settings
+from processing import utilities
 
 
 # ============================================================================
@@ -41,7 +28,7 @@ def copy_file_to_file(source_file, destination_file):
       Use unix 'cp' to copy a file from one place to another on the localhost.
     '''
 
-    logger = EspaLogging.get_logger('espa.processing')
+    logger = EspaLogging.get_logger(settings.PROCESSING_LOGGER)
 
     cmd = ' '.join(['cp', source_file, destination_file])
 
@@ -68,7 +55,7 @@ def remote_copy_file_to_file(source_host, source_file, destination_file):
       machine using ssh.
     '''
 
-    logger = EspaLogging.get_logger('espa.processing')
+    logger = EspaLogging.get_logger(settings.PROCESSING_LOGGER)
 
     cmd = ' '.join(['ssh', '-q', '-o', 'StrictHostKeyChecking=no',
                     source_host, 'cp', source_file, destination_file])
@@ -111,7 +98,7 @@ def ftp_from_remote_location(username, pw, host, remotefile, localfile):
     Errors: Raises Exception() in the event of error
     '''
 
-    logger = EspaLogging.get_logger('espa.processing')
+    logger = EspaLogging.get_logger(settings.PROCESSING_LOGGER)
 
     # Make sure the src_file is absolute, otherwise ftp will choke
     if not remotefile.startswith('/'):
@@ -164,7 +151,7 @@ def ftp_to_remote_location(username, pw, localfile, host, remotefile):
     Errors: Raises Exception() in the event of error
     '''
 
-    logger = EspaLogging.get_logger('espa.processing')
+    logger = EspaLogging.get_logger(settings.PROCESSING_LOGGER)
 
     # Make sure the src_file is absolute, otherwise ftp will choke
     if not remotefile.startswith('/'):
@@ -205,7 +192,7 @@ def scp_transfer_file(source_host, source_file,
         file must be a directory.  ***No checking is performed in this code***
     '''
 
-    logger = EspaLogging.get_logger('espa.processing')
+    logger = EspaLogging.get_logger(settings.PROCESSING_LOGGER)
 
     if source_host == destination_host:
         msg = "source and destination host match unable to scp"
@@ -244,45 +231,57 @@ def scp_transfer_file(source_host, source_file,
 # END - scp_transfer_file
 
 
-# Define the number of bytes to read from the URL file
-BLOCK_SIZE = 16384
-
-
 # ============================================================================
-def http_transfer_file(source_host, source_file, destination_file):
+def http_transfer_file(download_url, destination_file):
     '''
     Description:
       Using http transfer a file from a source location to a destination
       file on the localhost.
     '''
 
-    global BLOCK_SIZE
+    logger = EspaLogging.get_logger(settings.PROCESSING_LOGGER)
 
-    logger = EspaLogging.get_logger('espa.processing')
+    logger.info(download_url)
 
-    url_path = 'http://%s/%s' % (source_host, source_file)
-    logger.info(url_path)
-
-    url = urllib2.urlopen(url_path)
-
-    metadata = url.info()
-    file_size = int(metadata.getheaders("Content-Length")[0])
+    file_size = 0
     retrieved_bytes = 0
+    with closing(requests.get(download_url, stream=True)) as req:
+        if not req.ok:
+            raise Exception("Transfer Failed - HTTP - Reason(%s)"
+                            % req.reason)
 
-    with open(destination_file, 'wb') as local_fd:
-        while True:
-            data = url.read(BLOCK_SIZE)
-            if not data:
-                break
+        file_size = int(req.headers['content-length'])
 
-            retrieved_bytes += len(data)
-            local_fd.write(data)
+        with open(destination_file, 'wb') as local_fd:
+            for data_chunk in req.iter_content(settings.TRANSFER_BLOCK_SIZE):
+                local_fd.write(data_chunk)
+                retrieved_bytes += len(data_chunk)
 
     if retrieved_bytes != file_size:
-        raise Exception("Transfer Failed - HTTP")
+        raise Exception("Transfer Failed - HTTP - Retrieved %d out of %d bytes"
+                        % (retrieved_bytes, file_size))
     else:
         logger.info("Transfer complete - HTTP")
 # END - http_transfer_file
+
+
+# ============================================================================
+def download_file_url(download_url, destination_file):
+    '''
+    Description:
+        Using a URL download the specified file to the destination.
+    '''
+
+    if download_url.startswith('http://'):
+        http_transfer_file(download_url, destination_file)
+    elif download_url.startswith('file://'):
+        source_file = download_url.replace('file://', '')
+        transfer_file('localhost', source_file, 'localhost', destination_file)
+    else:
+        raise Exception("Transfer Failed -"
+                        " Unknown URL transport protocol [%s]"
+                        % download_url)
+# END - download_file_url
 
 
 # ============================================================================
@@ -298,10 +297,9 @@ def transfer_file(source_host, source_file,
     Notes:
       We are not doing anything significant here other then some logic and
       fallback to SCP if FTP fails.
-
     '''
 
-    logger = EspaLogging.get_logger('espa.processing')
+    logger = EspaLogging.get_logger(settings.PROCESSING_LOGGER)
 
     logger.info("Transfering [%s:%s] to [%s:%s]"
                 % (source_host, source_file,

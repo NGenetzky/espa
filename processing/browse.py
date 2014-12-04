@@ -21,26 +21,12 @@ History:
 #        This code should also be modified to cleanup all of it's temporary
 #        files.  The calling code should only see the product.
 
-import os
-import sys
 import glob
 
-# espa-common objects and methods
-from espa_constants import *
-
-# imports from espa/espa_common
-try:
-    from logger_factory import EspaLogging
-except:
-    from espa_common.logger_factory import EspaLogging
-
-try:
-    import settings
-except:
-    from espa_common import settings
-
-# local objects and methods
-import util
+# imports from espa_common through processing.__init__.py
+from processing import EspaLogging
+from processing import settings
+from processing import utilities
 
 
 # TODO - At some point in the future we should allow browse generation from
@@ -54,7 +40,7 @@ def do_sr_browse(sr_filename, scene,
       Creates a browse image from the surface relfectance file
     '''
 
-    logger = EspaLogging.get_logger('espa.processing')
+    logger = EspaLogging.get_logger(settings.PROCESSING_LOGGER)
 
     logger.info("Creating browse product")
 
@@ -69,7 +55,7 @@ def do_sr_browse(sr_filename, scene,
            '-sds', sr_filename, 'out.tiff']
     cmd = ' '.join(cmd)
     logger.info(' '.join(['Running:', cmd]))
-    output = util.execut_cmd(cmd)
+    output = utilities.execut_cmd(cmd)
     if len(output) > 0:
         logger.info(output)
 
@@ -83,7 +69,7 @@ def do_sr_browse(sr_filename, scene,
 # LT50460282002042EDC01_toa_band5.img browse_5.img
     cmd = ' '.join([base_translate_cmd, 'out.tiff5', 'browse.tiff5'])
     logger.info(' '.join(['Running:', cmd]))
-    output = util.execut_cmd(cmd)
+    output = utilities.execut_cmd(cmd)
     if len(output) > 0:
         logger.info(output)
 
@@ -91,7 +77,7 @@ def do_sr_browse(sr_filename, scene,
 # LT50460282002042EDC01_toa_band4.img browse_4.img
     cmd = ' '.join([base_translate_cmd, 'out.tiff4', 'browse.tiff4'])
     logger.info(' '.join(['Running:', cmd]))
-    output = util.execut_cmd(cmd)
+    output = utilities.execut_cmd(cmd)
     if len(output) > 0:
         logger.info(output)
 
@@ -99,7 +85,7 @@ def do_sr_browse(sr_filename, scene,
 # LT50460282002042EDC01_toa_band3.img browse_3.img
     cmd = ' '.join([base_translate_cmd, 'out.tiff3', 'browse.tiff3'])
     logger.info(' '.join(['Running:', cmd]))
-    output = util.execut_cmd(cmd)
+    output = utilities.execut_cmd(cmd)
     if len(output) > 0:
         logger.info(output)
 
@@ -113,7 +99,7 @@ def do_sr_browse(sr_filename, scene,
                     '-in', 'browse.tiff3',
                     '-out', 'final.tif'])
     logger.info(' '.join(['Running:', cmd]))
-    output = util.execut_cmd(cmd)
+    output = utilities.execut_cmd(cmd)
     if len(output) > 0:
         logger.info(output)
 
@@ -127,7 +113,7 @@ def do_sr_browse(sr_filename, scene,
                     '-t_srs', 'EPSG:4326',
                     'final.tif', 'warped.tif'])
     logger.info(' '.join(['Running:', cmd]))
-    output = util.execut_cmd(cmd)
+    output = utilities.execut_cmd(cmd)
     if len(output) > 0:
         logger.info(output)
 
@@ -147,7 +133,7 @@ def do_sr_browse(sr_filename, scene,
                     '-of', 'GTIFF',
                     'warped.tif', browse_filename])
     logger.info(' '.join(['Running:', cmd]))
-    output = util.execut_cmd(cmd)
+    output = utilities.execut_cmd(cmd)
     if len(output) > 0:
         logger.info(output)
 
@@ -158,7 +144,7 @@ def do_sr_browse(sr_filename, scene,
 
     cmd = ' '.join(['rm', '-rf'] + remove_files)
     logger.info(' '.join(['Running:', cmd]))
-    output = util.execut_cmd(cmd)
+    output = utilities.execut_cmd(cmd)
     if len(output) > 0:
         logger.info(output)
 

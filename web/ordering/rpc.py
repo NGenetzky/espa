@@ -26,14 +26,13 @@ def rpc_handler(request):
 
     if len(request.body):
         d.register_function(_update_status, 'update_status')
-        d.register_function(_set_scene_error, 'set_scene_error')
-        d.register_function(_set_scene_unavailable, 'set_scene_unavailable')
-        d.register_function(_mark_scene_complete, 'mark_scene_complete')
+        d.register_function(_set_product_error, 'set_scene_error')
+        d.register_function(_set_product_unavailable, 'set_scene_unavailable')
+        d.register_function(_mark_product_complete, 'mark_scene_complete')
         d.register_function(_handle_orders, 'handle_orders')
         d.register_function(_queue_products, 'queue_products')
-        d.register_function(_send_initial_emails, 'send_initial_emails')
         d.register_function(_get_configuration, 'get_configuration')
-        d.register_function(_get_scenes_to_process, 'get_scenes_to_process')
+        d.register_function(_get_products_to_process, 'get_scenes_to_process')
         d.register_function(_get_data_points, 'get_data_points')
 
         response = HttpResponse(mimetype="application/xml")
@@ -63,16 +62,16 @@ def _update_status(name, orderid, processing_loc, status):
         return core.update_status(name, orderid, processing_loc, status)
 
 
-def _set_scene_error(name, orderid, processing_loc, error):
-    return core.set_scene_error(name, orderid, processing_loc, error)
+def _set_product_error(name, orderid, processing_loc, error):
+    return core.set_product_error(name, orderid, processing_loc, error)
 
 
-def _set_scene_unavailable(name, orderid, processing_loc, error, note):
-    return core.set_scene_unavailable(name,
-                                      orderid,
-                                      processing_loc,
-                                      error,
-                                      note)
+def _set_product_unavailable(name, orderid, processing_loc, error, note):
+    return core.set_product_unavailable(name,
+                                        orderid,
+                                        processing_loc,
+                                        error,
+                                        note)
 
 
 def _queue_products(order_name_tuple_list, processing_location, job_name):
@@ -82,12 +81,12 @@ def _queue_products(order_name_tuple_list, processing_location, job_name):
                                job_name)
 
 
-def _mark_scene_complete(name,
-                         orderid,
-                         processing_loc,
-                         completed_scene_location,
-                         cksum_file_location,
-                         log_file_contents_binary):
+def _mark_product_complete(name,
+                           orderid,
+                           processing_loc,
+                           completed_scene_location,
+                           cksum_file_location,
+                           log_file_contents_binary):
 
     log_file_contents = None
     if type(log_file_contents_binary) is str:
@@ -95,20 +94,16 @@ def _mark_scene_complete(name,
     else:
         log_file_contents = log_file_contents_binary.data
 
-    return core.mark_scene_complete(name,
-                                    orderid,
-                                    processing_loc,
-                                    completed_scene_location,
-                                    cksum_file_location,
-                                    log_file_contents)
+    return core.mark_product_complete(name,
+                                      orderid,
+                                      processing_loc,
+                                      completed_scene_location,
+                                      cksum_file_location,
+                                      log_file_contents)
 
 
 def _handle_orders():
     return core.handle_orders()
-
-
-def _send_initial_emails():
-    return core.send_initial_emails()
 
 
 #method to expose master configuration repository to the system
@@ -116,14 +111,14 @@ def _get_configuration(key):
     return Configuration().getValue(key)
 
 
-def _get_scenes_to_process(limit=None,
-                           for_user=None,
-                           priority=None,
-                           product_types=['landsat', 'modis']):
-    return core.get_scenes_to_process(limit=limit,
-                                      for_user=for_user,
-                                      priority=priority,
-                                      product_types=product_types)
+def _get_products_to_process(limit=None,
+                             for_user=None,
+                             priority=None,
+                             product_types=['landsat', 'modis']):
+    return core.get_products_to_process(limit=limit,
+                                        for_user=for_user,
+                                        priority=priority,
+                                        product_types=product_types)
 
 
 def _get_data_points(tags=[]):

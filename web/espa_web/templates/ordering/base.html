@@ -55,6 +55,8 @@
         {% block nav %}<div id="nav"><span class="navitemleft"><a href="{% url 'index' %}">Home</a></span></div>{% endblock %}
        <!-- End nav -->
 
+        {% block system-info %}{% endblock %}
+
         <div id="content">
             {% block content %} content {% endblock %}
         </div>

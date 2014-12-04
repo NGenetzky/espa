@@ -1,8 +1,4 @@
 
-
-##############################################################################
-# Used in cdr_ecv_cron.py
-
 # Specifies the buffer length for an order line in the order file
 # The Hadoop File System block size should be a multiple of this value
 ORDER_BUFFER_LENGTH = 2048
@@ -20,27 +16,8 @@ HADOOP_QUEUE_MAPPING = {
     'high': 'ondemand-high'
 }
 
-
-##############################################################################
-# Used in cdr_ecv.py
-
-# Path to the Landsat L1T source data location
-LANDSAT_BASE_SOURCE_PATH = '/data/standard_l1t'
-
 # filename extension for landsat input products
 LANDSAT_INPUT_FILENAME_EXTENSION = '.tar.gz'
-
-# host for landsat input checks
-LANDSAT_INPUT_CHECK_HOST = 'edclpdsftp.cr.usgs.gov'
-
-# port for landsat input checks
-LANDSAT_INPUT_CHECK_PORT = 50000
-
-LANDSAT_INPUT_CHECK_BASE_PATH = "/RPC2"
-
-
-##############################################################################
-# Used in modis.py
 
 # Path to the MODIS Terra source data location
 TERRA_BASE_SOURCE_PATH = '/MOLT'
@@ -56,38 +33,15 @@ MODIS_INPUT_CHECK_HOST = 'e4ftl01.cr.usgs.gov'
 # port for modis input checks
 MODIS_INPUT_CHECK_PORT = 80
 
-MODIS_INPUT_CHECK_BASE_PATH = "/"
-
-
-##############################################################################
-# Used in cdr_ecv.py and modis.py
-
-# Path to place the completed orders
-ESPA_BASE_OUTPUT_PATH = '/data2/LSRD'
-
-
-##############################################################################
-# Used in plotting.py
-
 # Path to the completed orders
 ESPA_CACHE_DIRECTORY = '/data2/LSRD/orders'
-# Can override this by setting the environment variable DEV_CACHE_DIRECTORY
-
 
 ESPA_EMAIL_ADDRESS = 'espa@usgs.gov'
 
 ESPA_EMAIL_SERVER = 'gssdsflh01.cr.usgs.gov'
 
-
-##############################################################################
-# Used by browse.py and science.py
-
 # Default resolution for browse generation
 DEFAULT_BROWSE_RESOLUTION = 50
-
-
-##############################################################################
-# Used by science.py
 
 # Default name for the solr collection
 DEFAULT_SOLR_COLLECTION_NAME = 'DEFAULT_COLLECTION'
@@ -96,10 +50,6 @@ DEFAULT_SOLR_COLLECTION_NAME = 'DEFAULT_COLLECTION'
 # It is used as a string in the code since it is passed to the cfmask
 # executable
 CFMASK_MAX_CLOUD_PIXELS = '5000000'
-
-
-##############################################################################
-# Used by distribution.py
 
 # Number of seconds to sleep when errors are encountered before attempting the
 # task again
@@ -110,30 +60,35 @@ MAX_PACKAGING_ATTEMPTS = 3
 MAX_DELIVERY_ATTEMPTS = 3
 MAX_DISTRIBUTION_ATTEMPTS = 5
 
-
-##############################################################################
-# Used by util.py and lpcs.py
-
 # List of hostnames to choose from for the access to the online cache
 # 140 is here twice so the load is 2/3 + 1/3.  machines are mismatched
 ESPA_CACHE_HOST_LIST = ['edclxs67p', 'edclxs140p', 'edclxs140p']
-MODIS_INPUT_HOSTNAME = 'e4ftl01.cr.usgs.gov'
-# Developers can override these for LPCS by setting the environment variable
-# DEV_CACHE_HOSTNAME
 
 # Where to place the temporary scene processing log files
 LOGFILE_PATH = '/tmp'
 
-
-##############################################################################
-# Used by plotting.py
 PLOT_BG_COLOR = '#f3f3f3'  # A light gray
 PLOT_MARKER = (1, 3, 0)    # Better circle than 'o'
 PLOT_MARKER_SIZE = 5.0     # A good size for the circle or diamond
+PLOT_MARKER_EDGE_WIDTH = 0.9  # The width of the black marker border
 
+# We are only supporting one radius when warping to sinusoidal
+SINUSOIDAL_SPHERE_RADIUS = 6371007.181
 
-##############################################################################
-# Used by statistics.py
+# Some defines for common pixels sizes in decimal degrees
+DEG_FOR_30_METERS = 0.0002695
+DEG_FOR_15_METERS = (DEG_FOR_30_METERS / 2.0)
+DEG_FOR_1_METER = (DEG_FOR_30_METERS / 30.0)
+
+# Supported datums - the strings for them
+WGS84 = 'WGS84'
+NAD27 = 'NAD27'
+NAD83 = 'NAD83'
+
+TRANSFER_BLOCK_SIZE = 10485760
+
+# We do not allow any user selectable choices for this projection
+GEOGRAPHIC_PROJ4_STRING = "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
 
 # Band type data ranges.  They are intended to be used for removing outliers
 # from the data before statistics generation
@@ -167,12 +122,15 @@ BAND_TYPE_STAT_RANGES = {
 '''Resolves system-wide identification of sensor name based on three letter
    prefix
 '''
-SENSOR_NAMES = {
-    'LE7': 'etm',
-    'LT4': 'tm',
-    'LT5': 'tm',
-    'MYD': 'aqua',
-    'MOD': 'terra'
+
+SENSOR_INFO = {
+    'LO8': {'name': 'oli', 'lta_name': ''},
+    'LC8': {'name': 'olitirs', 'lta_name': 'LANDSAT_8'},
+    'LE7': {'name': 'etm', 'lta_name': 'LANDSAT_ETM_PLUS'},
+    'LT4': {'name': 'tm', 'lta_name': 'LANDSAT_TM'},
+    'LT5': {'name': 'tm', 'lta_name': 'LANDSAT_TM'},
+    'MYD': {'name': 'aqua'},
+    'MOD': {'name': 'terra'}
 }
 
 '''Default pixel sizes based on the input products'''
@@ -186,6 +144,8 @@ DEFAULT_PIXEL_SIZE = {
         '13A3': 1000,
         '13A2': 1000,
         '13A1': 500,
+        'LC8': 30,
+        'LO8': 30,
         'LE7': 30,
         'LT4': 30,
         'LT5': 30
@@ -199,12 +159,13 @@ DEFAULT_PIXEL_SIZE = {
         '13A3': 0.0089831,
         '13A2': 0.0089831,
         '13A1': 0.00449155,
+        'LC8': 0.0002695,
+        'LO8': 0.0002695,
         'LE7': 0.0002695,
         'LT4': 0.0002695,
         'LT5': 0.0002695
         }
 }
-
 
 ''' Constant dictionary to hold the cache keys used in Django
  caching/memcached'''
@@ -213,10 +174,29 @@ CACHE_KEYS = {
 
 }
 
+''' SOAP client configuration parameters '''
+# timeout is in seconds
+SOAP_CLIENT_TIMEOUT = 60 * 30
+
+# location where the WSDLS should be cached
+SOAP_CACHE_LOCATION = '/tmp/suds'
+
+
+''' Dictionary containing retry timeouts in seconds'''
+RETRY = {
+    'missing_ledaps_aux_data': {'timeout': 60 * 60 * 24,
+                                'retry_limit': 5},
+    'ftp_timed_out': {'timeout': 60, 'retry_limit': 5},
+    'ftp_500_oops': {'timeout': 60, 'retry_limit': 5},
+    'ftp_ftplib_error_reply': {'timeout': 60, 'retry_limit': 5},
+    'network_is_unreachable': {'timeout': 120, 'retry_limit': 5},
+    'connection_timed_out': {'timeout': 60, 'retry_limit': 5}
+}
 
 '''
 LOGGING DEFINITIONS
 '''
+PROCESSING_LOGGER = 'espa.processing'
 
 LOGGER_CONFIG = {
     'version': 1,

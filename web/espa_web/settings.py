@@ -32,6 +32,7 @@ if not os.path.exists(ESPA_CONFIG_FILE):
                     % ESPA_CONFIG_FILE)
 
 config = ConfigParser.RawConfigParser()
+
 with open(ESPA_CONFIG_FILE) as file_handle:
     config.readfp(file_handle)
 
@@ -39,6 +40,9 @@ with open(ESPA_CONFIG_FILE) as file_handle:
 # set the ESPA_ENV variable correctly
 ESPA_ENV = 'dev'
 
+# ************t*************
+# NEVER CHANGE THIS TO ops IN dev OR tst UNLESS THE dev AND tst CRONS ARE OFF
+# *************************
 if "ESPA_ENV" in os.environ:
     if os.environ['ESPA_ENV'].lower() == 'ops':
         ESPA_ENV = 'ops'
@@ -128,7 +132,7 @@ USE_I18N = True
 
 USE_L10N = True
 
-USE_TZ = True
+USE_TZ = False
 
 
 # Static files (CSS, JavaScript, Images)
@@ -188,7 +192,7 @@ SERVICE_LOCATOR = {
     "ops": {
         "orderservice": "http://edclxs152.cr.usgs.gov/OrderWrapperService/resources",
         "orderdelivery": "http://edclxs152.cr.usgs.gov/OrderDeliveryService/OrderDeliveryService?WSDL",
-        "orderupdate": "http://edclxs152/OrderStatusService/OrderStatusService?wsdl",
+        "orderupdate": "http://edclxs152.cr.usgs.gov/OrderStatusService/OrderStatusService?wsdl",
         "massloader": "http://edclxs152.cr.usgs.gov/MassLoader/MassLoader?wsdl",
         "registration": "http://edclxs152.cr.usgs.gov/RegistrationService/RegistrationService?wsdl",
         "register_user": "https://earthexplorer.usgs.gov/register",
@@ -215,6 +219,9 @@ LOGIN_REDIRECT_URL = 'index'
 
 # This is polluting the settings.py I know, but at the moment this is the
 # best place for this since it is needed in lta.py and in context_processors.py
+# ************t*************
+# NEVER CHANGE THIS TO ops IN dev OR tst UNLESS THE dev AND tst CRONS ARE OFF
+# *************************
 URL_FOR = lambda service_name: SERVICE_LOCATOR[ESPA_ENV][service_name]
 
 # Set up caching for Django.  Everything is pointed to our single memcache 
@@ -245,3 +252,5 @@ else:
 
 # cache timeouts by usage (in seconds)
 SYSTEM_MESSAGE_CACHE_TIMEOUT = 60
+
+

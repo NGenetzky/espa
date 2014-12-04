@@ -1,5 +1,4 @@
 import datetime
-import re
 import json
 
 from espa_common import sensor
@@ -53,13 +52,12 @@ class Order(Document):
     )
 
     # orderid should be in the format email_MMDDYY_HHMMSS
-    id = StringField(max_length=255, primary_key=True) # db_index=True)
-    #id = ObjectIdField(primary_key=True)
+    id = StringField(max_length=255, primary_key=True)
 
     # This field is in the User object now, but should actually be pulled from
     # the EarthExplorer profile
     # the users email address
-    email = EmailField() #db_index=True
+    email = EmailField()
 
     # reference the user that placed this order
     user = ReferenceField(User)
@@ -67,37 +65,36 @@ class Order(Document):
     # order_type describes the order characteristics so we can use logic to
     # handle multiple varieties of orders
     order_type = StringField(max_length=50,
-                             choices=ORDER_TYPES) #db_index=True
+                             choices=ORDER_TYPES)
 
     priority = StringField(max_length=10,
-                           choices=ORDER_PRIORITY) #db_index=True)
+                           choices=ORDER_PRIORITY)
 
     # date the order was placed
-    order_date = DateTimeField('date ordered') #db_index=True)
+    order_date = DateTimeField('date ordered')
 
     # date the order completed (all scenes completed or marked unavailable)
-    completion_date = StringField('date completed') #db_index=True)
+    completion_date = StringField('date completed')
 
-    initial_email_sent = DateTimeField('initial_email_sent') #db_index=True)
+    initial_email_sent = DateTimeField('initial_email_sent')
 
-    completion_email_sent = DateTimeField('completion_email_sent') #db_index=True)
+    completion_email_sent = DateTimeField('completion_email_sent')
 
     #o ne of order.STATUS
-    status = StringField(max_length=20, choices=STATUS) # db_index=True)
+    status = StringField(max_length=20, choices=STATUS)
 
     # space for users to add notes to orders
-    note = StringField(max_length=2048) #blank=True, null=True)
+    note = StringField(max_length=2048)
 
     # json for all product options
-    #product_options = StringField(max_length=4000) #blank=False, null=False)
     product_options = DictField()
 
     # one of Order.ORDER_SOURCE
     order_source = StringField(max_length=10,
-                               choices=ORDER_SOURCE) #db_index=True)
+                               choices=ORDER_SOURCE)
 
     # populated when the order is placed through EE vs ESPA
-    ee_order_id = StringField(max_length=13) # blank=True)
+    ee_order_id = StringField(max_length=13)
 
     @staticmethod
     def get_default_product_options():
@@ -162,12 +159,12 @@ class Order(Document):
         Dictionary populated with default subsettings/framing options
         '''
         o = {}
-        o['image_extents'] = False     # modify image extents (subset or frame)
-        o['image_extents_units'] = None#what units are the coords in?  
-        o['minx'] = None               #
-        o['miny'] = None               #
-        o['maxx'] = None               #
-        o['maxy'] = None               #
+        o['image_extents'] = False       # modify image extent(subset or frame)
+        o['image_extents_units'] = None  # what units are the coords in?
+        o['minx'] = None                 #
+        o['miny'] = None                 #
+        o['maxx'] = None                 #
+        o['maxy'] = None                 #
         return o
 
     @staticmethod
@@ -349,7 +346,7 @@ class Order(Document):
         for s in set(scene_list):
 
             sensor_type = None
-            
+
             if s == 'plot':
                 sensor_type = 'plot'
             elif isinstance(sensor.instance(s), sensor.Landsat):
@@ -383,7 +380,7 @@ class Product(Document):
         ('queued', 'Queued'),
         ('processing', 'Processing'),
         ('complete', 'Complete'),
-        ('purged', 'Purged'),
+        ('retry', 'Retry'),
         ('unavailable', 'Unavailable'),
         ('error', 'Error')
     )
@@ -395,74 +392,66 @@ class Product(Document):
     )
 
     #scene file name, with no suffix
-    name = StringField(max_length=256) # db_index=True)
+    name = StringField(max_length=256)
 
     #flags product as either landsat, modis or plot
-    sensor_type = StringField(max_length=50, choices=SENSOR_PRODUCT) #db_index=True)
+    sensor_type = StringField(max_length=50, choices=SENSOR_PRODUCT)
 
     #scene system note, used to add message to users
-    note = StringField(max_length=2048) # blank=True, null=True)
+    note = StringField(max_length=2048)
 
     #Reference to the Order this Product is associated with
     order = ReferenceField(Order)
 
     #holds the name of the processing job that is producing this product
-    job_name = StringField(max_length=255) # blank=True, null=True)
+    job_name = StringField(max_length=255)
 
     #full path including filename where this scene has been distributed to
     #minus the host and port. signifies that this scene is distributed
-    product_distro_location = StringField(max_length=1024) # blank=True)
+    product_distro_location = StringField(max_length=1024)
 
     #full path for scene download on the distribution node
-    product_dload_url = StringField(max_length=1024) # blank=True)
+    product_dload_url = StringField(max_length=1024)
 
     #full path (with filename) for scene checksum on distribution filesystem
-    cksum_distro_location = StringField(max_length=1024) #blank=True)
+    cksum_distro_location = StringField(max_length=1024)
 
     #full url this file can be downloaded from
-    cksum_download_url = StringField(max_length=1024) # blank=True)
+    cksum_download_url = StringField(max_length=1024)
 
     # This will only be populated if the scene had to be placed on order
     #through EE to satisfy the request.
-    tram_order_id = StringField(max_length=13) # blank=True, null=True)
+    tram_order_id = StringField(max_length=13)
 
     # Flags for order origination.  These will only be populated if the scene
     # request came from EE.
-    ee_unit_id = IntField() #max_length=11, blank=True, null=True)
+    ee_unit_id = IntField()
 
     # General status flags for this scene
 
     #Status.... one of Submitted, Ready For Processing, Processing,
     #Processing Complete, Distributed, or Purged
-    status = StringField(max_length=30, choices=STATUS) # db_index=True)
+    status = StringField(max_length=30, choices=STATUS)
 
     #Where is this scene being processed at?  (which machine)
-    processing_location = StringField(max_length=256) # blank=True)
+    processing_location = StringField(max_length=256)
 
     #Time this scene was finished processing
-    completion_date = DateTimeField('date completed') #db_index=True)
+    completion_date = DateTimeField('date_completed')
 
     #Final contents of log file... should be put added when scene is marked
     #complete.
-    log_file_contents = StringField('log_file') # blank=True, null=True)
+    log_file_contents = StringField('log_file')
 
-    @staticmethod
-    def sceneid_is_sane(sceneid):
-        ''' validates against a properly structure L7, L5 or L4 sceneid
+    #If the status is 'retry', after what date should the retry occur?
+    retry_after = DateTimeField()
 
-        Keyword args:
-        sceneid The scene name to check the structure of
+    #max number of retries before moving to error status
+    #default to 5
+    retry_limit = IntField(min_value=0, max_value=999, default=5)
 
-        Returns:
-        True if the value matches a sceneid structure
-        False if the value does not match a sceneid structure
-        '''
-
-        p = re.compile('L(E7|T4|T5)\d{3}\d{3}\d{4}\d{3}\w{3}\d{2}')
-        if p.match(sceneid):
-            return True
-        else:
-            return False
+    #current number of retries, initialized to 0
+    retry_count = IntField(min_value=0, max_value=999, default=0)
 
 
 class Configuration(Document):

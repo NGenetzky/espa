@@ -27,6 +27,7 @@ class Index(AbstractView):
         ctx['queued_units'] = Product.objects.filter(status='queued').count()
         ctx['process_units'] = Product.objects.filter(status='processing').count()
         ctx['error_units'] = Product.objects.filter(status='error').count()
+        ctx['retry_units'] = Product.objects.filter(status='retry').count()
 
         try:
             ondemand_enabled = Configuration.objects.get(key='ondemand_enabled')
@@ -135,7 +136,6 @@ class StatusMessage(SuccessMessageMixin, AbstractView, FormView):
 
     def get_context_data(self, **kwargs):
         context = super(StatusMessage, self).get_context_data(**kwargs)
-        self._get_system_status(context)
 
         try:
             update_date = Configuration.objects.get(key="system_message_updated_date")

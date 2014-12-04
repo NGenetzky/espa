@@ -4,7 +4,7 @@ Purpose: Holds common logic needed between views.py and api.py
 Original Author: David V. Hill
 '''
 
-
+import models
 from models import Product
 from models import Order
 from models import Configuration
@@ -12,128 +12,257 @@ from models import UserProfile
 from django.contrib.auth.models import User
 from django.conf import settings
 from django.db import transaction
-
 import json
 import datetime
 import lta
-
+import lpdaac
+import errors
 import espa_common
 
 
-def frange(start, end, step):
-    '''Provides Python range functions over floating point values'''
-    return [x*step for x in range(int(start * 1./step), int(end * 1./step))]
+class Emails(object):
+
+    def __init__(self):
+        self.status_base_url = Configuration().getValue('espa.status.url')
+
+    def __send(self, recipient, subject, body):
+        return espa_common.utilities.send_email(recipient=recipient,
+                                                subject=subject,
+                                                body=body)
+
+    def __order_status_url(self, email):
+        return ''.join(self.status_base_url, '/', email)
+
+    @transaction.atomic
+    def send_all_initial(self):
+        '''Finds all the orders that have not had their initial emails sent and
+        sends them'''
+
+        orders = Order.objects.filter(status='ordered')
+        for o in orders:
+            if not o.initial_email_sent:
+                self.send_initial(o)
+                o.initial_email_sent = datetime.datetime.now()
+                o.save()
+
+    def send_initial(self, order):
+
+        if isinstance(order, str):
+            order = Order.objects.get(orderid=order)
+        elif isinstance(order, int):
+            order = Order.objects.get(id=order)
+
+        if not isinstance(order, models.Order):
+            msg = 'order must be str, int or instance of models.Order'
+            raise TypeError(msg)
+
+        email = order.user.email
+        url = self.__order_status_url(email)
+
+        m = list()
+        m.append("Thank you for your order.\n\n")
+        m.append("%s has been received and is currently " % order.orderid)
+        m.append("being processed.  ")
+        m.append("Another email will be sent when this order is complete.\n\n")
+        m.append("You may view the status of your order and download ")
+        m.append("completed products directly from %s\n\n" % url)
+        m.append("Requested products\n")
+        m.append("-------------------------------------------\n")
+
+        #scenes = Scene.objects.filter(order__id=order.id)
+
+        products = order.scene_set.all()
+
+        for product in products:
+            name = product.name
+
+            if name == 'plot':
+                name = "Plotting & Statistics"
+            m.append("%s\n" % name)
+
+        email_msg = ''.join(m)
+        subject = 'Processing order %s received' % order.orderid
+
+        return self.__send(recipient=email, subject=subject, body=email_msg)
+
+    def send_completion(self, order):
+
+        if isinstance(order, str):
+            order = Order.objects.get(orderid=order)
+        elif isinstance(order, int):
+            order = Order.objects.get(id=order)
+
+        if not isinstance(order, models.Order):
+            msg = 'order must be str, int or instance of models.Order'
+            raise TypeError(msg)
+
+        email = order.user.email
+        url = self.__order_status_url(email)
+
+        m = list()
+        m.append("%s is now complete and can be downloaded " % order.orderid)
+        m.append("from %s.\n\n" % url)
+        m.append("This order will remain available for 14 days.  ")
+        m.append("Any data not downloaded will need to be reordered ")
+        m.append("after this time.\n\n")
+        m.append("Please contact Customer Services at 1-800-252-4547 or ")
+        m.append("email custserv@usgs.gov with any questions.\n\n")
+        m.append("Requested products\n")
+        m.append("-------------------------------------------\n")
+
+        products = order.scene_set.filter(status='complete')
+
+        for product in products:
+            line = product.name
+            if line == 'plot':
+                line = "Plotting & Statistics"
+
+            m.append("%s\n" % line)
+
+        body = ''.join(m)
+        subject = 'Processing for %s complete.' % order.orderid
+
+        return self.__send(recipient=email, subject=subject, body=body)
+
+'''
+TODO -- Create new method handle_submitted_scenes() or something to that effect
+_process down to this comment should be included in it.
+
+The rest of this method down should actually be 'get_scenes_to_process()'
+
+TODO -- renamed this module 'actions.py'
+TODO -- OO'ize the order handling into OrderHandler()
+TODO -- Encapsulate all models.py classes here... don't let them flow
+TODO --     up into the callers of this module.
+TODO -- OrderHandler().get_scenes_to_process()
+TODO -- OrderHandler().determine_disposition()
+TODO -- OrderHandler().cancel(Order())
+TODO -- OrderHandler().cancel(Order(), ProductSensor())
+TODO -- OrderHandler().cleanup(Order())
+TODO -- OrderHandler().status(Order())
+TODO -- OrderHandler().status(Order(), ProductSensor())
+
+TODO -- Build HadoopHandler() as well.
+TODO -- HadoopHandler().cluster_status()
+TODO -- HadoopHandler().cancel_job(jobid)
+'''
 
 
-# Sends the order submission confirmation email
-def send_initial_email(order):
+class ProductHandler(object):
 
-    status_base_url = Configuration().getValue('espa.status.url')
+    def check_ordered(self):
+        pass
 
-    status_url = ('%s/%s') % (status_base_url, order.user.email)
+    def accept_submitted(self):
+        pass
 
-    m = list()
-    m.append("Thank you for your order.\n\n")
-    m.append("%s has been received and is currently " % order.id)
-    m.append("being processed.  ")
-    m.append("Another email will be sent when this order is complete.\n\n")
-    m.append("You may view the status of your order and download ")
-    m.append("completed products directly from %s\n\n" % status_url)
-    m.append("Requested products\n")
-    m.append("-------------------------------------------\n")
+    def move_to_queued(self):
+        pass
 
-    products = Product.objects.filter(order__id=order.id)
+    def move_to_complete(self):
+        pass
 
-    for s in products:
-        
-        product_name = s.name
-        
-        if product_name == 'plot':
-            product_name = "Plotting & Statistics"
-            
-        m.append("%s\n" % product_name)
+    def move_to_unavailable(self):
+        pass
 
-    email_msg = ''.join(m)
+    def move_to_error(self):
+        pass
 
-    subject = 'Processing order %s received' % order.id
-    return espa_common.utilities.send_email(recipient=order.user.email,
-                                            subject=subject,
-                                            body=email_msg)
+    def move_to_retry(self):
+        pass
+
+    def move_to_submitted(self):
+        pass
+
+    def are_oncache(self):
+        pass
 
 
-def send_completion_email(email, ordernum, readyscenes=[]):
+class LandsatProductHandler(object):
 
-    config = Configuration()
+    def __init__(self, *args, **kwargs):
+        super(LandsatProductHandler, self).__init__(*args, **kwargs)
 
-    status_base_url = config.getValue('espa.status.url')
+    def check_ordered(self):
+        pass
 
-    config = None
-
-    status_url = ('%s/%s') % (status_base_url, email)
-    m = list()
-    m.append("%s is now complete and can be downloaded " % ordernum)
-    m.append("from %s.\n\n" % status_url)
-    m.append("This order will remain available for 14 days.  ")
-    m.append("Any data not downloaded will need to be reordered ")
-    m.append("after this time.\n\n")
-    m.append("Please contact Customer Services at 1-800-252-4547 or ")
-    m.append("email custserv@usgs.gov with any questions.\n\n")
-    m.append("Requested products\n")
-    m.append("-------------------------------------------\n")
-
-    for r in readyscenes:
-
-        if r == 'plot':
-            r = "Plotting & Statistics"
-            
-        m.append("%s\n" % r)
-
-    email_msg = ''.join(m)
-
-    subject = 'Processing for %s complete.' % ordernum
-
-    return espa_common.utilities.send_email(recipient=email,
-                                            subject=subject,
-                                            body=email_msg)
+    def accept_submitted(self):
+        pass
 
 
-def scenes_on_cache(input_product_list):
-    """Proxy method call to determine if the scenes in question are on disk
+class ModisProductHandler(object):
 
-    Keyword args:
-    input_product_list -- A Python list of scene identifiers
-
-    Returns:
-    A subset of scene identifiers
-    """
-    ipl = input_product_list
-    return espa_common.utilities.scenecache_client().scenes_exist(ipl)
+    def __init__(self, *args, **kwargs):
+        super(ModisProductHandler, self).__init__(*args, **kwargs)
 
 
-def scenes_are_nlaps(input_product_list):
-    """Proxy method call to determine if the scenes are nlaps scenes
+class OrderHandler(object):
 
-    Keyword args:
-    input_product_list -- A Python list of scene identifiers
+    def __init__(self):
+        pass
 
-    Return:
-    A subset of scene identifiers
-    """
-    client = espa_common.utilities.scenecache_client()
-    return client.is_nlaps(input_product_list)
+    def all_products_complete(self, order):
+        pass
+
+    def cancel(self, order):
+        pass
+
+    def status(self, order):
+        pass
+
+    def details(self, order):
+        pass
+
+    def cleanup(self, order):
+        pass
+
+    def finalize_all(self):
+        pass
+
+    def load_ee(self):
+        pass
+
+#def products_on_cache(input_product_list):
+#    """Proxy method call to determine if the scenes in question are on disk
+
+#    Keyword args:
+#    input_product_list -- A Python list of scene identifiers
+
+#    Returns:
+#    A subset of scene identifiers
+#    """
+#    ipl = input_product_list
+#    return espa_common.utilities.scenecache_client().scenes_exist(ipl)
+
+
+@transaction.atomic
+def handle_retry_products():
+    now = datetime.datetime.now()
+
+    filter_args = {'status': 'retry',
+                   'retry_after__lt': now}
+
+    update_args = {'status': 'submitted',
+                   'note': ''}
+
+    Scene.objects.filter(**filter_args).update(**update_args)
 
 
 @transaction.atomic
 def handle_onorder_landsat_products():
+    # TODO: This must be moved to look to the UserProfile since we have to
+    # TODO: group everything by contactid now
+
     filter_args = {'status': 'onorder',
                    'sensor_type': 'landsat'}
 
     orderby = 'order__order_date'
 
     landsat_products = Product.objects.filter(**filter_args).order_by(orderby)
+
     if len(landsat_products) > 0:
 
-        landsat_oncache = scenes_on_cache([l.name for l in landsat_products])
+        landsat_oncache = products_on_cache([l.name for l in landsat_products])
 
         filter_args = {'status': 'onorder', 'name__in': landsat_oncache}
         update_args = {'status': 'oncache'}
@@ -145,10 +274,6 @@ def handle_submitted_landsat_products():
     filter_args = {'status': 'submitted', 'sensor_type': 'landsat'}
     orderby = 'order__order_date'
     landsat_products = Product.objects.filter(**filter_args).order_by(orderby)
-
-    #landsat_products =  Scene.objects.filter(status='submitted',
-    #                                         sensor_type='landsat')\
-    #                                         .order_by('order__order_date')
 
     if len(landsat_products) > 0:
 
@@ -166,7 +291,7 @@ def handle_submitted_landsat_products():
         landsat_submitted = [l.name for l in landsat_products]
 
         # find all the submitted products that are nlaps and reject them
-        landsat_nlaps = scenes_are_nlaps(landsat_submitted)
+        landsat_nlaps = espa_common.nlaps.products_are_nlaps(landsat_submitted)
 
         if settings.DEBUG:
             print("Found %i landsat nlaps products" % len(landsat_nlaps))
@@ -185,13 +310,8 @@ def handle_submitted_landsat_products():
 
             Product.objects.filter(**filter_args).update(**update_args)
 
-            #Scene.objects.filter(status='submitted', name__in=landsat_nlaps)\
-            #    .update(status='unavailable',
-            #            completion_date = datetime.datetime.now(),
-            #            note='TMA data cannot be processed')
-
         # find all the landsat products already sitting on online cache
-        landsat_oncache = scenes_on_cache(landsat_submitted)
+        landsat_oncache = products_on_cache(landsat_submitted)
 
         if settings.DEBUG:
             print("Found %i landsat products on cache" % len(landsat_oncache))
@@ -207,10 +327,6 @@ def handle_submitted_landsat_products():
             update_args = {'status': 'oncache'}
 
             Product.objects.filter(**filter_args).update(**update_args)
-
-            #Scene.objects.filter(status='submitted',
-            #                     name__in=landsat_oncache)\
-            #   .update(status='oncache')
 
         # placeholder for scenes that are not nlaps but are not on cache
         need_to_order = set(landsat_submitted) - set(landsat_nlaps)
@@ -237,8 +353,6 @@ def handle_submitted_landsat_products():
                        }
 
         orders = Product.objects.filter(**filter_args).values('order').distinct()
-
-        order_wrapper = lta.OrderWrapperServiceClient()
 
         # look through the Orders that are part of need_to_order
         # and place one order with lta for each one that has scenes that
@@ -278,8 +392,7 @@ def handle_submitted_landsat_products():
                 print eo_scene_list
 
             if len(eo_scene_list) > 0:
-                resp_dict = order_wrapper.order_scenes(eo_scene_list,
-                                                       contactid)
+                resp_dict = lta.order_scenes(eo_scene_list, contactid)
 
                 if settings.DEBUG:
                     print("Resp dict")
@@ -294,11 +407,6 @@ def handle_submitted_landsat_products():
 
                     eo.scene_set.filter(**filter_args).update(**update_args)
 
-                    #eo.scene_set.filter(status='submitted',
-                    #                    name__in=resp_dict['ordered'])\
-                    #    .update(status='onorder',
-                    #            tram_order_id=resp_dict['lta_order_id'])
-
                 if 'invalid' in resp_dict:
                     filter_args = {'status': 'submitted',
                                    'name__in': resp_dict['invalid']}
@@ -309,12 +417,6 @@ def handle_submitted_landsat_products():
 
                     eo.scene_set.filter(**filter_args).update(**update_args)
 
-                    #eo.scene_set.filter(status='submitted',
-                    #                    name__in=resp_dict['invalid'])\
-                    #    .update(status='unavailable',
-                    #            completion_date = datetime.datetime.now(),
-                    #            note='Not found in landsat archive')
-
                 if 'available' in resp_dict:
                     filter_args = {'status': 'submitted',
                                    'name__in': resp_dict['available']}
@@ -324,6 +426,7 @@ def handle_submitted_landsat_products():
 
 @transaction.atomic
 def handle_submitted_modis_products():
+    ''' Moves all submitted modis products to oncache if true '''
 
     filter_args = {'status': 'submitted', 'sensor_type': 'modis'}
     modis_products = Product.objects.filter(**filter_args)
@@ -332,10 +435,9 @@ def handle_submitted_modis_products():
 
         oncache_list = list()
 
-        for m in modis_products:
-            product = espa_common.sensor.instance(m.name)
-            if product.input_exists():
-                oncache_list.append(product.product_id)
+        for product in modis_products:
+            if lpdaac.input_exists(product.name):
+                oncache_list.append(product.name)
 
         filter_args = {'status': 'submitted',
                        'name__in': oncache_list,
@@ -344,265 +446,254 @@ def handle_submitted_modis_products():
         update_args = {'status': 'oncache'}
 
         Product.objects.filter(**filter_args).update(**update_args)
-        
+
 
 @transaction.atomic
 def handle_submitted_plot_products():
+    ''' Moves plot products from submitted to oncache status once all
+        their underlying rasters are complete or unavailable '''
 
     filter_args = {'status': 'ordered', 'order_type': 'lpcs'}
     plot_orders = Order.objects.filter(**filter_args)
-    
+
     if len(plot_orders) > 0:
 
         for order in plot_orders:
-            scene_count = order.scene_set.count()
+            product_count = order.scene_set.count()
 
-            complete_status = ['complete', 'unavailable']            
+            complete_status = ['complete', 'unavailable']
             filter_args = {'status__in': complete_status}
-            complete_scenes = order.scene_set.filter(**filter_args).count()
-            
+            complete_products = order.scene_set.filter(**filter_args).count()
+
             #if this is an lpcs order and there is only 1 product left that
             #is not done, it must be the plot product.  Will verify this
-            #in next step.  Plotting cannot run unless everything else 
+            #in next step.  Plotting cannot run unless everything else
             #is done.
 
-            if scene_count - complete_scenes == 1:
-                filter_args = {'status': 'submitted', 'sensor_type':'plot'}                
+            if product_count - complete_products == 1:
+                filter_args = {'status': 'submitted', 'sensor_type': 'plot'}
                 plot = order.scene_set.filter(**filter_args)
                 if len(plot) >= 1:
                     for p in plot:
                         p.status = 'oncache'
                         p.save()
-                        
-                            
+
+
 @transaction.atomic
 def handle_submitted_products():
-    '''
-    TODO -- Create new method handle_submitted_scenes() or something to that
-    effect.
-    _process down to this comment should be included
-    in it.
-
-    The rest of this method down should actually be 'get_scenes_to_process()'
-
-    TODO -- renamed this module 'actions.py'
-    TODO -- OO'ize the order handling into OrderHandler()
-    TODO -- Encapsulate all models.py classes here... don't let them flow
-    TODO --     up into the callers of this module.
-    TODO -- OrderHandler().get_scenes_to_process()
-    TODO -- OrderHandler().determine_disposition()
-    TODO -- OrderHandler().cancel(Order())
-    TODO -- OrderHandler().cancel(Order(), ProductSensor())
-    TODO -- OrderHandler().cleanup(Order())
-    TODO -- OrderHandler().status(Order())
-    TODO -- OrderHandler().status(Order(), ProductSensor())
-
-    TODO -- Build HadoopHandler() as well.
-    TODO -- HadoopHandler().cluster_status()
-    TODO -- HadoopHandler().cancel_job(jobid)
-    '''
-
     load_ee_orders()
     handle_submitted_landsat_products()
     handle_submitted_modis_products()
     handle_submitted_plot_products()
 
 
-def get_landsat_products_to_process():
-    pass
-
-
-def get_modis_products_to_process():
-    pass
-
-
 @transaction.atomic
-def get_scenes_to_process(limit=500,
-                          for_user=None,
-                          priority=None,
-                          product_types=['landsat', 'modis']):
+def get_products_to_process(record_limit=500,
+                            for_user=None,
+                            priority=None,
+                            product_types=['landsat', 'modis']):
     '''Find scenes that are oncache and return them as properly formatted
     json per the interface description between the web and processing tier'''
 
     # use kwargs so we can dynamically build the filter criteria
-    kwargs = {
-        'status': 'oncache'
+    filters = {
+        'user__order__scene__status': 'oncache'
     }
 
+    #optimize the query so it creates a join call rather than executing
+    #multiple database calls for the related fields
+    select_related = ['user__order__orderid',
+                      'user__order__priority',
+                      'user__order__product_options',
+                      'user__userprofile__contactid']
+
     # use orderby for the orderby clause
-    orderby = 'order__order_date'
+    orderby = 'user__order__order_date'
 
     if for_user:
         # Find orders submitted by a specific user
-        kwargs['order__user__username'] = for_user
+        filters['user__username'] = for_user
 
     if priority:
-        # retrieve by specified priority 
-        kwargs['order__priority'] = priority
+        # retrieve by specified priority
+        filters['user__order__priority'] = priority
 
     #filter based on what user asked for... modis, landsat or plot
-    kwargs['sensor_type__in'] = product_types
-    
-    #products = Scene.objects.filter(status='oncache')\
-    #    .order_by('order__order_date')[:limit]
+    filters['user__order__scene__sensor_type__in'] = product_types
 
-    products = Product.objects.filter(**kwargs).order_by(orderby)[:limit]
+    u = UserProfile.objects.filter(user__order__scene__status='oncache')
+    u = u.select_related(**select_related).order_by(orderby)
 
-    if len(products) == 0:
-        return []
+    cids = [c[0] for c in u.values_list('contactid').distinct()]
 
-    #Pull the current oncache set from the db
-    #and include it as the result
     results = []
 
-    for p in products:
+    for cid in cids:
 
-        #in here, check to see if its a plot product or a normal product
-        #if plot, specify correct json options vs. product options
+        filters = {
+            'order__user__userprofile__contactid': cid,
+            'status': 'oncache'
+        }
 
-        orderline = json.dumps({'orderid': p.order.id,
-                                'scene': p.name,
-                                'priority': p.order.priority,
-                                'product_type': p.sensor_type,
-                                'options': p.order.product_options
-                                })
+        if priority:
+            filters['order__priority'] = 'priority'
 
-        results.append(orderline)
+        select_related = ['order', ]
+
+        orderby = 'order__orderdate'
+
+        scenes = Scene.objects.filter(**filters).order_by(orderby)
+
+        #landsat = [s.name for s in scenes where s.sensor_type = 'landsat']
+        landsat = [s.name for s in scenes if s.sensor_type == 'landsat']
+        landsat_urls = lta.get_download_urls(landsat, cid)
+
+        modis = [s.name for s in scenes if s.sensor_type == 'modis']
+        modis_urls = lpdaac.get_download_urls(modis, cid)
+
+        for scene in scenes:
+
+            if len(results) >= record_limit:
+                break
+
+            dload_url = None
+
+            if scene.sensor_type == 'landsat':
+                dload_url = landsat_urls[scene.name]
+            elif scene.sensor_type == 'modis':
+                dload_url = modis_urls[scene.name]
+
+            result = {
+                'orderid': scene.order.orderid,
+                'product_type': scene.sensor_type,
+                'download_url': dload_url,
+                'scene': scene.name,
+                'priority': scene.order.priority
+            }
+
+        results.append(result)
 
     return results
-
-
-'''
-def purge_expired_orders():
-    config = None
-    username  = None
-    password = None
-    host = None
-    port = None
-    ds = None
-    orders = None
-
-    try:
-        cutoff = datetime.datetime.now() - timedelta(days=14)
-        #get orders where status == complete and
-        #that were completed > than 14 days ago
-        orders = Order.objects.raw('select * from ordering_order oo \
-        where oo.id not in \
-        (select order_id from ordering_scene where status in \
-        ("queued","onorder","processing","distributing","oncache","purged"))')
-
-        config = Configuration()
-        username = config.getValue('distrods.user')
-        password = config.getValue('distrods.password')
-        host = config.getValue('distrods.host')
-        port = config.getValue('distrods.port')
-        ds = DistributionDataSource(None, None, username, password, host, port)
-        for o in orders:
-            diff = cutoff - o.completion_date
-            if diff.days >= 0:
-                scenes = Product.objects.filter(order__id = o.id)
-                for s in scenes:
-                    ds.delete(s.name, s.product_distro_location)
-                o.delete()
-    finally:
-        config = None
-        username  = None
-        password = None
-        host = None
-        port = None
-        ds = None
-        orders = None
-'''
 
 
 # Simple logger method for this module
 def helper_logger(msg):
     print(msg)
-    #h = open('/tmp/helper.log', 'a+')
-    #h.write(msg)
-    #h.flush()
-    #h.close()
-    #pass
 
 
 @transaction.atomic
 def update_status(name, orderid, processing_loc, status):
 
-    helper_logger("Updating scene:%s order:%s from location:%s to %s\n"
-                  % (name, orderid, processing_loc, status))
+    product = Scene.objects.get(name=name, order__orderid=orderid)
 
-    try:
-        s = Scene.objects.get(name=name, order__orderid=orderid)
-        if s:
-            helper_logger("Running update query for %s.  Setting status to:%s"
-                          % (s.name, status))
+    product.status = status
+    product.processing_location = processing_loc
+    product.log_file_contents = ""
+    product.save()
 
-            s.status = status
-            s.processing_location = processing_loc
-            s.log_file_contents = ""
-            s.save()
-            s = None
-            return True
-        else:
-            helper_logger("Scene[%s] not found in order[%s]"
-                          % (name, orderid))
-
-            return False
-    except Exception, e:
-        helper_logger("Exception in updateStatus:%s" % e)
+    return True
 
 
 @transaction.atomic
 #  Marks a scene in error and accepts the log file contents
-def set_scene_error(name, orderid, processing_loc, error):
-    o = Order.objects.get(orderid=orderid)
-    s = Scene.objects.get(name=name, order__id=o.id)
-    if s:
-        s.status = 'error'
-        s.processing_location = processing_loc
-        s.log_file_contents = error
-        s.save()
-        return True
-    else:
-        #something went wrong, don't clean up other disk.
-        if settings.DEBUG:
-            print("Scene[%s] not found in Order[%s]" % (name, orderid))
+def set_product_error(name, orderid, processing_loc, error):
 
-        return False
+    product = Scene.objects.get(name=name, order__orderid=orderid)
+
+    #attempt to determine the disposition of this error
+    resolution = errors.resolve(error)
+
+    if resolution is not None:
+
+        if resolution.status == 'submitted':
+            product.status = 'submitted'
+            product.note = ''
+            product.save()
+        elif resolution.status == 'unavailable':
+            set_product_unavailable(product.name,
+                                    product.order.orderid,
+                                    product.processing_loc,
+                                    product.error,
+                                    resolution.reason)
+        elif resolution.status == 'retry':
+            try:
+                set_product_retry(product.name,
+                                  product.order.orderid,
+                                  product.processing_loc,
+                                  product.error,
+                                  resolution.reason,
+                                  resolution.extra['retry_after'],
+                                  resolution.extra['retry_limit'])
+            except Exception, e:
+                product.status = 'error'
+                product.processing_location = processing_loc
+                product.log_file_contents = error
+                product.save()
+
+                if settings.DEBUG:
+                    print("Exception setting %s to retry:%s" % (name, e))
+    else:
+        product.status = 'error'
+        product.processing_location = processing_loc
+        product.log_file_contents = error
+        product.save()
+
+    return True
+
+
+@transaction.atomic
+def set_product_retry(name,
+                      orderid,
+                      processing_loc,
+                      error,
+                      note,
+                      retry_after,
+                      retry_limit=None):
+    '''Sets a product to retry status'''
+
+    product = Scene.objects.get(name=name, order__orderid=orderid)
+
+    #if a new retry limit has been provided, update the db and use it
+    if retry_limit is not None:
+        product.retry_limit = retry_limit
+
+    if product.retry_count + 1 < product.retry_limit:
+        product.status = 'retry'
+        product.retry_count = product.retry_count + 1
+        product.retry_after = retry_after
+        product.error = error
+        product.processing_loc = processing_loc
+        product.note = note
+        product.save()
+    else:
+        raise Exception("Retry limit exceeded")
 
 
 @transaction.atomic
 #  Marks a scene unavailable and stores a reason
-def set_scene_unavailable(name, orderid, processing_loc, error, note):
-    o = Order.objects.get(orderid=orderid)
-    s = Scene.objects.get(name=name, order__id=o.id)
-    if s:
-        s.status = 'unavailable'
-        s.processing_location = processing_loc
-        s.completion_date = datetime.datetime.now()
-        s.log_file_contents = error
-        s.note = note
-        s.save()
+def set_product_unavailable(name, orderid, processing_loc, error, note):
 
-        if o.order_source == 'ee':
-            #update ee
-            client = lta.OrderUpdateServiceClient()
+    product = Scene.objects.get(name=name, order__orderid=orderid)
+    product = product.select_related('order')
 
-            client.update_order(o.ee_order_id, s.ee_unit_id, 'R')
+    product.status = 'unavailable'
+    product.processing_location = processing_loc
+    product.completion_date = datetime.datetime.now()
+    product.log_file_contents = error
+    product.note = note
+    product.save()
 
-        return True
-    else:
-        #something went wrong, don't clean up other disk.
-        msg = "Scene[%s] not found in Order[%s]" \
-              % (name, orderid)
+    if product.order.order_source == 'ee':
+        #update ee
+        lta.update_order_status(product.order.ee_order_id,
+                                product.ee_unit_id, 'R')
 
-        print(msg)
-
-        return False
+    return True
 
 
 @transaction.atomic
 def queue_products(order_name_tuple_list, processing_location, job_name):
+    ''' Allows the caller to place products into queued status in bulk '''
 
     if not isinstance(order_name_tuple_list, list):
         msg = list()
@@ -614,13 +705,9 @@ def queue_products(order_name_tuple_list, processing_location, job_name):
     # the scenes added to the list
     orders = {}
 
-    for order_product in order_name_tuple_list:
-        order = order_product[0]
-        product_name = order_product[1]
-
+    for order, product_name in order_name_tuple_list:
         if not order in orders:
             orders[order] = list()
-
         orders[order].append(product_name)
 
     # now use the orders dict we built to update the db
@@ -644,45 +731,43 @@ def queue_products(order_name_tuple_list, processing_location, job_name):
 
 @transaction.atomic
 #  Marks a scene complete in the database for a given order
-def mark_scene_complete(name,
-                        orderid,
-                        processing_loc,
-                        completed_file_location,
-                        destination_cksum_file=None,
-                        log_file_contents=""):
+def mark_product_complete(name,
+                          orderid,
+                          processing_loc,
+                          completed_file_location,
+                          destination_cksum_file=None,
+                          log_file_contents=""):
 
     print ("Marking scene:%s complete for order:%s" % (name, orderid))
-    o = Order.objects.get(orderid=orderid)
-    s = Product.objects.get(name=name, order__id=o.id)
-    if s:
-        s.status = 'complete'
-        s.processing_location = processing_loc
-        s.product_distro_location = completed_file_location
-        s.completion_date = datetime.datetime.now()
-        s.cksum_distro_location = destination_cksum_file
+    product = Scene.objects.get(name=name, order__orderid=orderid)
 
-        s.log_file_contents = log_file_contents
+    product.status = 'complete'
+    product.processing_location = processing_loc
+    product.product_distro_location = completed_file_location
+    product.completion_date = datetime.datetime.now()
+    product.cksum_distro_location = destination_cksum_file
 
-        base_url = Configuration().getValue('distribution.cache.home.url')
+    product.log_file_contents = log_file_contents
 
-        product_file_parts = completed_file_location.split('/')
-        product_file = product_file_parts[len(product_file_parts) - 1]
-        cksum_file_parts = destination_cksum_file.split('/')
-        cksum_file = cksum_file_parts[len(cksum_file_parts) - 1]
+    base_url = Configuration().getValue('distribution.cache.home.url')
 
-        s.product_dload_url = ('%s/orders/%s/%s') % \
-                              (base_url, orderid, product_file)
+    product_file_parts = completed_file_location.split('/')
+    product_file = product_file_parts[len(product_file_parts) - 1]
+    cksum_file_parts = destination_cksum_file.split('/')
+    cksum_file = cksum_file_parts[len(cksum_file_parts) - 1]
 
-        s.cksum_download_url = ('%s/orders/%s/%s') % \
-                               (base_url, orderid, cksum_file)
+    product.product_dload_url = ('%s/orders/%s/%s') % \
+                                (base_url, orderid, product_file)
 
-        s.save()
+    product.cksum_download_url = ('%s/orders/%s/%s') % \
+                                 (base_url, orderid, cksum_file)
 
-        if o.order_source == 'ee':
-            #update ee
-            client = lta.OrderUpdateServiceClient()
-            client.update_order(o.ee_order_id, s.ee_unit_id, 'C')
+    product.save()
 
+    if product.order.order_source == 'ee':
+        #update ee
+        lta.update_order_status(product.order.ee_order_id,
+                                product.ee_unit_id, 'C')
         return True
     else:
         print("MarkSceneComplete:No scene was found with the name:%s" % name)
@@ -701,46 +786,36 @@ def update_order_if_complete(order):
     '''
     complete_scene_status = ['complete', 'unavailable']
 
-    o = None
-
-    if type(order) == Order:
-        o = order
-    elif type(order) == str:
+    if type(order) == str:
         #will raise Order.DoesNotExist
-        o = Order.objects.get(orderid=order)
-    else:
-        msg = "%s must be of type models.ordering.Order or str" % order
+        order = Order.objects.get(orderid=order)
+    elif type(order) == int:
+        order = Order.objects.get(id=order)
+
+    if not type(order) == Order:
+        msg = "%s must be of type models.ordering.Order, int or str" % order
         raise TypeError(msg)
 
     # find all scenes that are not complete
-    scenes = o.scene_set.exclude(status__in=complete_scene_status)
+    scenes = order.scene_set.exclude(status__in=complete_scene_status)
 
     if len(scenes) == 0:
 
-        print("Trying to complete order: %s" % order)
-
-        # if this condition is true then the order is complete
-        complete_scenes = o.scene_set.exclude(status='unavailable')
-        scene_names = [s.name for s in complete_scenes]
-        o.status = 'complete'
-        o.completion_date = datetime.datetime.now()
-        o.save()
+        print("Trying to complete order: %s" % order.orderid)
+        order.status = 'complete'
+        order.completion_date = datetime.datetime.now()
+        order.save()
 
         #only send the email if this was an espa order.
-        if o.order_source == 'espa':
-            order_email = o.user.email
-            sent = None
+        if order.order_source == 'espa' and not order.completion_email_sent:
             try:
-                if not o.completion_email_sent:
-                    sent = send_completion_email(order_email,
-                                                 o.orderid,
-                                                 readyscenes=scene_names)
-
-                    if sent is None:
-                        raise Exception("Completion email not sent")
-                    else:
-                        o.completion_email_sent = datetime.datetime.now()
-                        o.save()
+                sent = None
+                sent = send_completion_email(order)
+                if sent is None:
+                    raise Exception("Completion email not sent")
+                else:
+                    order.completion_email_sent = datetime.datetime.now()
+                    order.save()
             except Exception, e:
                 msg = "Error calling send_completion_email:%s" % e
                 print(msg)
@@ -748,49 +823,14 @@ def update_order_if_complete(order):
 
 
 @transaction.atomic
-def finalize_orders():
-    '''Checks all open orders in the system and marks them complete if all
-    required scene processing is done'''
-
-    orders = Order.objects.filter(status='ordered')
-    for o in orders:
-        update_order_if_complete(o)
-
-    return True
-
-
-@transaction.atomic
-def send_initial_emails():
-    '''Finds all the orders that have not had their initial emails sent and
-    sends them'''
-
-    orders = Order.objects.filter(status='ordered')
-    for o in orders:
-        if not o.initial_email_sent:
-            send_initial_email(o)
-            o.initial_email_sent = datetime.datetime.now()
-            o.save()
-
-@transaction.atomic
 def load_ee_orders():
     ''' Loads all the available orders from lta into
     our database and updates their status
     '''
 
-    #TODO -- Get the common operations out of this method and rehomed
-    #TODO where they belong.  This method should be calling into
-    #TODO the Order.enter_new_order() method rather than creating and
-    #TODO persisting the Order() itself.
-
-    order_delivery = lta.OrderDeliveryServiceClient()
-
-    registration = lta.RegistrationServiceClient()
-
-    order_update = lta.OrderUpdateServiceClient()
-
     # This returns a dict that contains a list of dicts{}
     # key:(order_num, email, contactid) = list({sceneid:, unit_num:})
-    orders = order_delivery.get_available_orders()
+    orders = lta.get_available_orders()
 
     # use this to cache calls to EE Registration Service username lookups
     local_cache = {}
@@ -814,7 +854,7 @@ def load_ee_orders():
             if contactid in local_cache:
                 username = local_cache[contactid]
             else:
-                username = registration.get_username(contactid)
+                username = lta.get_username(contactid)
                 local_cache[contactid] = username
 
             # now look the user up in our db.  Create if it doesn't exist
@@ -874,40 +914,39 @@ def load_ee_orders():
                 if scene.status == 'complete':
 
                     success, msg, status =\
-                        order_update.update_order(eeorder,
-                                                  s['unit_num'],
-                                                  "C")
+                        lta.update_order(eeorder, s['unit_num'], "C")
+
                     if not success:
-                        log_msg = "Error updating lta for \
-                        [eeorder:%s ee_unit_num:%s \
-                        scene name:%s order:%s" \
-                        % (eeorder, s['unit_num'], scene.name, order.id)
+                        log_msg = ("Error updating lta for "
+                                   "[eeorder:%s ee_unit_num:%s "
+                                   "scene name:%s order:%s")
+                        log_msg = log_msg % (eeorder, s['unit_num'],
+                                             scene.name, order.orderid)
 
                         helper_logger(log_msg)
 
-                        log_msg = "Error detail: \
-                        lta return message:%s  lta return \
-                        status code:%s" % (msg, status)
+                        log_msg = ("Error detail: lta return message:%s "
+                                   "lta return status code:%s")
+                        log_msg = log_msg % (msg, status)
 
                         helper_logger(log_msg)
 
                 elif scene.status == 'unavailable':
                     success, msg, status =\
-                        order_update.update_order(eeorder,
-                                                  s['unit_num'],
-                                                  "R")
+                        lta.update_order(eeorder, s['unit_num'], "R")
 
                     if not success:
-                        log_msg = "Error updating lta for \
-                        [eeorder:%s ee_unit_num:%s \
-                        scene name:%s order:%s" \
-                        % (eeorder, s['unit_num'], scene.name, order.id)
+                        log_msg = ("Error updating lta for "
+                                   "[eeorder:%s ee_unit_num:%s "
+                                   "scene name:%s order:%s")
+                        log_msg = log_msg % (eeorder, s['unit_num'],
+                                             scene.name, order.orderid)
 
                         helper_logger(log_msg)
 
-                        log_msg = "Error detail: \
-                        lta return message:%s  lta return \
-                        status code:%s" % (msg, status)
+                        log_msg = ("Error detail: "
+                                   "lta return message:%s  lta return "
+                                   "status code:%s") % (msg, status)
 
                         helper_logger(log_msg)
             except Product.DoesNotExist:
@@ -934,29 +973,54 @@ def load_ee_orders():
 
             # Update LTA
             success, msg, status =\
-                order_update.update_order(eeorder,
-                                          s['unit_num'],
-                                          "I")
+                lta.update_order(eeorder, s['unit_num'], "I")
+
             if not success:
-                log_msg = "Error updating lta for \
-                [eeorder:%s ee_unit_num:%s scene \
-                name:%s order:%s" % (eeorder, s['unit_num'],
-                                     scene.name,
-                                     order.id)
+                log_msg = ("Error updating lta for "
+                           "[eeorder:%s ee_unit_num:%s scene "
+                           "name:%s order:%s") % (eeorder,
+                                                  s['unit_num'],
+                                                  scene.name,
+                                                  order.orderid)
 
                 helper_logger(log_msg)
 
-                log_msg = "Error detail: lta return message:%s  \
-                lta return status code:%s" % (msg, status)
+                log_msg = ("Error detail: lta return message:%s  "
+                           "lta return status code:%s") % (msg, status)
 
                 helper_logger(log_msg)
+
+
+    # Sends the order submission confirmation email
+def send_initial_email(order):
+    return Emails().send_initial(order)
+
+
+def send_completion_email(order):
+    return Emails().send_completion(order)
+
+
+def send_initial_emails():
+    return Emails().send_all_initial()
+
+
+@transaction.atomic
+def finalize_orders():
+    '''Checks all open orders in the system and marks them complete if all
+    required scene processing is done'''
+
+    orders = Order.objects.filter(status='ordered')
+    for o in orders:
+        update_order_if_complete(o)
+
+    return True
 
 
 def handle_orders():
     '''Logic handler for how we accept orders + products into the system'''
     send_initial_emails()
     handle_onorder_landsat_products()
+    handle_retry_products()
     handle_submitted_products()
     finalize_orders()
-
     return True

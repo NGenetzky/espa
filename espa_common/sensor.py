@@ -1,9 +1,10 @@
-import settings
+'''module to extract embedded information from product names and supply
+configured values for each product
+'''
+
+from espa_common import settings
+from espa_common import utilities
 import re
-import os
-import utilities
-import httplib
-import xmlrpclib
 
 
 class ProductNotImplemented(NotImplementedError):
@@ -25,30 +26,6 @@ class ProductNotImplemented(NotImplementedError):
 
 class SensorProduct(object):
     '''Base class for all sensor products'''
-
-    # full path to the file containing the input product
-    input_file_path = None
-
-    # full path where the output file should be placed
-    #output_file_path = None
-
-    # http, ftp, scp, file, etc
-    #input_scheme = None
-    #input_host = None
-    #input_port = None
-    input_file_name = None
-    #input_user = None
-    #input_pw = None
-    #input_url = None
-
-    # http, ftp, scp, file, etc
-    #output_scheme = None
-    #output_host = None
-    #output_port = None
-    #output_file_name = None
-    #output_user = None
-    #output_pw = None
-    #output_url = None
 
     # landsat sceneid, modis tile name, aster granule id, etc.
     product_id = None
@@ -82,24 +59,20 @@ class SensorProduct(object):
         Return:
         None
         '''
+
         self.product_id = product_id
         self.sensor_code = product_id[0:3]
-        self.sensor_name = settings.SENSOR_NAMES[self.sensor_code.upper()]
 
-    # subclasses should override, construct and return True/False
-    def input_exists(self):
-        ''' '''
-        raise NotImplementedError()
+        self.sensor_info = settings.SENSOR_INFO[self.sensor_code.upper()]
 
-    # subclasses should override, construct and return True/False
-    #def output_exists(self):
-    #    raise NotImplementedError()
+        self.sensor_name = self.sensor_info['name']
 
-    #def get_input_product(self, target_directory):
-    #    raise NotImplementedError()
+        if 'lta_name' in self.sensor_info:
+            self.lta_name = self.sensor_info['lta_name']
 
 
 class Modis(SensorProduct):
+    ''' Superclass for all Modis products '''
     version = None
     short_name = None
     horizontal = None
@@ -111,11 +84,6 @@ class Modis(SensorProduct):
 
         super(Modis, self).__init__(product_id)
 
-        input_file_name = ''.join([product_id,
-                                   settings.MODIS_INPUT_FILENAME_EXTENSION])
-
-        self.input_file_name = input_file_name
-
         parts = product_id.strip().split('.')
 
         self.short_name = parts[0]
@@ -123,9 +91,9 @@ class Modis(SensorProduct):
         self.year = self.date_acquired[0:4]
         self.doy = self.date_acquired[4:8]
 
-        hv = parts[2]
-        self.horizontal = hv[1:3]
-        self.vertical = hv[4:6]
+        __hv = parts[2]
+        self.horizontal = __hv[1:3]
+        self.vertical = __hv[4:6]
         self.version = parts[3]
         self.date_produced = parts[4]
 
@@ -140,67 +108,17 @@ class Modis(SensorProduct):
 
         self.default_pixel_size = {'meters': _meters, 'dd': _dd}
 
-    def _build_input_file_path(self, base_source_path):
-
-        date = utilities.date_from_doy(self.year, self.doy)
-
-        path_date = "%s.%s.%s" % (date.year,
-                                  str(date.month).zfill(2),
-                                  str(date.day).zfill(2))
-
-        input_file_extension = settings.MODIS_INPUT_FILENAME_EXTENSION
-
-        input_file_name = "%s.A%s%s.h%sv%s.%s.%s%s" % (self.short_name,
-                                                       self.year,
-                                                       self.doy,
-                                                       self.horizontal,
-                                                       self.vertical,
-                                                       self.version,
-                                                       self.date_produced,
-                                                       input_file_extension)
-
-        self.input_file_path = os.path.join(
-            base_source_path,
-            '.'.join([self.short_name.upper(), self.version.upper()]),
-            path_date.upper(),
-            input_file_name)
-
-    def input_exists(self):
-
-        host = settings.MODIS_INPUT_CHECK_HOST
-        port = settings.MODIS_INPUT_CHECK_PORT
-
-        conn = None
-
-        try:
-            conn = httplib.HTTPConnection(host, port)
-
-            conn.request("HEAD", self.input_file_path)
-
-            resp = conn.getresponse()
-
-            if resp.status == 200:
-                return True
-            else:
-                return False
-        except Exception, e:
-            print ("Exception checking inputs:%s" % e)
-            return False
-        finally:
-            conn.close()
-            conn = None
-
 
 class Terra(Modis):
+    ''' Superclass for Terra based Modis products '''
     def __init__(self, product_id):
         super(Terra, self).__init__(product_id)
-        self._build_input_file_path(settings.TERRA_BASE_SOURCE_PATH)
 
 
 class Aqua(Modis):
+    ''' Superclass for Aqua based Modis products '''
     def __init__(self, product_id):
         super(Aqua, self).__init__(product_id)
-        self._build_input_file_path(settings.AQUA_BASE_SOURCE_PATH)
 
 
 class ModisTerra09A1(Terra):
@@ -284,20 +202,17 @@ class ModisAqua13Q1(Aqua):
 
 
 class Landsat(SensorProduct):
+    ''' Superclass for all landsat based products '''
     path = None
     row = None
     station = None
+    lta_product_code = None
 
     def __init__(self, product_id):
 
         product_id = product_id.strip()
 
         super(Landsat, self).__init__(product_id)
-
-        input_file_name = ''.join([product_id,
-                                   settings.LANDSAT_INPUT_FILENAME_EXTENSION])
-
-        self.input_file_name = input_file_name
 
         self.path = utilities.strip_zeros(product_id[3:6])
         self.row = utilities.strip_zeros(product_id[6:9])
@@ -306,15 +221,7 @@ class Landsat(SensorProduct):
         self.station = product_id[16:19]
         self.version = product_id[19:21]
 
-        self.input_file_path = os.path.join(
-            settings.LANDSAT_BASE_SOURCE_PATH,
-            self.sensor_name,
-            self.path,
-            self.row,
-            self.year,
-            self.input_file_name)
-
-        #set the default pixel sizes
+        # set the default pixel sizes
         _pixels = settings.DEFAULT_PIXEL_SIZE
 
         _meters = _pixels['meters'][self.sensor_code.upper()]
@@ -323,34 +230,29 @@ class Landsat(SensorProduct):
 
         self.default_pixel_size = {'meters': _meters, 'dd': _dd}
 
-    def input_exists(self):
-        ''' Checks the existence of a landsat tm/etm+ scene on the online
-        cache via call to the ESPA scene cache'''
-
-        host = settings.LANDSAT_INPUT_CHECK_HOST
-        port = settings.LANDSAT_INPUT_CHECK_PORT
-        base_url = settings.LANDSAT_INPUT_CHECK_BASE_PATH
-
-        url = ''.join(["http://", host, ":", str(port), base_url])
-        server = xmlrpclib.ServerProxy(url)
-
-        result = server.scenes_exist([self.product_id])
-        nlaps = server.is_nlaps([self.product_id])
-
-        if self.product_id in result and not self.product_id in nlaps:
-            return True
-        else:
-            return False
-
 
 class LandsatTM(Landsat):
+    ''' Models Thematic Mapper based products '''
     def __init__(self, product_id):
         super(LandsatTM, self).__init__(product_id)
 
 
 class LandsatETM(Landsat):
+    ''' Models Enhanced Thematic Mapper Plus based products '''
     def __init__(self, product_id):
         super(LandsatETM, self).__init__(product_id)
+
+
+class LandsatOLITIRS(Landsat):
+    ''' Models combined Landsat 8 OLI/TIRS products '''
+    def __init__(self, product_id):
+        super(LandsatOLITIRS, self).__init__(product_id)
+
+
+class LandsatOLI(Landsat):
+    ''' Models Landsat 8 OLI only products '''
+    def __init__(self, product_id):
+        super(LandsatOLI, self).__init__(product_id)
 
 
 def instance(product_id):
@@ -362,26 +264,23 @@ def instance(product_id):
     MODIS FORMAT:   MOD09GQ.A2000072.h02v09.005.2008237032813
 
     Supported LANDSAT products
-    LT4 LT5 LE7
+    LT4 LT5 LE7 LC8
 
     LANDSAT FORMAT: LE72181092013069PFS00
-
     '''
 
-    #remove known file extensions before comparison
-    #do not alter the case of the actual product_id!
-    if product_id.lower().endswith(settings.MODIS_INPUT_FILENAME_EXTENSION):
-        index = product_id.lower().index(settings.MODIS_INPUT_FILENAME_EXTENSION)
-        #leave original case intact
-        product_id = product_id[0:index] 
-    elif product_id.lower().endswith(settings.LANDSAT_INPUT_FILENAME_EXTENSION):
-        index = product_id.lower().index(settings.LANDSAT_INPUT_FILENAME_EXTENSION)
-        #leave original case intact
-        product_id = product_id[0:index]
-
-    #ok to modify case here for comparison in regex
+    # remove known file extensions before comparison
+    # do not alter the case of the actual product_id!
     _id = product_id.lower().strip()
 
+    if _id.endswith(settings.MODIS_INPUT_FILENAME_EXTENSION):
+        index = _id.index(settings.MODIS_INPUT_FILENAME_EXTENSION)
+        # leave original case intact
+        product_id = product_id[0:index]
+    elif _id.endswith(settings.LANDSAT_INPUT_FILENAME_EXTENSION):
+        index = _id.index(settings.LANDSAT_INPUT_FILENAME_EXTENSION)
+        # leave original case intact
+        product_id = product_id[0:index]
 
     instances = {
         'tm': (r'^lt[4|5]\d{3}\d{3}\d{4}\d{3}[a-z]{3}[a-z0-9]{2}$',
@@ -389,6 +288,12 @@ def instance(product_id):
 
         'etm': (r'^le7\d{3}\d{3}\d{4}\d{3}\w{3}.{2}$',
                 LandsatETM),
+
+        'olitirs': (r'^lc8\d{3}\d{3}\d{4}\d{3}\w{3}.{2}$',
+                    LandsatOLITIRS),
+
+        'oli': (r'^lo8\d{3}\d{3}\d{4}\d{3}\w{3}.{2}$',
+                LandsatOLI),
 
         'mod09a1': (r'^mod09a1\.a\d{7}\.h\d{2}v\d{2}\.005\.\d{13}$',
                     ModisTerra09A1),

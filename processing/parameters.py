@@ -12,23 +12,14 @@ History:
 
 import os
 
-# espa-common objects and methods
-from espa_constants import *
-
-# imports from espa/espa_common
-try:
-    from logger_factory import EspaLogging
-except:
-    from espa_common.logger_factory import EspaLogging
-
-try:
-    import sensor
-except:
-    from espa_common import sensor
+# imports from espa_common through processing.__init__.py
+from processing import EspaLogging
+from processing import settings
+from processing import sensor
 
 
 # This contains the valid sensors and data types which are supported
-valid_landsat_sensors = ['tm', 'etm']
+valid_landsat_sensors = ['tm', 'etm', 'olitirs', 'oli']
 valid_modis_sensors = ['terra', 'aqua']
 valid_sensors = valid_landsat_sensors + valid_modis_sensors
 valid_output_formats = ['envi', 'gtiff', 'hdf-eos2']
@@ -499,7 +490,7 @@ def convert_to_command_line_options(parms):
         if value is True:
             cmd_line.append('--%s' % key)
         elif value is not False and value is not None:
-            cmd_line.extend(['--%s' % key, '\"%s\"' % value])
+            cmd_line.extend(['--%s' % key, '\"%s\"' % str(value)])
 
     return cmd_line
 # END - convert_parms_to_command_line_options
@@ -518,7 +509,7 @@ def validate_reprojection_parameters(parms, scene, projections, ns_values,
       assumed that the web tier has validated them.
     '''
 
-    logger = EspaLogging.get_logger('espa.processing')
+    logger = EspaLogging.get_logger(settings.PROCESSING_LOGGER)
 
     # Create this and set to None if not present
     if not test_for_parameter(parms, 'projection'):

@@ -19,18 +19,12 @@ from cStringIO import StringIO
 import numpy as np
 
 # espa-common objects and methods
-from espa_constants import *
+from espa_constants import EXIT_FAILURE
+from espa_constants import EXIT_SUCCESS
 
-# imports from espa/espa_common
-try:
-    from logger_factory import EspaLogging
-except:
-    from espa_common.logger_factory import EspaLogging
-
-try:
-    import settings
-except:
-    from espa_common import settings
+# imports from espa_common through processing.__init__.py
+from processing import EspaLogging
+from processing import settings
 
 # local objects and methods
 import espa_exception as ee
@@ -70,12 +64,20 @@ def get_statistics(file_name, band_type):
                              & (input_data <= upper_bound))]
 
     # Calculate the stats
-    minimum = np.min(input_data)
-    maximum = np.max(input_data)
-    mean = np.mean(input_data)
-    stddev = np.std(input_data)
+    if input_data.size > 0:
+        minimum = np.min(input_data)
+        maximum = np.max(input_data)
+        mean = np.mean(input_data)
+        stddev = np.std(input_data)
+        valid = 'yes'
+    else:
+        minimum = -9999.0
+        maximum = -9999.0
+        mean = -9999.0
+        stddev = -9999.0
+        valid = 'no'
 
-    return (float(minimum), float(maximum), float(mean), float(stddev))
+    return (float(minimum), float(maximum), float(mean), float(stddev), valid)
 # END - get_statistics
 
 
@@ -91,7 +93,7 @@ def generate_statistics(work_directory, files_to_search_for):
       product if we need statistics.
     '''
 
-    logger = EspaLogging.get_logger('espa.processing')
+    logger = EspaLogging.get_logger(settings.PROCESSING_LOGGER)
 
     # Change to the working directory
     current_directory = os.getcwd()
@@ -106,7 +108,7 @@ def generate_statistics(work_directory, files_to_search_for):
                 pass
             else:
                 raise ee.ESPAException(ee.ErrorCodes.statistics,
-                                       str(e)), None, sys.exc_info()[2]
+                                       str(exc)), None, sys.exc_info()[2]
 
         try:
             # Build the list of files to process
@@ -122,16 +124,17 @@ def generate_statistics(work_directory, files_to_search_for):
 
                     logger.info("Generating statistics for: %s" % file_name)
 
-                    (minimum, maximum,
-                     mean, stddev) = get_statistics(file_name, band_type)
+                    (minimum, maximum, mean, stddev,
+                     valid) = get_statistics(file_name, band_type)
 
                     # Drop the filename extention so we can replace it with
                     # 'stats'
                     base = os.path.splitext(file_name)[0]
+                    base_name = '.'.join([base, 'stats'])
 
-                    # Figure out the filename
-                    stats_output_file = ('%s/%s.stats'
-                                         % (stats_output_path, base))
+                    # Figure out the full path filename
+                    stats_output_file = os.path.join(stats_output_path,
+                                                     base_name)
 
                     # Buffer the stats
                     data_io = StringIO()
@@ -140,6 +143,7 @@ def generate_statistics(work_directory, files_to_search_for):
                     data_io.write("MAXIMUM=%f\n" % maximum)
                     data_io.write("MEAN=%f\n" % mean)
                     data_io.write("STDDEV=%f\n" % stddev)
+                    data_io.write("VALID=%s\n" % valid)
 
                     # Create the stats file
                     with open(stats_output_file, 'w+') as stat_fd:
@@ -164,9 +168,9 @@ if __name__ == '__main__':
     '''
 
     # Configure logging
-    EspaLogging.configure('espa.processing', order='test',
+    EspaLogging.configure(settings.PROCESSING_LOGGER, order='test',
                           product='statistics')
-    logger = EspaLogging.get_logger('espa.processing')
+    logger = EspaLogging.get_logger(settings.PROCESSING_LOGGER)
 
     # Hold the wild card strings in a type based dictionary
     files_to_search_for = dict()

@@ -21,42 +21,32 @@ History:
                                                map operations
 '''
 
-import os
 import sys
 import socket
 import json
 import xmlrpclib
 from argparse import ArgumentParser
 
-# imports from espa/espa_common
-try:
-    from logger_factory import EspaLogging
-except:
-    from espa_common.logger_factory import EspaLogging
-
-try:
-    import sensor
-except:
-    from espa_common import sensor
+# imports from espa_common through processing.__init__.py
+from processing import EspaLogging
+from processing import settings
+from processing import sensor
 
 # local objects and methods
 import espa_exception as ee
 import parameters
-import staging
-import cdr_ecv as landsat
-import modis
-import plotting as plotter
+import processor
 
 
 # ============================================================================
-def set_product_error(server, orderid, productid, processing_location):
+def set_product_error(server, order_id, product_id, processing_location):
 
-    logger = EspaLogging.get_logger('espa.processing')
-    logged_contents = EspaLogging.read_logger_file('espa.processing')
+    logger = EspaLogging.get_logger(settings.PROCESSING_LOGGER)
+    logged_contents = EspaLogging.read_logger_file(settings.PROCESSING_LOGGER)
 
     if server is not None:
         try:
-            status = server.set_scene_error(productid, orderid,
+            status = server.set_scene_error(product_id, order_id,
                                             processing_location,
                                             logged_contents)
 
@@ -65,7 +55,7 @@ def set_product_error(server, orderid, productid, processing_location):
                                 " set_scene_error")
                 return False
 
-        except Exception, e:
+        except Exception:
             logger.critical("Failed processing xmlrpc call to"
                             " set_scene_error")
             logger.exception("Exception encountered and follows")
@@ -96,7 +86,7 @@ def process(args):
             continue
 
         # Reset these for each line
-        (server, orderid, productid) = (None, None, None)
+        (server, order_id, product_id) = (None, None, None)
 
         # Default to the command line value
         mapper_keep_log = args.keep_log
@@ -108,9 +98,14 @@ def process(args):
             if not parameters.test_for_parameter(parms, 'options'):
                 raise ValueError("Error missing JSON 'options' record")
 
-            (orderid, productid, product_type, options) = \
+            # TODO scene will be replaced with product_id someday
+            (order_id, product_id, product_type, options) = \
                 (parms['orderid'], parms['scene'], parms['product_type'],
                  parms['options'])
+
+            # If it is missing due to above TODO, then add it
+            if not parameters.test_for_parameter(parms, 'product_id'):
+                parms['product_id'] = product_id
 
             # Figure out if debug level logging was requested
             debug = False
@@ -118,9 +113,9 @@ def process(args):
                 debug = options['debug']
 
             # Configure and get the logger for this order request
-            EspaLogging.configure('espa.processing', order=orderid,
-                                  product=productid, debug=debug)
-            logger = EspaLogging.get_logger('espa.processing')
+            EspaLogging.configure(settings.PROCESSING_LOGGER, order=order_id,
+                                  product=product_id, debug=debug)
+            logger = EspaLogging.get_logger(settings.PROCESSING_LOGGER)
 
             # If the command line option is True don't use the scene option
             if not mapper_keep_log:
@@ -129,23 +124,23 @@ def process(args):
 
                 mapper_keep_log = options['keep_log']
 
-            logger.info("Processing %s:%s" % (orderid, productid))
+            logger.info("Processing %s:%s" % (order_id, product_id))
 
             # Update the status in the database
             if parameters.test_for_parameter(parms, 'xmlrpcurl'):
                 if parms['xmlrpcurl'] != 'skip_xmlrpc':
                     server = xmlrpclib.ServerProxy(parms['xmlrpcurl'])
                     if server is not None:
-                        status = server.update_status(productid, orderid,
+                        status = server.update_status(product_id, order_id,
                                                       processing_location,
                                                       'processing')
                         if not status:
                             logger.warning("Failed processing xmlrpc call"
                                            " to update_status to processing")
 
-            if productid != 'plot':
+            if product_id != 'plot':
                 # Make sure we can process the sensor
-                sensor_name = sensor.instance(parms['scene']).sensor_name
+                sensor_name = sensor.instance(product_id).sensor_name
                 if sensor_name not in parameters.valid_sensors:
                     raise ValueError("Invalid Sensor %s" % sensor_name)
 
@@ -162,41 +157,27 @@ def process(args):
                                      % options['output_format'])
 
             # ----------------------------------------------------------------
-            # NOTE:
-            #   The first thing process does is validate the input parameters
+            # NOTE: The first thing the product processor does during
+            #       initialization is validate the input parameters.
             # ----------------------------------------------------------------
 
             destination_product_file = 'ERROR'
             destination_cksum_file = 'ERROR'
+            pp = None
             try:
-                # Process the landsat sensors
-                if product_type == 'landsat':
-                    (destination_product_file, destination_cksum_file) = \
-                        landsat.process(parms)
-                # Process the modis sensors
-                elif product_type == 'modis':
-                    (destination_product_file, destination_cksum_file) = \
-                        modis.process(parms)
-                elif product_type == 'plot':
-                    (destination_product_file, destination_cksum_file) = \
-                        plotter.process(parms)
-
-                # ------------------------------------------------------------
-                # NOTE: Else process using another sensors processor
-                # ------------------------------------------------------------
+                # All processors are implemented in the processor module
+                pp = processor.get_instance(parms)
+                (destination_product_file, destination_cksum_file) = \
+                    pp.process()
 
             finally:
-                if not mapper_keep_log:
-                    # Cleanup processing directory by calling the
-                    # initialization routine again
-                    (scene_directory, stage_directory,
-                     work_directory, package_directory) = \
-                        staging.initialize_processing_directory(orderid,
-                                                                productid)
+                # Free disk space to be nice to the whole system.
+                if not mapper_keep_log and pp is not None:
+                    pp.remove_product_directory()
 
             # Everything was successfull so mark the scene complete
             if server is not None:
-                status = server.mark_scene_complete(productid, orderid,
+                status = server.mark_scene_complete(product_id, order_id,
                                                     processing_location,
                                                     destination_product_file,
                                                     destination_cksum_file, "")
@@ -204,15 +185,9 @@ def process(args):
                     logger.warning("Failed processing xmlrpc call to"
                                    " mark_scene_complete")
 
-            # Always log where we placed the files
-            logger.info("Delivered product to %s at location %s and cksum"
-                        " location %s" % (processing_location,
-                                          destination_product_file,
-                                          destination_cksum_file))
-
             # Cleanup the log file
             if not mapper_keep_log:
-                EspaLogging.delete_logger_file('espa.processing')
+                EspaLogging.delete_logger_file(settings.PROCESSING_LOGGER)
 
             # Reset back to the base logger
             logger = EspaLogging.get_logger('base')
@@ -240,44 +215,54 @@ def process(args):
                             or (e.error_code ==
                                 ee.ErrorCodes.creating_output_dir)):
 
-                        status = set_product_error(server, orderid, productid,
+                        status = set_product_error(server,
+                                                   order_id,
+                                                   product_id,
                                                    processing_location)
 
                     elif (e.error_code == ee.ErrorCodes.staging_data
                           or e.error_code == ee.ErrorCodes.unpacking):
 
-                        status = set_product_error(server, orderid, productid,
+                        status = set_product_error(server,
+                                                   order_id,
+                                                   product_id,
                                                    processing_location)
 
                     elif (e.error_code == ee.ErrorCodes.metadata
-                          or e.error_code == ee.ErrorCodes.ledaps
+                          or e.error_code == ee.ErrorCodes.surface_reflectance
                           or e.error_code == ee.ErrorCodes.browse
                           or e.error_code == ee.ErrorCodes.spectral_indices
                           or e.error_code == ee.ErrorCodes.create_dem
                           or e.error_code == ee.ErrorCodes.solr
                           or e.error_code == ee.ErrorCodes.cfmask
-                          or e.error_code == ee.ErrorCodes.cfmask_append
-                          or e.error_code == ee.ErrorCodes.swe
-                          or e.error_code == ee.ErrorCodes.sca
+                          or e.error_code == ee.ErrorCodes.dswe
                           or e.error_code == ee.ErrorCodes.cleanup_work_dir
                           or e.error_code == ee.ErrorCodes.remove_products):
 
-                        status = set_product_error(server, orderid, productid,
+                        status = set_product_error(server,
+                                                   order_id,
+                                                   product_id,
                                                    processing_location)
 
                     elif e.error_code == ee.ErrorCodes.warping:
 
-                        status = set_product_error(server, orderid, productid,
+                        status = set_product_error(server,
+                                                   order_id,
+                                                   product_id,
                                                    processing_location)
 
                     elif e.error_code == ee.ErrorCodes.reformat:
 
-                        status = set_product_error(server, orderid, productid,
+                        status = set_product_error(server,
+                                                   order_id,
+                                                   product_id,
                                                    processing_location)
 
                     elif e.error_code == ee.ErrorCodes.statistics:
 
-                        status = set_product_error(server, orderid, productid,
+                        status = set_product_error(server,
+                                                   order_id,
+                                                   product_id,
                                                    processing_location)
 
                     elif (e.error_code == ee.ErrorCodes.packaging_product
@@ -286,19 +271,23 @@ def process(args):
                           or (e.error_code ==
                               ee.ErrorCodes.verifying_checksum)):
 
-                        status = set_product_error(server, orderid, productid,
+                        status = set_product_error(server,
+                                                   order_id,
+                                                   product_id,
                                                    processing_location)
 
                     else:
                         # Catch all remaining errors
-                        status = set_product_error(server, orderid, productid,
+                        status = set_product_error(server,
+                                                   order_id,
+                                                   product_id,
                                                    processing_location)
 
                     if status and not mapper_keep_log:
                         try:
                             # Cleanup the log file
                             EspaLogging. \
-                                delete_logger_file('espa.processing')
+                                delete_logger_file(settings.PROCESSING_LOGGER)
                         except Exception, e:
                             logger.exception("Exception encountered"
                                              " stacktrace follows")
@@ -317,13 +306,15 @@ def process(args):
             if server is not None:
 
                 try:
-                    status = set_product_error(server, orderid, productid,
+                    status = set_product_error(server,
+                                               order_id,
+                                               product_id,
                                                processing_location)
                     if status and not mapper_keep_log:
                         try:
                             # Cleanup the log file
                             EspaLogging. \
-                                delete_logger_file('espa.processing')
+                                delete_logger_file(settings.PROCESSING_LOGGER)
                         except Exception, e:
                             logger.exception("Exception encountered"
                                              " stacktrace follows")
