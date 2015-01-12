@@ -354,10 +354,7 @@ class NewOrder(AbstractView):
                                           note=desc
                                           )
 
-            if order.email:
-                email = order.email
-            else:
-                email = order.user.email
+            email = order.user.email
 
             url = reverse('list_orders', kwargs={'email': email})
 

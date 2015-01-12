@@ -2,7 +2,7 @@ from django.conf.urls import patterns, url
 from django.contrib.auth.decorators import login_required
 
 from views import Index, StatusMessage, ShowOrders, UpdateOnDemandStatus, DisplayOrder
-from views import RestartFailedByOrder, RestartFailedAll
+from views import RestartFailedByOrder, RestartFailedAll, ProductsByMachine
 
 urlpatterns = patterns('', 
     url(r'^statusmsg',
@@ -17,6 +17,8 @@ urlpatterns = patterns('',
         login_required(RestartFailedByOrder.as_view()), name='restart_failed_by_order'),
     url(r'^restart-failed-all/$', 
         login_required(RestartFailedAll.as_view()), name='restart_failed_all'),
+    url(r'^products-by-machine/$',
+        login_required(ProductsByMachine.as_view()), name='products_by_machine'),
     url(r'^$',
         login_required(Index.as_view()), name='consoleindex')
     )

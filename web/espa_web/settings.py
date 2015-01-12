@@ -112,13 +112,16 @@ DATABASES = {
 }
 SESSION_ENGINE = 'mongoengine.django.sessions'
 
-mongoengine.connect('espa')
-#connString="mongodb://espadev:espa123@l8srlscp20.cr.usgs.gov,l8srlscp21.cr.usgs.gov,l8srlscp22.cr.usgs.gov/espadev"
-#mongoengine.connect('espadev', 
-#                    host=connString,
-#                    replicaSet='lsrdRs',
-#                    tz_aware=True,
-#                    connectTimeoutMS='300000')
+if ESPA_ENV == 'dev':
+    mongoengine.connect(config.get('config', 'connect_str'),
+                        tz_aware=True,
+                        connectTimeoutMS='300000')
+else:
+    mongoengine.connect('espadev', 
+                        host=config.get('config', 'connect_str'),
+                        replicaSet='lsrdRs',
+                        tz_aware=True,
+                        connectTimeoutMS='300000')
 
 # Internationalization
 # https://docs.djangoproject.com/en/1.6/topics/i18n/

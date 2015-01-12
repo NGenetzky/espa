@@ -17,7 +17,24 @@
     <h4>ESPA Console</h4>
 
     <p>
-        <a href="{% url 'statusmsg' %}">Status Message</a>
+    <span>OnDemand:
+    {% if ondemand_enabled %}
+        <span id="ondemand-on" class="option-select">On</span><span id="ondemand-off" class='option-not-select'>Off</span>
+    {% else %}
+        <span id="ondemand-on" class="option-not-select">On</span><span id="ondemand-off" class="option-select">Off</span>
+    {% endif %}
+    </span>
+    </p>
+    
+    <p>
+        Status Message: <a href="{% url 'statusmsg' %}">Update</a>
+    </p>
+    
+	<hr>
+
+    <h4>Reports</h4>	
+    <p>
+        <a href="{% url 'products_by_machine' %}">Products By Machine</a>
     </p>
 
 </div>

@@ -1,14 +1,10 @@
 import datetime
 import json
 
-from espa_common import sensor
-
-from django.db import models
-from django.db import transaction
-from django.db.models import Q
 from mongoengine.django.auth import User
 from mongoengine import *
 
+from espa_common import sensor
 
 class UserProfile (Document):
     '''Extends the information attached to ESPA users with a one-to-one
@@ -54,11 +50,6 @@ class Order(Document):
     # orderid should be in the format email_MMDDYY_HHMMSS
     id = StringField(max_length=255, primary_key=True)
 
-    # This field is in the User object now, but should actually be pulled from
-    # the EarthExplorer profile
-    # the users email address
-    email = EmailField()
-
     # reference the user that placed this order
     user = ReferenceField(User)
 
@@ -71,14 +62,14 @@ class Order(Document):
                            choices=ORDER_PRIORITY)
 
     # date the order was placed
-    order_date = DateTimeField('date ordered')
+    order_date = DateTimeField()
 
     # date the order completed (all scenes completed or marked unavailable)
-    completion_date = StringField('date completed')
+    completion_date = StringField()
 
-    initial_email_sent = DateTimeField('initial_email_sent')
+    initial_email_sent = DateTimeField()
 
-    completion_email_sent = DateTimeField('completion_email_sent')
+    completion_email_sent = DateTimeField()
 
     #o ne of order.STATUS
     status = StringField(max_length=20, choices=STATUS)
@@ -284,13 +275,9 @@ class Order(Document):
         Return:
         A queryresult of orders for the given email.
         '''
-        #TODO: Modify this query to remove reference to Order.email once all
-        # pre-espa-2.3.0 orders (EE Auth) are out of the system
         user_obj = User.objects(email=email).first()
-        o = Order.objects.filter(
-            Q(email=email) | Q(user=user_obj)
-            ).order_by('-order_date')
-        #return Order.objects.filter(email=email).order_by('-order_date')
+        o = Order.objects.filter(Q(user=user_obj)).order_by('-order_date')
+
         return o
 
     @staticmethod
@@ -437,11 +424,11 @@ class Product(Document):
     processing_location = StringField(max_length=256)
 
     #Time this scene was finished processing
-    completion_date = DateTimeField('date_completed')
+    completion_date = DateTimeField()
 
     #Final contents of log file... should be put added when scene is marked
     #complete.
-    log_file_contents = StringField('log_file')
+    log_file_contents = StringField()
 
     #If the status is 'retry', after what date should the retry occur?
     retry_after = DateTimeField()

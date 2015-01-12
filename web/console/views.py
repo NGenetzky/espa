@@ -6,9 +6,7 @@ from django.contrib.messages.views import SuccessMessageMixin
 from django.core.urlresolvers import reverse
 from django.http import HttpResponse
 from django.http import HttpResponseRedirect
-from django.shortcuts import render
 from django.template import loader
-from django.template import RequestContext
 from django.views.generic import View
 from django.views.generic.edit import FormView
 
@@ -28,6 +26,18 @@ class Index(AbstractView):
         ctx['process_units'] = Product.objects.filter(status='processing').count()
         ctx['error_units'] = Product.objects.filter(status='error').count()
         ctx['retry_units'] = Product.objects.filter(status='retry').count()
+
+        pipeline = [
+                    {'$match': {'status': 'complete'}},
+                    {'$sort': {'completion_date': -1}},
+                    {'$group': {'_id': {'k':'$status'}, 'v': {'$first': '$completion_date'}}}
+        ]
+        result = Product._get_collection().aggregate(pipeline)
+        
+        if result['ok'] == 1 and len(result['result']) > 0:
+            ctx['last_completed_date'] = result['result'][0]['v']
+        else:
+            ctx['last_completed_date'] = 'N/A'
 
         try:
             ondemand_enabled = Configuration.objects.get(key='ondemand_enabled')
@@ -218,3 +228,38 @@ class DisplayOrder(AbstractView):
         c = self._get_request_context(request, {'order': order, 'scenes': products})
 
         return HttpResponse(t.render(c))
+    
+class ProductsByMachine(AbstractView):
+    template_name = 'console/productsbymachine.html'
+    
+    def get(self, request):
+        pipeline = [
+            {"$match": {"processing_location": {"$exists": 1}}},
+            {"$group": {"_id": {"machine": "$processing_location", "status": "$status"}, "count": { "$sum" : 1}}}, 
+            {"$project": {"_id": 0, "machine": "$_id.machine", "status": "$_id.status", "count": 1}},
+        ]
+        results = Product._get_collection().aggregate(pipeline)
+        
+        machine_info = {}
+        for row in results['result']:
+            if not row['machine'] in machine_info:
+                machine_info[row['machine']] = {}
+            machine_info[row['machine']][row['status']] = row['count']                
+                
+        t = loader.get_template(self.template_name)
+        c = self._get_request_context(request, {'machine_info': machine_info})
+        
+        return HttpResponse(t.render(c))
+    
+
+class OrderByUser(AbstractView):
+    template_name = 'console/orderbyuser.html'
+    
+    def get(self, request):
+        pipeline = [
+                    {'$match': {'status': 'complete'}},
+                    {'$sort': {'completion_date': -1}},
+                    {'$group': {'_id': {'k':'$status'}, 'v': {'$first': '$completion_date'}}}
+        ]
+        result = Product._get_collection().aggregate(pipeline)
+    

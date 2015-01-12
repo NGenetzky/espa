@@ -6,12 +6,7 @@
     <span class="navitemleft">Processing: <a href="{% url 'show_orders' 'processing' %}">{{ process_units }}</a></span>
     <span class="navitemleft">Error: <a href="{% url 'show_orders' 'error' %}">{{ error_units }}</a></span>
     <span class="navitemleft">Retry: <a href="{% url 'show_orders' 'retry' %}">{{ retry_units }}</a></span>
+    
 
-    <span class="navitemright">OnDemand:
-    {% if ondemand_enabled %}
-        <span id="ondemand-on" class="option-select">On</span><span id="ondemand-off" class='option-not-select'>Off</span>
-    {% else %}
-        <span id="ondemand-on" class="option-not-select">On</span><span id="ondemand-off" class="option-select">Off</span>
-    {% endif %}
-    </span>
+    <span class="navitemright">Last Completed: {{ last_completed_date }}</span>
 </div>
