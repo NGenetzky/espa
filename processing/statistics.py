@@ -22,9 +22,9 @@ import numpy as np
 from espa_constants import EXIT_FAILURE
 from espa_constants import EXIT_SUCCESS
 
-# imports from espa_common through processing.__init__.py
-from processing import EspaLogging
-from processing import settings
+# imports from espa_common
+from logger_factory import EspaLogging
+import settings
 
 # local objects and methods
 import espa_exception as ee

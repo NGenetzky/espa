@@ -11,14 +11,14 @@ History:
 '''
 
 import ftplib
-import urllib
+import urllib2
 import requests
 from contextlib import closing
 
-# imports from espa_common through processing.__init__.py
-from processing import EspaLogging
-from processing import settings
-from processing import utilities
+# imports from espa_common
+from logger_factory import EspaLogging
+import settings
+import utilities
 
 
 # ============================================================================
@@ -104,7 +104,7 @@ def ftp_from_remote_location(username, pw, host, remotefile, localfile):
     if not remotefile.startswith('/'):
         remotefile = ''.join(['/', remotefile])
 
-    pw = urllib.unquote(pw)
+    pw = urllib2.unquote(pw)
 
     url = 'ftp://%s/%s' % (host, remotefile)
 
@@ -157,7 +157,7 @@ def ftp_to_remote_location(username, pw, localfile, host, remotefile):
     if not remotefile.startswith('/'):
         remotefile = ''.join(['/', remotefile])
 
-    pw = urllib.unquote(pw)
+    pw = urllib2.unquote(pw)
 
     logger.info("Transferring file from %s to %s"
                 % (localfile, 'ftp://%s/%s' % (host, remotefile)))
@@ -243,25 +243,44 @@ def http_transfer_file(download_url, destination_file):
 
     logger.info(download_url)
 
-    file_size = 0
-    retrieved_bytes = 0
-    with closing(requests.get(download_url, stream=True)) as req:
-        if not req.ok:
-            raise Exception("Transfer Failed - HTTP - Reason(%s)"
-                            % req.reason)
+#    file_size = 0
+#    retrieved_bytes = 0
+#    with closing(requests.get(download_url, stream=True)) as req:
+#        if not req.ok:
+#            raise Exception("Transfer Failed - HTTP - Reason(%s)"
+#                            % req.reason)
+#
+#        file_size = int(req.headers['content-length'])
+#
+#        with open(destination_file, 'wb') as local_fd:
+#            for data_chunk in req.iter_content(settings.TRANSFER_BLOCK_SIZE):
+#                local_fd.write(data_chunk)
+#                retrieved_bytes += len(data_chunk)
+#
+#    if retrieved_bytes != file_size:
+#        raise Exception("Transfer Failed - HTTP - Retrieved %d out of %d bytes"
+#                        % (retrieved_bytes, file_size))
+#    else:
+#        logger.info("Transfer Complete - HTTP")
+    req = None
+    try:
+        req = requests.get(download_url)
 
-        file_size = int(req.headers['content-length'])
+        if not req.ok:
+            logger.error("Transfer Failed - HTTP")
+            req.raise_for_status()
 
         with open(destination_file, 'wb') as local_fd:
-            for data_chunk in req.iter_content(settings.TRANSFER_BLOCK_SIZE):
-                local_fd.write(data_chunk)
-                retrieved_bytes += len(data_chunk)
+            local_fd.write(req.content)
+    except:
+        logger.error("Transfer Failed - HTTP")
+        raise
+    finally:
+        if req is not None:
+            req.close()
 
-    if retrieved_bytes != file_size:
-        raise Exception("Transfer Failed - HTTP - Retrieved %d out of %d bytes"
-                        % (retrieved_bytes, file_size))
-    else:
-        logger.info("Transfer complete - HTTP")
+    logger.info("Transfer Complete - HTTP")
+
 # END - http_transfer_file
 
 
@@ -272,7 +291,9 @@ def download_file_url(download_url, destination_file):
         Using a URL download the specified file to the destination.
     '''
 
-    if download_url.startswith('http://'):
+    download_url = urllib2.unquote(download_url)
+
+    if download_url.startswith('http'):
         http_transfer_file(download_url, destination_file)
     elif download_url.startswith('file://'):
         source_file = download_url.replace('file://', '')
