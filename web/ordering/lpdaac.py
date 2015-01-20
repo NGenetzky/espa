@@ -35,11 +35,19 @@ class LPDAACService(object):
         Returns:
         True/False
         '''
+        
+        if isinstance(product, str) or isinstance(product, unicode):
+            product = sensor.instance(product)
+            
         result = False
 
         try:
             url = self.get_download_url(product)
-            if url:
+            
+            if 'download_url' in url[product.product_id]:
+                
+                url = url[product.product_id]['download_url']
+            
                 response = None
 
                 try:
@@ -48,43 +56,58 @@ class LPDAACService(object):
                         result = True
                 except Exception, e:
                     print ("Exception checking inputs:%s" % e)
-                    return False
+                    return result
                 finally:
                     if response is not None:
                         response.close()
                         response = None
 
         except sensor.ProductNotImplemented:
-            pass
+            print('%s is not an implemented LPDAAC product' % product)
 
         return result
 
-    def get_download_urls(self, products):
+    def get_download_url(self, product):
 
-        urls = {}
+        url = {}
 
         #be nice and accept a string
-        if isinstance(products, str):
-            products = sensor.instance(products)
+        if isinstance(product, str) or isinstance(product, unicode):
+            product = sensor.instance(product)
 
         #also be nice and accept a sensor.Modis object
-        if isinstance(products, sensor.Modis):
-            products = [products]
-
-        for product in products:
+        if isinstance(product, sensor.Modis):
+            
             path = self._build_modis_input_file_path(product)
-            url = ''.join([self.host, ":", str(self.port), path])
 
-            if not url.lower().startswith("http"):
-                url = ''.join(['http://', url])
+            product_url = ''.join([self.host, ":", str(self.port), path])
 
-            urls[product.product_id] = url
+            if not product_url.lower().startswith("http"):
+                product_url = ''.join(['http://', product_url])
 
+            if not product.product_id in url:
+                url[product.product_id] = {}
+                
+            url[product.product_id]['download_url'] = product_url
+
+        return url
+        
+    def get_download_urls(self, products):
+        
+        urls = {}        
+        
+        if not isinstance(products, list):
+            raise TypeError("get_download_urls requires a list of products")
+        
+        for product in products:
+            urls.update(self.get_download_url(product))
+        
         return urls
+            
 
     def _build_modis_input_file_path(self, product):
 
-        if isinstance(product, str):
+        if isinstance(product, str) or isinstance(product, unicode):
             product = sensor.instance(product)
 
         if isinstance(product, sensor.Aqua):
@@ -103,7 +126,7 @@ class LPDAACService(object):
 
         input_file_extension = settings.MODIS_INPUT_FILENAME_EXTENSION
 
-        input_file_name = "%s.%s" % (product.product_id, input_file_extension)
+        input_file_name = "%s%s" % (product.product_id, input_file_extension)
 
         path = os.path.join(base_path,
                             '.'.join([product.short_name.upper(),
@@ -120,6 +143,8 @@ def input_exists(product):
 def verify_products(products):
     return LPDAACService().verify_products(products)
 
-
+def get_download_url(product):
+    return LPDAACService().get_download_url(product)
+    
 def get_download_urls(products):
     return LPDAACService().get_download_urls(products)
