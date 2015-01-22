@@ -1,20 +1,33 @@
+from datetime import datetime
 import json
 import time
-
 from mongoengine.django.auth import User
+
 from django.contrib.messages.views import SuccessMessageMixin
+from django.core.exceptions import PermissionDenied
 from django.core.urlresolvers import reverse
 from django.http import HttpResponse
 from django.http import HttpResponseRedirect
+from django.shortcuts import redirect
 from django.template import loader
 from django.views.generic import View
 from django.views.generic.edit import FormView
 
-from forms import StatusMessageForm
+from forms import StatusMessageForm, OrderForm, ProductForm
 from ordering.models import Configuration, Order, Product
 from ordering.views import AbstractView
 
-class Index(AbstractView):
+class StaffOnlyMixin(object):
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_authenticated():
+            return redirect('login')
+        if not request.user.is_staff:
+            raise PermissionDenied
+        
+        return super(StaffOnlyMixin, self).dispatch(request, *args, **kwargs)
+
+
+class Index(StaffOnlyMixin, AbstractView):
     template = 'console/index.html'
 
     def _get_system_status(self, ctx):
@@ -49,11 +62,7 @@ class Index(AbstractView):
             ctx['ondemand_enabled'] = False
 
     def get(self, request, *args, **kwargs):
-        user = User.objects.get(username=request.user.username)
-        if not user.is_staff:
-            return HttpResponseRedirect(reverse('login'))
-
-        c = self._get_request_context(request)
+        c = self._get_request_context(request, include_system_message=False)
         self._get_system_status(c)
         t = loader.get_template(self.template)
 
@@ -109,13 +118,10 @@ class RestartFailedAll(View):
         response = {'result': 'success', 'message': 'success'}
         return HttpResponse(json.dumps(response), content_type="application/json")
 
-class ShowOrders(AbstractView):
+class ShowOrders(StaffOnlyMixin, AbstractView):
     template = 'console/show_orders.html'
 
     def get(self, request, status_in):
-        if not request.user.is_staff:
-            return HttpResponseRedirect(reverse('login'))
-
         products = Product.objects.filter(status=status_in)
 
         t = loader.get_template(self.template)
@@ -124,24 +130,16 @@ class ShowOrders(AbstractView):
         return HttpResponse(t.render(c))
 
 
-class StatusMessage(SuccessMessageMixin, AbstractView, FormView):
+class StatusMessage(StaffOnlyMixin, SuccessMessageMixin, FormView):
     template_name = 'console/statusmsg.html'
     form_class = StatusMessageForm
     success_url = 'statusmsg'
     success_message = 'Status message updated'
 
     def get(self, request, *args, **kwargs):
-        user = User.objects.get(username=request.user.username)
-        if not user.is_staff:
-            return HttpResponseRedirect(reverse('login'))
-
         return super(StatusMessage, self).get(request, *args, **kwargs)
 
     def post(self, request, *args, **kwargs):
-        user = User.objects.get(username=request.user.username)
-        if not user.is_staff:
-            return HttpResponseRedirect(reverse('login'))
-
         return super(StatusMessage, self).post(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
@@ -213,23 +211,122 @@ class StatusMessage(SuccessMessageMixin, AbstractView, FormView):
         
         return super(StatusMessage, self).form_valid(form)
 
-class DisplayOrder(AbstractView):
+class DisplayOrder(StaffOnlyMixin, SuccessMessageMixin, FormView):
     template_name = 'console/displayorder.html'
+    form_class = OrderForm
+    success_message = 'Order updated'
 
-    def get(self, request, orderid_in):
-        user = User.objects.get(username=request.user.username)
-        if not user.is_staff:
-            return HttpResponseRedirect(reverse('login'))
+    def get(self, request, *args, **kwargs):
+        return super(DisplayOrder, self).get(request, *args, **kwargs)
+        
+    def post(self, request, *args, **kwargs):
+        return super(DisplayOrder, self).post(request, *args, **kwargs)
 
-        order = Order.objects.get(id=orderid_in)
-        products = Product.objects.filter(order=orderid_in)
-
-        t = loader.get_template(self.template_name)
-        c = self._get_request_context(request, {'order': order, 'scenes': products})
-
-        return HttpResponse(t.render(c))
+    def get_success_url(self):
+        return reverse('display_order', kwargs={'orderid_in': self.kwargs.get('orderid_in')})
     
-class ProductsByMachine(AbstractView):
+    def get_context_data(self, **kwargs):
+        context = super(DisplayOrder, self).get_context_data(**kwargs)
+        
+        context['order'] = Order.objects.get(id=self.kwargs.get('orderid_in'))
+        context['products'] = Product.objects.filter(order=self.kwargs.get('orderid_in'))
+        return context
+        
+    def get_initial(self):
+        order = Order.objects.get(id=self.kwargs.get('orderid_in'))
+        
+        initial_data = {}
+        initial_data['orderid'] = order.id
+        initial_data['user'] = order.user
+        initial_data['order_type'] = order.order_type
+        initial_data['priority'] = order.priority
+        initial_data['order_date'] = order.order_date
+        initial_data['complete_date'] = order.completion_date
+        initial_data['completion_email_date'] = order.completion_email_sent
+        initial_data['status'] = order.status
+        initial_data['note'] = order.note
+        initial_data['product_options'] = json.dumps(order.product_options, indent=2)
+        initial_data['order_source'] = order.order_source
+        initial_data['ee_order_id'] = order.ee_order_id
+        
+        return initial_data
+        
+    def form_valid(self, form):
+        order = Order.objects.get(id=self.kwargs.get('orderid_in'))
+        
+        order.priority = form.cleaned_data['priority']
+        order.status = form.cleaned_data['status']
+        order.note = form.cleaned_data['note']
+        order.product_options = json.loads(form.cleaned_data['product_options'])
+        order.save()
+        
+        return super(DisplayOrder, self).form_valid(form)
+
+class DisplayProduct(StaffOnlyMixin, SuccessMessageMixin, FormView):
+    template_name = 'console/displayproduct.html'
+    form_class = ProductForm
+    success_message = 'Product updated'
+
+    def get(self, request, *args, **kwargs):
+        return super(DisplayProduct, self).get(request, *args, **kwargs)
+        
+    def post(self, request, *args, **kwargs):
+        return super(DisplayProduct, self).post(request, *args, **kwargs)
+
+    def get_success_url(self):
+        return reverse('display_product', kwargs={'orderid_in': self.kwargs.get('orderid_in'),
+                                                  'product_in': self.kwargs.get('product_in')})
+    
+    def get_context_data(self, **kwargs):
+        context = super(DisplayProduct, self).get_context_data(**kwargs)
+        
+        context['product_name'] = self.kwargs.get('product_in')
+        return context
+        
+    def get_initial(self):
+        product = Product.objects.get(name=self.kwargs.get('product_in'), order=self.kwargs.get('orderid_in'))
+        
+        initial_data = {}
+        initial_data['name'] = product.name
+        initial_data['sensor_type'] = product.sensor_type
+        initial_data['note'] = product.note
+        initial_data['job_name'] = product.job_name
+        initial_data['product_dist_location'] = product.product_distro_location
+        initial_data['product_dl_url'] = product.product_dload_url
+        initial_data['cksum_dist_location'] = product.cksum_distro_location
+        initial_data['cksum_dl_url'] = product.cksum_download_url
+        initial_data['tram_order_id'] = product.tram_order_id
+        initial_data['ee_unit_id'] = product.ee_unit_id
+        initial_data['status'] = product.status
+        initial_data['processing_location'] = product.processing_location
+        initial_data['completion_date'] = product.completion_date
+        initial_data['log_file_contents'] = product.log_file_contents
+        initial_data['retry_after'] = product.retry_after
+        initial_data['retry_limit'] = product.retry_limit
+        initial_data['retry_count'] = product.retry_count
+        
+        return initial_data
+        
+    def form_valid(self, form):
+        product = Product.objects.get(name=self.kwargs.get('product_in'), order=self.kwargs.get('orderid_in'))        
+        
+        product.status = form.cleaned_data['status']
+        product.sensor_type = form.cleaned_data['sensor_type']
+        product.note = form.cleaned_data['note']
+        product.job_name = form.cleaned_data['job_name']
+        product.log_file_contents = form.cleaned_data['log_file_contents']
+        product.retry_limit = form.cleaned_data['retry_limit']
+        
+        if form.cleaned_data['retry_after'] == '':
+            product.retry_after = None
+        else:
+            product.retry_after = datetime.strptime(form.cleaned_data['retry_after'], '%Y-%m-%d %H:%M:00+00:00')
+        
+        product.save()
+        
+        return super(DisplayProduct, self).form_valid(form)
+
+class ProductsByMachine(StaffOnlyMixin, AbstractView):
     template_name = 'console/productsbymachine.html'
     
     def get(self, request):

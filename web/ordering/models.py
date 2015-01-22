@@ -65,7 +65,7 @@ class Order(Document):
     order_date = DateTimeField()
 
     # date the order completed (all scenes completed or marked unavailable)
-    completion_date = StringField()
+    completion_date = DateTimeField()
 
     initial_email_sent = DateTimeField()
 

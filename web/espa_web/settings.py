@@ -112,14 +112,15 @@ DATABASES = {
 }
 SESSION_ENGINE = 'mongoengine.django.sessions'
 
-if ESPA_ENV == 'dev':
+repSet = config.get('config', 'replica_set')
+if repSet.strip() == "":
     mongoengine.connect(config.get('config', 'connect_str'),
                         tz_aware=True,
                         connectTimeoutMS='300000')
 else:
     mongoengine.connect('espadev', 
                         host=config.get('config', 'connect_str'),
-                        replicaSet='lsrdRs',
+                        replicaSet=repSet,
                         tz_aware=True,
                         connectTimeoutMS='300000')
 
