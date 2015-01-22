@@ -1,0 +1,97 @@
+{% extends 'ordering/base.html' %}
+
+{% load static %}
+
+{% block title %} ESPA Console {% endblock %}
+{% block header %} Console: Display Product {% endblock %}
+
+{% block stylesheets %}
+    <link href="{% static 'js/datetimepicker/jquery.datetimepicker.css' %}" rel="stylesheet" type="text/css" />
+{% endblock %}
+
+{% block style %}
+
+.messages {
+   color: red;
+   list-style-type: none;
+}
+
+div.boxbody {
+    margin:0 auto;
+    width:750px;
+    border:none;
+}
+
+div.boxbody table {
+    width:750px;
+    padding:10px;
+}
+
+div.boxbody table td {
+    padding:5px 10px;
+}
+
+tr {
+    line-height:1.6em;
+}
+
+tr.evenrow {
+    background-color:#DEDEDE;
+}
+
+tr.evenrow td {
+    background-color:#DEDEDE;
+}
+
+.label {
+    font-weight: bold;
+    width: 100px;
+}
+
+#buttonbar {
+    padding: 3px;
+}
+
+{% endblock %}
+
+{% block nav %}{% include 'ordering/bulk_ordering_nav.html' %}{% endblock %}
+
+{% block content %}
+
+<div class="wrapper">
+
+    {% if messages %}
+    <ul class="messages">
+        {% for message in messages %}
+            <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
+        {% endfor %}
+    </ul>
+    <br />
+    {% endif %}
+
+<h4>Product: {{ product_name }}</h4>
+
+<form action='' method='post'>
+    {% csrf_token %}
+    <table>
+    {{ form }}
+    </table>
+
+<div id="buttonbar">
+    <input id="submit" name="submit" type="submit" value="Update Product"></input>
+</div>
+</form>
+
+</div>
+
+{% endblock %}
+
+{% block js_files %}
+    <script src="{% static 'js/datetimepicker/jquery.datetimepicker.js' %}"></script>
+{% endblock %}
+
+{% block scripts %}
+    jQuery('#id_retry_after').datetimepicker({
+        'format': 'Y-m-d H:i:00+00:00'
+    });
+{% endblock %}

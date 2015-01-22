@@ -1,0 +1,44 @@
+{% extends "ordering/base.html" %}
+
+{% block title %} Products By Machine Report {% endblock %}
+{% block header %} Console - Products By Machine Report {% endblock %}
+
+{% block nav %}{% include 'ordering/bulk_ordering_nav.html' %}{% endblock %}
+
+{% block content %}
+<div class="wrapper">
+    <h4>Products By Machine</h4>
+
+    <table>
+        <thead>
+        <tr>
+            <td>Node</td>
+            <td>Submitted</td>
+            <td>On Order</td>
+            <td>On Cache</td>
+            <td>Queued</td>
+            <td>Processing</td>
+            <td>Complete</td>
+            <td>Retry</td>
+            <td>Error</td>
+        </tr>
+        </thead>
+    {% for key, value in machine_info.items %}
+        <tbody>
+        <tr>
+            <td>{{ key }}</td>
+            <td>{{ value.submitted|default:'0' }}</td>
+            <td>{{ value.onorder|default:'0' }}</td>
+            <td>{{ value.oncache|default:'0' }}</td>
+            <td>{{ value.queued|default:'0' }}</td>
+            <td>{{ value.processing|default:'0' }}</td>
+            <td>{{ value.complete|default:'0' }}</td>
+            <td>{{ value.retry|default:'0' }}</td>
+            <td>{{ value.error|default:'0' }}</td>
+        </tr>
+        </tbody>
+    {% endfor %}
+    </table>
+
+</div>
+{% endblock %}
