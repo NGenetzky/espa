@@ -173,7 +173,7 @@ TEMPLATE_LOADERS = (
 
 #ESPA Service URLS
 SERVICE_LOCATOR = {
-    "dev": {
+    "sys": {
         "orderservice": "http://eedev.cr.usgs.gov/OrderWrapperServicedevsys/resources",
         "orderdelivery": "http://eedev.cr.usgs.gov/OrderDeliverydevsys/OrderDeliveryService?WSDL",
         "orderupdate": "http://eedev.cr.usgs.gov/OrderStatusServicedevsys/OrderStatusService?wsdl",
@@ -183,7 +183,7 @@ SERVICE_LOCATOR = {
         "earthexplorer": "https://eedev.cr.usgs.gov/devsys",
         "forgot_login": "https://eedev.cr.usgs.gov/devsys/login/username"
     },
-    "tst": {
+    "dev": {
         "orderservice": "http://eedevmast.cr.usgs.gov/OrderWrapperServicedevmast/resources",
         "orderdelivery": "http://eedevmast.cr.usgs.gov/OrderDeliverydevmast/OrderDeliveryService?WSDL",
         "orderupdate": "http://eedevmast.cr.usgs.gov/OrderStatusServicedevmast/OrderStatusService?wsdl",
@@ -192,6 +192,16 @@ SERVICE_LOCATOR = {
         "register_user": "https://eedevmast.cr.usgs.gov/register",
         "earthexplorer": "https://eedevmast.cr.usgs.gov",
         "forgot_login": "https://eedevmast.cr.usgs.gov/login/username"
+    },
+    "tst": {
+        "orderservice": "http://edclxs152.cr.usgs.gov/OrderWrapperService/resources",
+        "orderdelivery": "http://edclxs152.cr.usgs.gov/OrderDeliveryService/OrderDeliveryService?WSDL",
+        "orderupdate": "http://edclxs152.cr.usgs.gov/OrderStatusService/OrderStatusService?wsdl",
+        "massloader": "http://edclxs152.cr.usgs.gov/MassLoader/MassLoader?wsdl",
+        "registration": "http://edclxs152.cr.usgs.gov/RegistrationService/RegistrationService?wsdl",
+        "register_user": "https://earthexplorer.usgs.gov/register",
+        "earthexplorer": "https://earthexplorer.usgs.gov",
+        "forgot_login": "https://earthexplorer.usgs.gov/login/username"
     },
     "ops": {
         "orderservice": "http://edclxs152.cr.usgs.gov/OrderWrapperService/resources",
