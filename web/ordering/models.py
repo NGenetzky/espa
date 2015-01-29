@@ -2,24 +2,24 @@ import datetime
 import json
 
 from mongoengine.django.auth import User
-from mongoengine import *
+import mongoengine as me
 
 from espa_common import sensor
 
-class UserProfile (Document):
+class UserProfile (me.Document):
     '''Extends the information attached to ESPA users with a one-to-one
     relationship. The other options were to extend the actual Django User
     model or create an entirely new User model.  This is the cleanest and
     recommended method per the Django docs.
     '''
     # reference to the User this Profile belongs to
-    user = ReferenceField(User)
+    user = me.ReferenceField(User)
 
     # The EE contactid of this user
-    contactid = StringField(max_length=10)
+    contactid = me.StringField(max_length=10)
 
 
-class Order(Document):
+class Order(me.Document):
     '''Persistent object that models a user order for processing.'''
 
     def __unicode__(self):
@@ -48,44 +48,44 @@ class Order(Document):
     )
 
     # orderid should be in the format email_MMDDYY_HHMMSS
-    id = StringField(max_length=255, primary_key=True)
+    id = me.StringField(max_length=255, primary_key=True)
 
     # reference the user that placed this order
-    user = ReferenceField(User)
+    user = me.ReferenceField(User)
 
     # order_type describes the order characteristics so we can use logic to
     # handle multiple varieties of orders
-    order_type = StringField(max_length=50,
+    order_type = me.StringField(max_length=50,
                              choices=ORDER_TYPES)
 
-    priority = StringField(max_length=10,
+    priority = me.StringField(max_length=10,
                            choices=ORDER_PRIORITY)
 
     # date the order was placed
-    order_date = DateTimeField()
+    order_date = me.DateTimeField()
 
     # date the order completed (all scenes completed or marked unavailable)
-    completion_date = DateTimeField()
+    completion_date = me.DateTimeField()
 
-    initial_email_sent = DateTimeField()
+    initial_email_sent = me.DateTimeField()
 
-    completion_email_sent = DateTimeField()
+    completion_email_sent = me.DateTimeField()
 
     #o ne of order.STATUS
-    status = StringField(max_length=20, choices=STATUS)
+    status = me.StringField(max_length=20, choices=STATUS)
 
     # space for users to add notes to orders
-    note = StringField(max_length=2048)
+    note = me.StringField(max_length=2048)
 
     # json for all product options
-    product_options = DictField()
+    product_options = me.DictField()
 
     # one of Order.ORDER_SOURCE
-    order_source = StringField(max_length=10,
+    order_source = me.StringField(max_length=10,
                                choices=ORDER_SOURCE)
 
     # populated when the order is placed through EE vs ESPA
-    ee_order_id = StringField(max_length=13)
+    ee_order_id = me.StringField(max_length=13)
 
     @staticmethod
     def get_default_product_options():
@@ -276,12 +276,11 @@ class Order(Document):
         A queryresult of orders for the given email.
         '''
         user_obj = User.objects(email=email).first()
-        o = Order.objects.filter(Q(user=user_obj)).order_by('-order_date')
+        o = Order.objects.filter(user=user_obj).order_by('-order_date')
 
         return o
 
     @staticmethod
-    #@transaction.atomic
     def enter_new_order(username,
                         order_source,
                         scene_list,
@@ -329,30 +328,34 @@ class Order(Document):
         order.priority = priority
         order.save()
 
-        # save the scenes for the order
-        for s in set(scene_list):
-
-            sensor_type = None
-
-            if s == 'plot':
-                sensor_type = 'plot'
-            elif isinstance(sensor.instance(s), sensor.Landsat):
-                sensor_type = 'landsat'
-            elif isinstance(sensor.instance(s), sensor.Modis):
-                sensor_type = 'modis'
-
-            product = Product()
-            product.name = s
-            product.order = order
-            product.order_date = datetime.datetime.now()
-            product.status = 'submitted'
-            product.sensor_type = sensor_type
-            product.save()
+        try:
+            # save the scenes for the order
+            for s in set(scene_list):
+    
+                sensor_type = None
+    
+                if s == 'plot':
+                    sensor_type = 'plot'
+                elif isinstance(sensor.instance(s), sensor.Landsat):
+                    sensor_type = 'landsat'
+                elif isinstance(sensor.instance(s), sensor.Modis):
+                    sensor_type = 'modis'
+    
+                product = Product()
+                product.name = s
+                product.order = order
+                product.order_date = datetime.datetime.now()
+                product.status = 'submitted'
+                product.sensor_type = sensor_type
+                product.save()
+        except Exception, ex:
+            order.delete()
+            raise ex
 
         return order
 
 
-class Product(Document):
+class Product(me.Document):
     '''Persists a scene object as defined from the ordering and tracking
     perspective'''
 
@@ -379,73 +382,73 @@ class Product(Document):
     )
 
     #scene file name, with no suffix
-    name = StringField(max_length=256)
+    name = me.StringField(max_length=256)
 
     #flags product as either landsat, modis or plot
-    sensor_type = StringField(max_length=50, choices=SENSOR_PRODUCT)
+    sensor_type = me.StringField(max_length=50, choices=SENSOR_PRODUCT)
 
     #scene system note, used to add message to users
-    note = StringField(max_length=2048)
+    note = me.StringField(max_length=2048)
 
     #Reference to the Order this Product is associated with
-    order = ReferenceField(Order)
+    order = me.ReferenceField('Order', reverse_delete_rule=me.CASCADE)
 
     #holds the name of the processing job that is producing this product
-    job_name = StringField(max_length=255)
+    job_name = me.StringField(max_length=255)
 
     #full path including filename where this scene has been distributed to
     #minus the host and port. signifies that this scene is distributed
-    product_distro_location = StringField(max_length=1024)
+    product_distro_location = me.StringField(max_length=1024)
 
     #full path for scene download on the distribution node
-    product_dload_url = StringField(max_length=1024)
+    product_dload_url = me.StringField(max_length=1024)
 
     #full path (with filename) for scene checksum on distribution filesystem
-    cksum_distro_location = StringField(max_length=1024)
+    cksum_distro_location = me.StringField(max_length=1024)
 
     #full url this file can be downloaded from
-    cksum_download_url = StringField(max_length=1024)
+    cksum_download_url = me.StringField(max_length=1024)
 
     # This will only be populated if the scene had to be placed on order
     #through EE to satisfy the request.
-    tram_order_id = StringField(max_length=13)
+    tram_order_id = me.StringField(max_length=13)
 
     # Flags for order origination.  These will only be populated if the scene
     # request came from EE.
-    ee_unit_id = IntField()
+    ee_unit_id = me.IntField()
 
     # General status flags for this scene
 
     #Status.... one of Submitted, Ready For Processing, Processing,
     #Processing Complete, Distributed, or Purged
-    status = StringField(max_length=30, choices=STATUS)
+    status = me.StringField(max_length=30, choices=STATUS)
 
     #Where is this scene being processed at?  (which machine)
-    processing_location = StringField(max_length=256)
+    processing_location = me.StringField(max_length=256)
 
     #Time this scene was finished processing
-    completion_date = DateTimeField()
+    completion_date = me.DateTimeField()
 
     #Final contents of log file... should be put added when scene is marked
     #complete.
-    log_file_contents = StringField()
+    log_file_contents = me.StringField()
 
     #If the status is 'retry', after what date should the retry occur?
-    retry_after = DateTimeField()
+    retry_after = me.DateTimeField()
 
     #max number of retries before moving to error status
     #default to 5
-    retry_limit = IntField(min_value=0, max_value=999, default=5)
+    retry_limit = me.IntField(min_value=0, max_value=999, default=5)
 
     #current number of retries, initialized to 0
-    retry_count = IntField(min_value=0, max_value=999, default=0)
+    retry_count = me.IntField(min_value=0, max_value=999, default=0)
 
 
-class Configuration(Document):
+class Configuration(me.Document):
     '''Implements a key/value datastore on top of a relational database
     '''
-    key = StringField(max_length=255, unique=True)
-    value = StringField(max_length=2048)
+    key = me.StringField(max_length=255, unique=True)
+    value = me.StringField(max_length=2048)
 
     def __unicode__(self):
         return ('%s : %s') % (self.key, self.value)
@@ -459,30 +462,30 @@ class Configuration(Document):
             return ''
 
 
-class DownloadSection(Document):
+class DownloadSection(me.Document):
     ''' Persists grouping of download items and controls appearance order'''
-    title = StringField('name', max_length=255)
-    text = StringField('section_text')
-    display_order = IntField()
-    visible = BooleanField('visible')
+    title = me.StringField('name', max_length=255)
+    text = me.StringField('section_text')
+    display_order = me.IntField()
+    visible = me.BooleanField('visible')
 
 
-class Download(Document):
-    section = ReferenceField(DownloadSection)
-    target_name = StringField('target_name', max_length=255)
-    target_url = URLField('target_url')
-    checksum_name = StringField('checksum_name',
+class Download(me.Document):
+    section = me.ReferenceField(DownloadSection)
+    target_name = me.StringField('target_name', max_length=255)
+    target_url = me.URLField('target_url')
+    checksum_name = me.StringField('checksum_name',
                                      max_length=255)
-    checksum_url = URLField('checksum_url')
-    readme_text = StringField('readme_text')
-    display_order = IntField()
-    visible = BooleanField('visible')
+    checksum_url = me.URLField('checksum_url')
+    readme_text = me.StringField('readme_text')
+    display_order = me.IntField()
+    visible = me.BooleanField('visible')
 
 
-class Tag(Document):
-    tag = StringField('tag', max_length=255)
-    description = StringField('description')
-    last_updated = DateTimeField('last_updated')
+class Tag(me.Document):
+    tag = me.StringField('tag', max_length=255)
+    description = me.StringField('description')
+    last_updated = me.DateTimeField('last_updated')
 
     def __unicode__(self):
         return self.tag
@@ -492,13 +495,13 @@ class Tag(Document):
         super(Tag, self).save(*args, **kwargs)
 
 
-class DataPoint(Document):
-    tags = ListField(ReferenceField(Tag))
-    key = StringField('key', max_length=250)
-    command = StringField('command', max_length=2048)
-    description = StringField('description')
-    enable = BooleanField('enable')
-    last_updated = DateTimeField('last_updated')
+class DataPoint(me.Document):
+    tags = me.ListField(me.ReferenceField(Tag))
+    key = me.StringField('key', max_length=250)
+    command = me.StringField('command', max_length=2048)
+    description = me.StringField('description')
+    enable = me.BooleanField('enable')
+    last_updated = me.DateTimeField('last_updated')
 
     def __unicode__(self):
         return "%s:%s" % (self.key, self.command)

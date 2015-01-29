@@ -118,7 +118,7 @@ if repSet.strip() == "":
                         tz_aware=True,
                         connectTimeoutMS='300000')
 else:
-    mongoengine.connect('espadev', 
+    mongoengine.connect('db', 
                         host=config.get('config', 'connect_str'),
                         replicaSet=repSet,
                         tz_aware=True,
