@@ -112,7 +112,8 @@ DATABASES = {
 }
 SESSION_ENGINE = 'mongoengine.django.sessions'
 
-mongoengine.connect(config.get('config', 'mongo_connect_str'),
+mongoengine.connect('db', 
+                    host=config.get('config', 'mongo_connect_str'),
                     tz_aware=True,
                     connectTimeoutMS='300000')
 
