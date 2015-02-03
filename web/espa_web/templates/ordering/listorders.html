@@ -72,7 +72,7 @@ span.status-display {
 
 {% for order in orders %}
     <tr class="{% cycle 'oddrow' 'evenrow' %}">
-    <td class="{% cycle 'oddrow' 'evenrow' %}"><a href="{% url 'generic_order_status_detail' order.orderid %}">{{ order.orderid }}</a></td>
+    <td class="{% cycle 'oddrow' 'evenrow' %}"><a href="{% url 'generic_order_status_detail' order.id %}">{{ order.id }}</a></td>
     <td class="{% cycle 'oddrow' 'evenrow' %}" id='{{ order.id }}_total_ordered'></td>
     <td class="{% cycle 'oddrow' 'evenrow' %}" id='{{ order.id }}_finished'></td>
     <td class="{% cycle 'oddrow' 'evenrow' %}">{{ order.get_status_display }}</td>
