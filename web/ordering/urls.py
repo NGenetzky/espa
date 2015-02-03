@@ -1,6 +1,5 @@
 from django.conf.urls import patterns
 from django.conf.urls import url
-from django.contrib import admin
 from ordering.views import StatusFeed
 from ordering import rpc
 from ordering.views import NewOrder
