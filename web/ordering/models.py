@@ -448,7 +448,8 @@ class Configuration(me.Document):
     '''Implements a key/value datastore on top of a relational database
     '''
     key = me.StringField(max_length=255, unique=True)
-    value = me.StringField(max_length=2048)
+    value = me.DynamicField()  
+    
 
     def __unicode__(self):
         return ('%s : %s') % (self.key, self.value)
@@ -457,7 +458,7 @@ class Configuration(me.Document):
         try:
             value = Configuration.objects.get(key=key).value
 
-            return str(value)
+            return value
         except:
             return ''
 
@@ -474,8 +475,7 @@ class Download(me.Document):
     section = me.ReferenceField(DownloadSection)
     target_name = me.StringField('target_name', max_length=255)
     target_url = me.URLField('target_url')
-    checksum_name = me.StringField('checksum_name',
-                                     max_length=255)
+    checksum_name = me.StringField('checksum_name', max_length=255)
     checksum_url = me.URLField('checksum_url')
     readme_text = me.StringField('readme_text')
     display_order = me.IntField()

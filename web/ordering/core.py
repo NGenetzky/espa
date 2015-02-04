@@ -49,12 +49,11 @@ class Emails(object):
     def send_initial(self, order):
 
         if isinstance(order, str):
-            order = Order.objects.get(orderid=order)
-        elif isinstance(order, int):
             order = Order.objects.get(id=order)
-
+        
         if not isinstance(order, models.Order):
-            msg = 'order must be str, int or instance of models.Order'
+            print("order type was:%s" % (type(order)))
+            msg = 'order must be str or instance of models.Order'
             raise TypeError(msg)
 
         email = order.user.email
@@ -62,7 +61,7 @@ class Emails(object):
 
         m = list()
         m.append("Thank you for your order.\n\n")
-        m.append("%s has been received and is currently " % order.orderid)
+        m.append("%s has been received and is currently " % order.id)
         m.append("being processed.  ")
         m.append("Another email will be sent when this order is complete.\n\n")
         m.append("You may view the status of your order and download ")
@@ -72,7 +71,8 @@ class Emails(object):
 
         #scenes = Scene.objects.filter(order__id=order.id)
 
-        products = order.scene_set.all()
+        products = Product.objects.filter(order=order)
+        #products = order.scene_set.all()
 
         for product in products:
             name = product.name
@@ -82,26 +82,25 @@ class Emails(object):
             m.append("%s\n" % name)
 
         email_msg = ''.join(m)
-        subject = 'Processing order %s received' % order.orderid
+        subject = 'Processing order %s received' % order.id
 
         return self.__send(recipient=email, subject=subject, body=email_msg)
 
     def send_completion(self, order):
 
         if isinstance(order, str):
-            order = Order.objects.get(orderid=order)
-        elif isinstance(order, int):
             order = Order.objects.get(id=order)
-
+        
         if not isinstance(order, models.Order):
-            msg = 'order must be str, int or instance of models.Order'
+            msg = 'order must be str or instance of models.Order'
             raise TypeError(msg)
 
         email = order.user.email
+        
         url = self.__order_status_url(email)
 
         m = list()
-        m.append("%s is now complete and can be downloaded " % order.orderid)
+        m.append("%s is now complete and can be downloaded " % order.id)
         m.append("from %s.\n\n" % url)
         m.append("This order will remain available for 14 days.  ")
         m.append("Any data not downloaded will need to be reordered ")
@@ -111,7 +110,7 @@ class Emails(object):
         m.append("Requested products\n")
         m.append("-------------------------------------------\n")
 
-        products = order.scene_set.filter(status='complete')
+        products = Product.objects.filter(order=order, status='complete')
 
         for product in products:
             line = product.name
@@ -121,7 +120,7 @@ class Emails(object):
             m.append("%s\n" % line)
 
         body = ''.join(m)
-        subject = 'Processing for %s complete.' % order.orderid
+        subject = 'Processing for %s complete.' % order.id
 
         return self.__send(recipient=email, subject=subject, body=body)
 
