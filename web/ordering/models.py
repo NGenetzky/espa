@@ -275,8 +275,8 @@ class Order(me.Document):
         Return:
         A queryresult of orders for the given email.
         '''
-        user_obj = User.objects(email=email).first()
-        o = Order.objects.filter(user=user_obj).order_by('-order_date')
+        users = User.objects(email=email)
+        o = Order.objects.filter(user__in=users).order_by('-order_date')
 
         return o
 
