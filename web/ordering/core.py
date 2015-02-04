@@ -21,7 +21,6 @@ import errors
 import espa_common
 
 
-
 class Emails(object):
 
     def __init__(self):
