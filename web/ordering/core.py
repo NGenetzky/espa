@@ -5,12 +5,13 @@ Original Author: David V. Hill
 '''
 
 import models
-from models import Product
+from models import Scene
 from models import Order
 from models import Configuration
 from models import UserProfile
-from mongoengine.django.auth import User
+from django.contrib.auth.models import User
 from django.conf import settings
+from django.db import transaction
 import json
 import datetime
 import urllib
@@ -20,10 +21,11 @@ import errors
 import espa_common
 
 
+
 class Emails(object):
 
     def __init__(self):
-        self.status_base_url = Configuration.objects.get(key='espa.status.url')
+        self.status_base_url = Configuration().getValue('espa.status.url')
 
     def __send(self, recipient, subject, body):
         return espa_common.utilities.send_email(recipient=recipient,
@@ -33,6 +35,7 @@ class Emails(object):
     def __order_status_url(self, email):
         return ''.join([self.status_base_url, '/', email])
 
+    @transaction.atomic
     def send_all_initial(self):
         '''Finds all the orders that have not had their initial emails sent and
         sends them'''
@@ -47,20 +50,20 @@ class Emails(object):
     def send_initial(self, order):
 
         if isinstance(order, str):
+            order = Order.objects.get(orderid=order)
+        elif isinstance(order, int):
             order = Order.objects.get(id=order)
-        
+
         if not isinstance(order, models.Order):
-            print("order type was:%s" % (type(order)))
-            msg = 'order must be str or instance of models.Order'
+            msg = 'order must be str, int or instance of models.Order'
             raise TypeError(msg)
 
         email = order.user.email
-        
         url = self.__order_status_url(email)
 
         m = list()
         m.append("Thank you for your order.\n\n")
-        m.append("%s has been received and is currently " % order.id)
+        m.append("%s has been received and is currently " % order.orderid)
         m.append("being processed.  ")
         m.append("Another email will be sent when this order is complete.\n\n")
         m.append("You may view the status of your order and download ")
@@ -68,8 +71,10 @@ class Emails(object):
         m.append("Requested products\n")
         m.append("-------------------------------------------\n")
 
-        products = Product.objects.filter(order=order)
-        
+        #scenes = Scene.objects.filter(order__id=order.id)
+
+        products = order.scene_set.all()
+
         for product in products:
             name = product.name
 
@@ -77,25 +82,27 @@ class Emails(object):
                 name = "Plotting & Statistics"
             m.append("%s\n" % name)
 
-        subject = 'Processing order %s received' % order.id
+        email_msg = ''.join(m)
+        subject = 'Processing order %s received' % order.orderid
 
-        return self.__send(recipient=email, subject=subject, body=''.join(m))
+        return self.__send(recipient=email, subject=subject, body=email_msg)
 
     def send_completion(self, order):
 
         if isinstance(order, str):
+            order = Order.objects.get(orderid=order)
+        elif isinstance(order, int):
             order = Order.objects.get(id=order)
-        
+
         if not isinstance(order, models.Order):
-            msg = 'order must be str or instance of models.Order'
+            msg = 'order must be str, int or instance of models.Order'
             raise TypeError(msg)
 
         email = order.user.email
-        
         url = self.__order_status_url(email)
 
         m = list()
-        m.append("%s is now complete and can be downloaded " % order.id)
+        m.append("%s is now complete and can be downloaded " % order.orderid)
         m.append("from %s.\n\n" % url)
         m.append("This order will remain available for 14 days.  ")
         m.append("Any data not downloaded will need to be reordered ")
@@ -105,7 +112,7 @@ class Emails(object):
         m.append("Requested products\n")
         m.append("-------------------------------------------\n")
 
-        products = Product.objects.filter(order=order, status='complete')
+        products = order.scene_set.filter(status='complete')
 
         for product in products:
             line = product.name
@@ -115,7 +122,7 @@ class Emails(object):
             m.append("%s\n" % line)
 
         body = ''.join(m)
-        subject = 'Processing for %s complete.' % order.id
+        subject = 'Processing for %s complete.' % order.orderid
 
         return self.__send(recipient=email, subject=subject, body=body)
 
@@ -218,6 +225,7 @@ class OrderHandler(object):
         pass
 
 
+@transaction.atomic
 def set_product_retry(name,
                       orderid,
                       processing_loc,
@@ -227,7 +235,7 @@ def set_product_retry(name,
                       retry_limit=None):
     '''Sets a product to retry status'''
 
-    product = Product.objects.get(name=name, order=orderid)
+    product = Scene.objects.get(name=name, order__orderid=orderid)
 
     #if a new retry limit has been provided, update the db and use it
     if retry_limit is not None:
@@ -245,10 +253,11 @@ def set_product_retry(name,
         raise Exception("Retry limit exceeded")
 
 
+@transaction.atomic
 #  Marks a scene unavailable and stores a reason
 def set_product_unavailable(name, orderid, processing_loc, error, note):
 
-    product = Product.objects.get(name=name, order=orderid)
+    product = Scene.objects.get(name=name, order__orderid=orderid)
 
     product.status = 'unavailable'
     product.processing_location = processing_loc
@@ -270,32 +279,37 @@ def set_products_unavailable(products, reason):
     necessary.
 
     Keyword args:
-    products - A list of models.Product objects
+    products - A list of models.Scene objects
     reason - The user facing reason the product was rejected
     '''
-  
+    for p in products:
+        if not isinstance(p, Scene):
+            raise TypeError()
+
     for p in products:
         p.status = 'unavailable'
         p.completion_date = datetime.datetime.now()
         p.note = reason
         p.save()
-        
+
         if p.order.order_source == 'ee':
             lta.update_order_status(p.order.ee_order_id, p.ee_unit_id, 'R')
 
 
+@transaction.atomic
 def handle_retry_products():
     now = datetime.datetime.now()
 
     filter_args = {'status': 'retry',
                    'retry_after__lt': now}
 
-    update_args = {'set__status': 'submitted',
-                   'set__note': ''}
+    update_args = {'status': 'submitted',
+                   'note': ''}
 
-    Product.objects.filter(**filter_args).update(**update_args)
+    Scene.objects.filter(**filter_args).update(**update_args)
 
 
+@transaction.atomic
 def handle_onorder_landsat_products():
 
     filters = {
@@ -305,7 +319,7 @@ def handle_onorder_landsat_products():
 
     select_related = 'order'
 
-    products = Product.objects.filter(**filters).select_related(select_related)
+    products = Scene.objects.filter(**filters).select_related(select_related)
     product_tram_ids = products.values_list('tram_order_id')
     tram_ids = list(set([p[0] for p in product_tram_ids]))
 
@@ -347,11 +361,12 @@ def handle_onorder_landsat_products():
     }
 
     if len(available) > 0:
-        Product.objects.filter(**filters).update(**updates)
+        Scene.objects.filter(**filters).update(**updates)
 
 
 def handle_submitted_landsat_products():
 
+    @transaction.atomic
     def mark_nlaps_unavailable():
 
         print("In mark_nlaps_unavailable")
@@ -363,7 +378,7 @@ def handle_submitted_landsat_products():
         }
 
         print("looking for submitted landsat products")
-        landsat_products = Product.objects.filter(**filters)
+        landsat_products = Scene.objects.filter(**filters)
 
         #build list input for calls to the scene cache
         landsat_submitted = [l.name for l in landsat_products]
@@ -403,8 +418,9 @@ def handle_submitted_landsat_products():
 
         return [c[0] for c in contact_ids]
 
+    @transaction.atomic
     def update_landsat_product_status(contact_id):
-
+      
         print("update_landsat_product_status")
 
         filters = {
@@ -414,12 +430,14 @@ def handle_submitted_landsat_products():
         }
 
         #limit this to 500, 9000+ scenes are stressing EE
-        products = Product.objects.filter(**filters)[:500]
+        products = Scene.objects.filter(**filters)[:500]
         product_list = [p.name for p in products]
 
-        print("update_landsat_product_status --> lta.order_scenes")
+        print("Ordering %s scenes for contact:%s" % (len(product_list), contact_id))
 
         results = lta.order_scenes(product_list, contact_id)
+
+        print("Checking ordering results for contact:%s" % contact_id)
 
         if 'available' in results and len(results['available']) > 0:
             #update db
@@ -432,7 +450,7 @@ def handle_submitted_landsat_products():
 
             update_args = {'status': 'oncache'}
 
-            Product.objects.filter(**filter_args).update(**update_args)
+            Scene.objects.filter(**filter_args).update(**update_args)
 
         if 'ordered' in results and len(results['ordered']) > 0:
             #response = lta.order_scenes(orderable, contact_id)
@@ -444,7 +462,7 @@ def handle_submitted_landsat_products():
             update_args = {'status': 'onorder',
                            'tram_order_id': results['lta_order_id']}
 
-            Product.objects.filter(**filter_args).update(**update_args)
+            Scene.objects.filter(**filter_args).update(**update_args)
 
         if 'invalid' in results and len(results['invalid']) > 0:
             #look to see if they are ee orders.  If true then update the
@@ -467,13 +485,15 @@ def handle_submitted_landsat_products():
             print(msg)
 
 
+
+@transaction.atomic
 def handle_submitted_modis_products():
     ''' Moves all submitted modis products to oncache if true '''
 
     print("handle_submitted_modis")
 
     filter_args = {'status': 'submitted', 'sensor_type': 'modis'}
-    modis_products = Product.objects.filter(**filter_args)
+    modis_products = Scene.objects.filter(**filter_args)
 
     if len(modis_products) > 0:
 
@@ -489,9 +509,10 @@ def handle_submitted_modis_products():
 
         update_args = {'status': 'oncache'}
 
-        Product.objects.filter(**filter_args).update(**update_args)
+        Scene.objects.filter(**filter_args).update(**update_args)
 
 
+@transaction.atomic
 def handle_submitted_plot_products():
     ''' Moves plot products from submitted to oncache status once all
         their underlying rasters are complete or unavailable '''
@@ -530,12 +551,14 @@ def handle_submitted_plot_products():
                     p.save()
 
 
+@transaction.atomic
 def handle_submitted_products():
     handle_submitted_landsat_products()
     handle_submitted_modis_products()
     handle_submitted_plot_products()
 
 
+@transaction.atomic
 def get_products_to_process(record_limit=500,
                             for_user=None,
                             priority=None,
@@ -601,7 +624,7 @@ def get_products_to_process(record_limit=500,
 
         orderby = 'order__order_date'
 
-        scenes = Product.objects.filter(**filters)
+        scenes = Scene.objects.filter(**filters)
         scenes = scenes.select_related(select_related)
 
         if record_limit is not None:
@@ -686,9 +709,10 @@ def helper_logger(msg):
     print(msg)
 
 
+@transaction.atomic
 def update_status(name, orderid, processing_loc, status):
 
-    product = Product.objects.get(name=name, order__orderid=orderid)
+    product = Scene.objects.get(name=name, order__orderid=orderid)
 
     product.status = status
     product.processing_location = processing_loc
@@ -698,10 +722,11 @@ def update_status(name, orderid, processing_loc, status):
     return True
 
 
+@transaction.atomic
 #  Marks a scene in error and accepts the log file contents
 def set_product_error(name, orderid, processing_loc, error):
 
-    product = Product.objects.get(name=name, order__orderid=orderid)
+    product = Scene.objects.get(name=name, order__orderid=orderid)
 
     #attempt to determine the disposition of this error
     resolution = errors.resolve(error)
@@ -745,6 +770,7 @@ def set_product_error(name, orderid, processing_loc, error):
     return True
 
 
+@transaction.atomic
 def queue_products(order_name_tuple_list, processing_location, job_name):
     ''' Allows the caller to place products into queued status in bulk '''
 
@@ -774,14 +800,15 @@ def queue_products(order_name_tuple_list, processing_location, job_name):
                        'log_file_contents': '',
                        'job_name': job_name}
 
-        helper_logger("Queuing %s:%s from %s for job %s"
-                      % (order, products, processing_location, job_name))
+        #helper_logger("Queuing %s:%s from %s for job %s"
+        #              % (order, products, processing_location, job_name))
 
-        Product.objects.filter(**filter_args).update(**update_args)
+        Scene.objects.filter(**filter_args).update(**update_args)
 
     return True
 
 
+@transaction.atomic
 #  Marks a scene complete in the database for a given order
 def mark_product_complete(name,
                           orderid,
@@ -791,7 +818,7 @@ def mark_product_complete(name,
                           log_file_contents=""):
 
     print ("Marking scene:%s complete for order:%s" % (name, orderid))
-    product = Product.objects.get(name=name, order__orderid=orderid)
+    product = Scene.objects.get(name=name, order__orderid=orderid)
 
     product.status = 'complete'
     product.processing_location = processing_loc
@@ -823,6 +850,7 @@ def mark_product_complete(name,
         return True
 
 
+@transaction.atomic
 def update_order_if_complete(order):
     '''Method to send out the order completion email
     for orders if the completion of a scene
@@ -870,6 +898,7 @@ def update_order_if_complete(order):
                 raise Exception(msg)
 
 
+@transaction.atomic
 def load_ee_orders():
     ''' Loads all the available orders from lta into
     our database and updates their status
@@ -964,13 +993,13 @@ def load_ee_orders():
 
             scene = None
             try:
-                scene = Product.objects.get(order=order,
+                scene = Scene.objects.get(order=order,
                                           ee_unit_id=s['unit_num'])
 
                 if scene.status == 'complete':
 
                     success, msg, status =\
-                        lta.update_order(eeorder, s['unit_num'], "C")
+                        lta.update_order_status(eeorder, s['unit_num'], "C")
 
                     if not success:
                         log_msg = ("Error updating lta for "
@@ -989,7 +1018,7 @@ def load_ee_orders():
 
                 elif scene.status == 'unavailable':
                     success, msg, status =\
-                        lta.update_order(eeorder, s['unit_num'], "R")
+                        lta.update_order_status(eeorder, s['unit_num'], "R")
 
                     if not success:
                         log_msg = ("Error updating lta for "
@@ -1005,10 +1034,10 @@ def load_ee_orders():
                                    "status code:%s") % (msg, status)
 
                         helper_logger(log_msg)
-            except Product.DoesNotExist:
+            except Scene.DoesNotExist:
                 # TODO: This code should be housed in the models module.
                 # TODO: This logic should not be visible at this level.
-                scene = Product()
+                scene = Scene()
 
                 product = None
                 try:
@@ -1067,6 +1096,7 @@ def send_initial_emails():
     return Emails().send_all_initial()
 
 
+@transaction.atomic
 def finalize_orders():
     '''Checks all open orders in the system and marks them complete if all
     required scene processing is done'''
