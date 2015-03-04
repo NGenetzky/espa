@@ -1,10 +1,10 @@
-import traceback
-from mongoengine.django.auth import User
-from django.conf import settings
-
 
 from ordering.models import UserProfile
 from ordering import lta
+from django.contrib.auth.models import User
+from django.conf import settings
+import traceback
+
 
 class EEAuthBackend(object):
     '''
@@ -64,7 +64,7 @@ class EEAuthBackend(object):
 
             #make sure there is a user profile
             try:
-                UserProfile.objects.get(contactid=contactid)
+                user.userprofile
             except UserProfile.DoesNotExist:
                 UserProfile(contactid=contactid, user=user).save()
 

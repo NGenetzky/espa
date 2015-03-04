@@ -236,12 +236,12 @@
         <table>
         <tr>
             <th>&nbsp;</th>
-            <th>Landsat 4, 5, 7</th>
+            <th>Landsat 4, 5, 7, 8</th>
             <th>MODIS Aqua & Terra</th>
         </tr>
         <tr>
             <th>&nbsp;</th>
-            <th>TM & ETM+</th>
+            <th>TM, ETM+, OLI/TIRS</th>
             <th>09A1/GA/GQ/Q1, 13Q1/A1/A2/A3</th>
         </tr>
         <tr>
@@ -279,7 +279,7 @@
 
     </div>
 
-     <h4 class="inlineb topspace20">Add Input Products (<a href="#" id="available_input_products_open">Show Available Products</a>)</h4>
+     <h4 class="inlineb topspace20 new_order_section_label">Add Input Products (<a href="#" id="available_input_products_open">Show Available Products</a>)</h4>
 
      <div class="product_box">
 	    <div class="product_boxheader">
@@ -292,7 +292,7 @@
          </div>
      </div>
 		
-	<h4 class="inlineb">Select Product Contents</h4>
+	<h4 class="inlineb new_order_section_label">Select Product Contents</h4>
 	
 	<div class="product_box">
 	    <div class="product_boxheader">
@@ -318,7 +318,7 @@
 	    </div>
 	</div>
 	
-     <h4 class="inlineb">Additional Processing (Landsat 4, 5 and 7 Input Products Only)</h4>
+     <h4 class="inlineb new_order_section_label">Additional Processing (Landsat Only)</h4>
 
 	<div class="product_box">
 	    <div class="product_boxheader">
@@ -342,15 +342,20 @@
 		</div>
 	    </div>
 	</div>
-        
-     <div style="{{ optionstyle }}" class="product_box">
+    
+     {% if user.is_staff %}
+     <div class="product_box">
 	    <div class="product_boxheader">
 		Essential Climate Variables
 	    </div>
 	    <div class="product_boxbody">
-		<div class="inputitem"></div>
+		<div class="inputitem">
+               <input class="product custom_product" type="checkbox" id="include_dswe" name="include_dswe"></input>
+		    <label class="tooltip" title="Dynamic Surface Water Extent" for="include_dwse">Dynamic Surface Water Extent</label>
+           </div>
 	    </div>
 	</div>
+     {% endif %}
 	
 	<div class="product_box">
 	    <div class="product_boxheader">
@@ -396,7 +401,7 @@
 	    </div>
 	</div>
 
-     <h4 class="inlineb">Customize Outputs</h4>
+     <h4 class="inlineb new_order_section_label">Customize Outputs</h4>
 
 	<div class="product_box">
 
@@ -510,7 +515,7 @@
 	    </div>
 	</div>
 
-      <h4 class="inlineb">Add Order Description</h4>
+      <h4 class="inlineb new_order_section_label">Add Order Description</h4>
 
       <div class="product_box">
 	     <div class="product_boxheader">
@@ -531,10 +536,6 @@
 
 
 {% endcache %}
-{% endblock %}
-
-{% block js_files %}
- <script src="{% static 'js/jquery.popupoverlay.js' %}"></script>
 {% endblock %}
     
 {% block scripts %}
@@ -561,6 +562,7 @@
 
        var resample_control = "#resample_options";
        var resample_method = "#resample_method";
+       var select_resample_method = "#select_resample_method";
        var selected_resample_option = "#select_resample_method option:selected";
        
        var reproject = "#reproject";
@@ -589,6 +591,8 @@
 
        //this is in milliseconds
        var show_hide_delay = 200;
+
+       var statistics = "#include_statistics";
         
 
        $(document).ready(function(){
@@ -603,22 +607,17 @@
            $(custom_controls).prop("checked", false);
            $(custom_controls).prop("disabled", true);
            $(submit_button).prop("disabled", true);
+           $(statistics).prop("disabled", true);
+           $(statistics).prop("checked", false);
             
            //hide the custom controls on page load
            $(custom_control_options).hide(0);
 
            //hide resample options on page load
            $(resample_options).hide(0);    
-
-           //set the popup for the product specs
-           /*$('#available_input_products').popup({background: true,
-                                                 transition: 'all 0.3s',
-                                                 type: 'overlay',
-                                                 color: 'black',
-                                                 opacity: 0.5});*/
+           
            $('#available_input_products').hide(0);
           
-
            /******************************************************************* 
                default the output format to gtiff
            *******************************************************************/
@@ -690,11 +689,14 @@
                if ($(checked_custom_products).length > 0) {
                    $(reproject).prop("disabled", false);
                    $(resize).prop("disabled", false);
+                   $(statistics).prop("disabled", false);
                    //$(custom_controls).prop("disabled", false);
                }
                else {
                   $(custom_controls).prop("disabled", true);
                   $(custom_controls).prop("checked", false);
+                  $(statistics).prop("disabled", true);
+                  $(statistics).prop("checked", false);
                   $(custom_control_options).hide(show_hide_delay);
                   $(resample_options).hide(show_hide_delay);
                   $("#target_projection").val(undefined);
@@ -777,19 +779,22 @@
               Initialize the bounding box placeholders
            *******************************************************************/
            $(image_extents).click(function(item) {
-                              
+                if ( $("input:radio[name='image_extents_unit']:checked").val() ==  undefined ) {
+                    $("input:radio[name='image_extents_units'][value='dd']").click();
+                }
+
                //make sure dd is selected if the projection is lonlat
-               if ( $("#target_projection").val() == "lonlat") {
-                   $("input:radio[name='image_extents_units'][value='dd']").click();
-               }
-               else if ( $("input:radio[name='image_extents_unit']:checked").val() ==  undefined ) {
-                   if ( $("#target_projection").val() == "lonlat") {
-                       $("input:radio[name='image_extents_units'][value='dd']").click();
-                   }    
-                   else {
-                       $("input:radio[name='image_extents_units'][value='meters']").click();
-                   }
-               }
+               //if ( $("#target_projection").val() == "lonlat") {
+               //    $("input:radio[name='image_extents_units'][value='dd']").click();
+               //}
+               //else if ( $("input:radio[name='image_extents_unit']:checked").val() ==  undefined ) {
+               //    if ( $("#target_projection").val() == "lonlat") {
+               //        $("input:radio[name='image_extents_units'][value='dd']").click();
+               //    }    
+               //    else {
+               //        $("input:radio[name='image_extents_units'][value='meters']").click();
+               //    }
+               //}
                
            });
 
@@ -980,7 +985,7 @@
                update_pixelsize_units(meters);
                //update_bounding_box_placeholders(meters);
                update_available_extents_units([meters, decimal_degrees]);
-               $("input:radio[name='image_extents_units'][value='meters']").click();
+               //$("input:radio[name='image_extents_units'][value='dd']").click();
                update_datum();                                               //set hidden input field for initial value
 		    break;
 
@@ -991,7 +996,7 @@
                  $("#select_pixel_size_units").val("meters");                  //force pixel size units to meters
                  update_pixelsize_units(meters);
                  update_available_extents_units([meters, decimal_degrees]);
-                 $("input:radio[name='image_extents_units'][value='meters']").click();
+                 //$("input:radio[name='image_extents_units'][value='dd']").click();
                  $("#target_projection").val("sinu");
 		      break;
 
@@ -1002,7 +1007,7 @@
                   $("#select_pixel_size_units").val("meters");                  //force pixel size units to meters
                   update_pixelsize_units(meters);
                   update_available_extents_units([meters, decimal_degrees]);
-                  $("input:radio[name='image_extents_units'][value='meters']").click();
+                  //$("input:radio[name='image_extents_units'][value='dd']").click();
                   $("#target_projection").val("ps");
 		       break;
 
@@ -1014,7 +1019,7 @@
                 $("#select_pixel_size_units").val("meters");                  //force pixel size units to meters
                 update_pixelsize_units(meters);
                 update_available_extents_units([meters, decimal_degrees]);
-                $("input:radio[name='image_extents_units'][value='meters']").click();
+                //$("input:radio[name='image_extents_units'][value='dd']").click();
                 update_utm_params();                                          //update hidden input field
                 break;
 	    

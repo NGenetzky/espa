@@ -16,9 +16,9 @@ import shutil
 import glob
 from cStringIO import StringIO
 
-# imports from espa_common through processing.__init__.py
-from processing import EspaLogging
-from processing import settings
+# imports from espa_common
+from logger_factory import EspaLogging
+import settings
 
 
 # ============================================================================

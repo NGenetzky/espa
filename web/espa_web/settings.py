@@ -11,7 +11,6 @@ https://docs.djangoproject.com/en/1.6/ref/settings/
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 import os
 import ConfigParser
-import mongoengine
 
 #this is the location of the main project directory
 #NOT the directory this file lives in!!!
@@ -76,13 +75,12 @@ ALLOWED_HOSTS = ['*']
 # Application definition
 
 INSTALLED_APPS = (
-#    'django.contrib.admin',
+    'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'mongoengine.django.mongo_auth',
     'ordering',
     'console',
 )
@@ -107,21 +105,14 @@ WSGI_APPLICATION = 'espa_web.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.dummy'
+        'ENGINE': 'django.db.backends.mysql',       # Add 'postgresql_psycopg2', 'postgresql', 'mysql', 'sqlite3' or 'oracle'.
+        'NAME': config.get('config', 'db'),         # Or path to database file if using sqlite3.
+        'USER': config.get('config', 'dbuser'),     # Not used with sqlite3.
+        'PASSWORD': config.get('config', 'dbpass'), # Not used with sqlite3.
+        'HOST': config.get('config', 'dbhost'),     # Set to empty string for localhost. Not used with sqlite3.
+        'PORT': config.get('config', 'dbport'),     # Set to empty string for default. Not used with sqlite3.
     }
 }
-SESSION_ENGINE = 'mongoengine.django.sessions'
-
-if ESPA_ENV == 'dev':
-    mongoengine.connect(config.get('config', 'connect_str'),
-                        tz_aware=True,
-                        connectTimeoutMS='300000')
-else:
-    mongoengine.connect('espadev', 
-                        host=config.get('config', 'connect_str'),
-                        replicaSet='lsrdRs',
-                        tz_aware=True,
-                        connectTimeoutMS='300000')
 
 # Internationalization
 # https://docs.djangoproject.com/en/1.6/topics/i18n/
@@ -172,7 +163,7 @@ TEMPLATE_LOADERS = (
 
 #ESPA Service URLS
 SERVICE_LOCATOR = {
-    "dev": {
+    "sys": {
         "orderservice": "http://eedev.cr.usgs.gov/OrderWrapperServicedevsys/resources",
         "orderdelivery": "http://eedev.cr.usgs.gov/OrderDeliverydevsys/OrderDeliveryService?WSDL",
         "orderupdate": "http://eedev.cr.usgs.gov/OrderStatusServicedevsys/OrderStatusService?wsdl",
@@ -182,7 +173,7 @@ SERVICE_LOCATOR = {
         "earthexplorer": "https://eedev.cr.usgs.gov/devsys",
         "forgot_login": "https://eedev.cr.usgs.gov/devsys/login/username"
     },
-    "tst": {
+    "dev": {
         "orderservice": "http://eedevmast.cr.usgs.gov/OrderWrapperServicedevmast/resources",
         "orderdelivery": "http://eedevmast.cr.usgs.gov/OrderDeliverydevmast/OrderDeliveryService?WSDL",
         "orderupdate": "http://eedevmast.cr.usgs.gov/OrderStatusServicedevmast/OrderStatusService?wsdl",
@@ -191,6 +182,16 @@ SERVICE_LOCATOR = {
         "register_user": "https://eedevmast.cr.usgs.gov/register",
         "earthexplorer": "https://eedevmast.cr.usgs.gov",
         "forgot_login": "https://eedevmast.cr.usgs.gov/login/username"
+    },
+    "tst": {
+        "orderservice": "http://edclxs152.cr.usgs.gov/OrderWrapperService/resources",
+        "orderdelivery": "http://edclxs152.cr.usgs.gov/OrderDeliveryService/OrderDeliveryService?WSDL",
+        "orderupdate": "http://edclxs152.cr.usgs.gov/OrderStatusService/OrderStatusService?wsdl",
+        "massloader": "http://edclxs152.cr.usgs.gov/MassLoader/MassLoader?wsdl",
+        "registration": "http://edclxs152.cr.usgs.gov/RegistrationService/RegistrationService?wsdl",
+        "register_user": "https://earthexplorer.usgs.gov/register",
+        "earthexplorer": "https://earthexplorer.usgs.gov",
+        "forgot_login": "https://earthexplorer.usgs.gov/login/username"
     },
     "ops": {
         "orderservice": "http://edclxs152.cr.usgs.gov/OrderWrapperService/resources",
@@ -204,13 +205,11 @@ SERVICE_LOCATOR = {
     }
 }
 
-AUTH_USER_MODEL = 'mongo_auth.MongoUser'
-#MONGOENGINE_USER_DOCUMENT = 'mongoengine.django.auth.User'
 # add the EE Authentication Backend in addition to the ModelBackend
 # authentication stops at the first success... so this order does matter
 #leave the standard ModelBackend in first so the builtin admin account
 #never hits EE
-AUTHENTICATION_BACKENDS = ('mongoengine.django.auth.MongoEngineBackend',
+AUTHENTICATION_BACKENDS = ('django.contrib.auth.backends.ModelBackend',
                            'espa_web.auth_backends.EEAuthBackend',)
 
 # sets the login_url to the named url action ('login') contained in urls.py

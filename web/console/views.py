@@ -1,130 +1,28 @@
-import json
 import time
 
-from mongoengine.django.auth import User
+from django.contrib.auth.models import User
 from django.contrib.messages.views import SuccessMessageMixin
 from django.core.urlresolvers import reverse
-from django.http import HttpResponse
 from django.http import HttpResponseRedirect
-from django.template import loader
+from django.shortcuts import render
 from django.views.generic import View
 from django.views.generic.edit import FormView
 
 from forms import StatusMessageForm
-from ordering.models import Configuration, Order, Product
-from ordering.views import AbstractView
+from ordering.models import Configuration
 
-class Index(AbstractView):
+class Index(View):
     template = 'console/index.html'
-
-    def _get_system_status(self, ctx):
-        ctx['display_sys_status'] = True
-        ctx['submitted_units'] = Product.objects.filter(status='submitted').count()
-        ctx['onorder_units'] = Product.objects.filter(status='onorder').count()
-        ctx['oncache_units'] = Product.objects.filter(status='oncache').count()
-        ctx['queued_units'] = Product.objects.filter(status='queued').count()
-        ctx['process_units'] = Product.objects.filter(status='processing').count()
-        ctx['error_units'] = Product.objects.filter(status='error').count()
-        ctx['retry_units'] = Product.objects.filter(status='retry').count()
-
-        pipeline = [
-                    {'$match': {'status': 'complete'}},
-                    {'$sort': {'completion_date': -1}},
-                    {'$group': {'_id': {'k':'$status'}, 'v': {'$first': '$completion_date'}}}
-        ]
-        result = Product._get_collection().aggregate(pipeline)
-        
-        if result['ok'] == 1 and len(result['result']) > 0:
-            ctx['last_completed_date'] = result['result'][0]['v']
-        else:
-            ctx['last_completed_date'] = 'N/A'
-
-        try:
-            ondemand_enabled = Configuration.objects.get(key='ondemand_enabled')
-            if ondemand_enabled.value.lower() == 'true':
-                ctx['ondemand_enabled'] = True
-            else:
-                ctx['ondemand_enabled'] = False
-        except Configuration.DoesNotExist:
-            ctx['ondemand_enabled'] = False
 
     def get(self, request, *args, **kwargs):
         user = User.objects.get(username=request.user.username)
         if not user.is_staff:
             return HttpResponseRedirect(reverse('login'))
 
-        c = self._get_request_context(request)
-        self._get_system_status(c)
-        t = loader.get_template(self.template)
+        
+        return render(request, self.template)
 
-        return HttpResponse(t.render(c))
-
-class UpdateOnDemandStatus(View):
-    def get(self, request, state_in):
-        if not request.user.is_staff:
-            response = {'result': 'error', 'message': 'Not authorized to perform this action'}
-            return HttpResponse(json.dumps(response), content_type="application/json")
-    
-        ondemand_enabled, created = Configuration.objects.get_or_create(key="ondemand_enabled")
-        if state_in.lower() == 'on':
-            ondemand_enabled.value = 'true'
-        elif state_in.lower() == 'off':
-            ondemand_enabled.value = 'false'
-        else:
-            response = {'result': 'error', 'message': 'Invalid option. Valid options are: on, off'}
-            return HttpResponse(json.dumps(response), content_type="application/json")
-
-        ondemand_enabled.save()
-
-        response = {'result': 'success', 'message': 'success'}
-        return HttpResponse(json.dumps(response), content_type="application/json")
-
-class RestartFailedByOrder(View):
-    def get(self, request, order_in):
-        if not request.user.is_staff:
-            response = {'result': 'error', 'message': 'Not authorized to perform this action'}
-            return HttpResponse(json.dumps(response), content_type="application/json")
-
-        try: 
-            Product.objects(order=order_in, status='error').update(set__status='submitted')
-        except Exception, e:
-            response = {'result': 'error', 'message': 'Update failed {}'.format(str(e))}
-            return HttpResponse(json.dumps(response), content_type="application/json")
-            
-        response = {'result': 'success', 'message': 'success'}
-        return HttpResponse(json.dumps(response), content_type="application/json")
-
-class RestartFailedAll(View):
-    def get(self, request):
-        if not request.user.is_staff:
-            response = {'result': 'error', 'message': 'Not authorized to perform this action'}
-            return HttpResponse(json.dumps(response), content_type="application/json")
-
-        try: 
-            Product.objects(status='error').update(set__status='submitted')
-        except Exception, e:
-            response = {'result': 'error', 'message': 'Update failed {}'.format(str(e))}
-            return HttpResponse(json.dumps(response), content_type="application/json")
-            
-        response = {'result': 'success', 'message': 'success'}
-        return HttpResponse(json.dumps(response), content_type="application/json")
-
-class ShowOrders(AbstractView):
-    template = 'console/show_orders.html'
-
-    def get(self, request, status_in):
-        if not request.user.is_staff:
-            return HttpResponseRedirect(reverse('login'))
-
-        products = Product.objects.filter(status=status_in)
-
-        t = loader.get_template(self.template)
-        c = self._get_request_context(request, {'status_in': status_in, 'scenes': products})
-
-        return HttpResponse(t.render(c))
-
-
-class StatusMessage(SuccessMessageMixin, AbstractView, FormView):
+class StatusMessage(SuccessMessageMixin, FormView):
     template_name = 'console/statusmsg.html'
     form_class = StatusMessageForm
     success_url = 'statusmsg'
@@ -197,10 +95,7 @@ class StatusMessage(SuccessMessageMixin, AbstractView, FormView):
         message.save()
 
         display, created = Configuration.objects.get_or_create(key="display_system_message")
-        if form.cleaned_data['display']:
-            display.value = 'true'
-        else:
-            display.value = 'false'
+        display.value = form.cleaned_data['display']
         display.save()
 
         date_updated, created = Configuration.objects.get_or_create(key="system_message_updated_date")
@@ -212,54 +107,3 @@ class StatusMessage(SuccessMessageMixin, AbstractView, FormView):
         username.save()
         
         return super(StatusMessage, self).form_valid(form)
-
-class DisplayOrder(AbstractView):
-    template_name = 'console/displayorder.html'
-
-    def get(self, request, orderid_in):
-        user = User.objects.get(username=request.user.username)
-        if not user.is_staff:
-            return HttpResponseRedirect(reverse('login'))
-
-        order = Order.objects.get(id=orderid_in)
-        products = Product.objects.filter(order=orderid_in)
-
-        t = loader.get_template(self.template_name)
-        c = self._get_request_context(request, {'order': order, 'scenes': products})
-
-        return HttpResponse(t.render(c))
-    
-class ProductsByMachine(AbstractView):
-    template_name = 'console/productsbymachine.html'
-    
-    def get(self, request):
-        pipeline = [
-            {"$match": {"processing_location": {"$exists": 1}}},
-            {"$group": {"_id": {"machine": "$processing_location", "status": "$status"}, "count": { "$sum" : 1}}}, 
-            {"$project": {"_id": 0, "machine": "$_id.machine", "status": "$_id.status", "count": 1}},
-        ]
-        results = Product._get_collection().aggregate(pipeline)
-        
-        machine_info = {}
-        for row in results['result']:
-            if not row['machine'] in machine_info:
-                machine_info[row['machine']] = {}
-            machine_info[row['machine']][row['status']] = row['count']                
-                
-        t = loader.get_template(self.template_name)
-        c = self._get_request_context(request, {'machine_info': machine_info})
-        
-        return HttpResponse(t.render(c))
-    
-
-class OrderByUser(AbstractView):
-    template_name = 'console/orderbyuser.html'
-    
-    def get(self, request):
-        pipeline = [
-                    {'$match': {'status': 'complete'}},
-                    {'$sort': {'completion_date': -1}},
-                    {'$group': {'_id': {'k':'$status'}, 'v': {'$first': '$completion_date'}}}
-        ]
-        result = Product._get_collection().aggregate(pipeline)
-    

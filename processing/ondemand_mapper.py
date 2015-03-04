@@ -25,12 +25,13 @@ import sys
 import socket
 import json
 import xmlrpclib
+from time import sleep
 from argparse import ArgumentParser
 
-# imports from espa_common through processing.__init__.py
-from processing import EspaLogging
-from processing import settings
-from processing import sensor
+# imports from espa_common
+from logger_factory import EspaLogging
+import settings
+import sensor
 
 # local objects and methods
 import espa_exception as ee
@@ -40,27 +41,64 @@ import processor
 
 # ============================================================================
 def set_product_error(server, order_id, product_id, processing_location):
-
-    logger = EspaLogging.get_logger(settings.PROCESSING_LOGGER)
-    logged_contents = EspaLogging.read_logger_file(settings.PROCESSING_LOGGER)
+    '''
+    Description:
+        Call the xmlrpc server routine to set a product request to error.
+        Provides a sleep retry implementation to hopefully by-pass any errors
+        encountered, so that we do not get requests that have failed, but
+        show a status of processing.
+    '''
 
     if server is not None:
-        try:
-            status = server.set_scene_error(product_id, order_id,
-                                            processing_location,
-                                            logged_contents)
+        logger = EspaLogging.get_logger(settings.PROCESSING_LOGGER)
 
-            if not status:
+        attempt = 0
+        sleep_seconds = settings.DEFAULT_SLEEP_SECONDS
+        while True:
+            try:
+                # START - DEBUG
+                if product_id is None:
+                    logger.info("DEBUG: Product ID is [None]")
+                else:
+                    logger.info("DEBUG: Product ID is [%s]" % product_id)
+                if order_id is None:
+                    logger.info("DEBUG: Order ID is [None]")
+                else:
+                    logger.info("DEBUG: Order ID is [%s]" % order_id)
+                if processing_location is None:
+                    logger.info("DEBUG: Processing Location is [None]")
+                else:
+                    logger.info("DEBUG: Processing Location is [%s]"
+                                % processing_location)
+                # END - DEBUG
+
+                logged_contents = \
+                    EspaLogging.read_logger_file(settings.PROCESSING_LOGGER)
+
+                status = server.set_scene_error(product_id, order_id,
+                                                processing_location,
+                                                logged_contents)
+
+                if not status:
+                    logger.critical("Failed processing xmlrpc call to"
+                                    " set_scene_error")
+                    return False
+
+                break
+
+            except Exception, e:
                 logger.critical("Failed processing xmlrpc call to"
                                 " set_scene_error")
-                return False
+                logger.exception("Exception encountered and follows")
 
-        except Exception:
-            logger.critical("Failed processing xmlrpc call to"
-                            " set_scene_error")
-            logger.exception("Exception encountered and follows")
-
-            return False
+                if attempt < settings.MAX_SET_SCENE_ERROR_ATTEMPTS:
+                    sleep(sleep_seconds)  # sleep before trying again
+                    attempt += 1
+                    sleep_seconds = int(sleep_seconds * 1.5)
+                    continue
+                else:
+                    return False
+        # END - while True
 
     return True
 
@@ -103,6 +141,11 @@ def process(args):
                 (parms['orderid'], parms['scene'], parms['product_type'],
                  parms['options'])
 
+            # Fix the orderid in-case it contains any single quotes
+            # The processors can not handle single quotes in the email
+            # portion due to usage in command lines.
+            parms['orderid'] = order_id.replace("'", '')
+
             # If it is missing due to above TODO, then add it
             if not parameters.test_for_parameter(parms, 'product_id'):
                 parms['product_id'] = product_id
@@ -129,7 +172,8 @@ def process(args):
             # Update the status in the database
             if parameters.test_for_parameter(parms, 'xmlrpcurl'):
                 if parms['xmlrpcurl'] != 'skip_xmlrpc':
-                    server = xmlrpclib.ServerProxy(parms['xmlrpcurl'])
+                    server = xmlrpclib.ServerProxy(parms['xmlrpcurl'],
+                                                   allow_none=True)
                     if server is not None:
                         status = server.update_status(product_id, order_id,
                                                       processing_location,

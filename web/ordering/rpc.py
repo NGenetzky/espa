@@ -5,13 +5,11 @@ from django.views.decorators.csrf import csrf_exempt
 from ordering import core
 from ordering.models import Configuration
 from ordering.models import DataPoint
-from django.db import transaction
 
 __author__ = "David V. Hill"
 
 
 @csrf_exempt
-@transaction.commit_on_success
 def rpc_handler(request):
     """
     the actual handler:
@@ -111,14 +109,13 @@ def _get_configuration(key):
     return Configuration().getValue(key)
 
 
-def _get_products_to_process(limit=None,
-                             for_user=None,
-                             priority=None,
-                             product_types=['landsat', 'modis']):
-    return core.get_products_to_process(limit=limit,
+def _get_products_to_process(limit, for_user, priority, product_types):
+
+    return core.get_products_to_process(record_limit=limit,
                                         for_user=for_user,
                                         priority=priority,
-                                        product_types=product_types)
+                                        product_types=product_types,
+                                        encode_urls=True)
 
 
 def _get_data_points(tags=[]):

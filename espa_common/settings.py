@@ -60,9 +60,15 @@ MAX_PACKAGING_ATTEMPTS = 3
 MAX_DELIVERY_ATTEMPTS = 3
 MAX_DISTRIBUTION_ATTEMPTS = 5
 
+# Maximum number of times to attempt setting the scene error
+MAX_SET_SCENE_ERROR_ATTEMPTS = 5
+
 # List of hostnames to choose from for the access to the online cache
-# 140 is here twice so the load is 2/3 + 1/3.  machines are mismatched
-ESPA_CACHE_HOST_LIST = ['edclxs67p', 'edclxs140p', 'edclxs140p']
+# Runs over 10Gb line
+ESPA_CACHE_HOST_LIST = ['edclxs67p', 'edclxs140p']
+
+# The external name for the online cache.  Runs over 1Gb line.
+EXTERNAL_CACHE_HOST = 'edclpdsftp.cr.usgs.gov'
 
 # Where to place the temporary scene processing log files
 LOGFILE_PATH = '/tmp'
@@ -124,7 +130,7 @@ BAND_TYPE_STAT_RANGES = {
 '''
 
 SENSOR_INFO = {
-    'LO8': {'name': 'oli', 'lta_name': ''},
+    'LO8': {'name': 'oli', 'lta_name': 'LANDSAT_8'},
     'LC8': {'name': 'olitirs', 'lta_name': 'LANDSAT_8'},
     'LE7': {'name': 'etm', 'lta_name': 'LANDSAT_ETM_PLUS'},
     'LT4': {'name': 'tm', 'lta_name': 'LANDSAT_TM'},
@@ -184,13 +190,23 @@ SOAP_CACHE_LOCATION = '/tmp/suds'
 
 ''' Dictionary containing retry timeouts in seconds'''
 RETRY = {
-    'missing_ledaps_aux_data': {'timeout': 60 * 60 * 24,
-                                'retry_limit': 5},
+    'connection_aborted': {'timeout':60 * 5, 'retry_limit':3},
+    'connection_timed_out': {'timeout': 60, 'retry_limit': 5},
+    'db_lock_timeout': {'timeout':60 * 5, 'retry_limit':10},
     'ftp_timed_out': {'timeout': 60, 'retry_limit': 5},
     'ftp_500_oops': {'timeout': 60, 'retry_limit': 5},
     'ftp_ftplib_error_reply': {'timeout': 60, 'retry_limit': 5},
+    'gzip_format_error': {'timeout': 60, 'retry_limit': 3},
+    'gzip_error_eof': {'timeout': 60, 'retry_limit': 3},
+    'http_not_found': {'timeout': 60 * 5, 'retry_limit': 5},
+    'incomplete_read': {'timeout':60, 'retry_limit':2},
+    'missing_ledaps_aux_data': {'timeout': 60 * 60 * 24, 'retry_limit': 5},
+    'missing_l8sr_aux_data': {'timeout': 60 * 60 * 24, 'retry_limit': 5},
     'network_is_unreachable': {'timeout': 120, 'retry_limit': 5},
-    'connection_timed_out': {'timeout': 60, 'retry_limit': 5}
+    '502_proxy_error': {'timeout':60 * 5, 'retry_limit':10},
+    'read_timed_out': {'timeout':60 * 5, 'retry_limit':5},
+    'retry_missing_l1': {'timeout': 60 * 60, 'retry_limit': 8},
+    'ssh_errors': {'timeout':60 * 5, 'retry_limit':3}
 }
 
 '''

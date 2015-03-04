@@ -46,6 +46,11 @@
 #							Adding --force-checkout-from-releases and --force-checkout-from-testing
 #							arguments to force code checkout from one area vs checkout map
 #  012		09-16-2014	Adam Dosch		Updating devel environment to pull from trunk by default
+#  013		12-01-2014	Adam Dosch		If devel, then going to force the release to 'None' and set it to nothing
+#							later on in the script if the force-checkout flags aren't used
+#  014		01-14-2015	Adam Dosch		Adding --force-checkout-from-branches argument to force code checkout 
+#							from one area vs checkout map
+#							Adding --app-file argument to force app-file name override
 #
 #############################################################################################################################
 
@@ -96,10 +101,12 @@ declare FORCE_CHECKOUT_RELEASES
 
 declare FORCE_CHECKOUT_TESTING
 
+declare FORCE_CHECKOUT_BRANCHES
+
 function print_usage
 {
    echo
-   echo " Usage: $0 --mode=[prod|tst|devel] --tier=[app|maintenance|processing|all]  --release=<espa-n.n.n-release> [-v|--verbose] [-d|--delete-prior-releases] [--force-checkout-from-releases|--force-checkout-from-testing]"
+   echo " Usage: $0 --mode=[prod|tst|devel] --tier=[app|maintenance|processing|all]  --release=[<espa-n.n.n-release>|none] [-v|--verbose] [-d|--delete-prior-releases] [--force-checkout-from-releases|--force-checkout-from-testing|--force-checkout-from-branches]"
    echo
 
    exit 1
@@ -124,8 +131,16 @@ function release_validation
    # $2 - svn tag area based off 'mode'
 
    # Let's make sure it exists in SVN or bail out too
+
+      
+
    for valid_tag in $( ${SVNBIN} list ${SVN_HOST}${SVN_BASE}/$2 )
    do
+      if [ -z "$RELEASE" ]; then
+         echo "pass"
+         break
+      fi
+
       if [ "$valid_tag" == "$1/" ]; then
          echo $1
          break
@@ -178,11 +193,26 @@ function set_checkout
    if [ ! -z $FORCE_CHECKOUT_TESTING ]; then
       [[ $VERBOSE -eq 0 ]] && write_stdout "${MODE}" "Overriding default SVN_TAGREA of '$SVN_TAGAREA' to '/testing'"
       SVN_TAGAREA="/testing"
+   else
+      if [ "$1" == "devel" ]; then
+         [[ $VERBOSE -eq 0 ]] && write_stdout "${MODE}" "No forcing checkout from '/testing', defaulting RELEASE to None for checkout of $SVN_TAGAREA for $1"
+         RELEASE=""
+      fi
    fi
 
    if [ ! -z $FORCE_CHECKOUT_RELEASES ]; then
       [[ $VERBOSE -eq 0 ]] && write_stdout "${MODE}" "Overriding default SVN_TAGREA of '$SVN_TAGAREA' to '/releases'"
       SVN_TAGAREA="/releases"
+   else
+      if [ "$1" == "devel" ]; then
+         [[ $VERBOSE -eq 0 ]] && write_stdout "${MODE}" "No forcing checkout from '/releases', defaulting RELEASE to None for checkout of $SVN_TAGAREA for $1"
+         RELEASE=""
+      fi
+   fi
+
+   if [ ! -z $FORCE_CHECKOUT_BRANCHES ]; then
+      [[ $VERBOSE -eq 0 ]] && write_stdout "${MODE}" "Overriding default SVN_TAGREA of '$SVN_TAGAREA' to '/branches'"
+      SVN_TAGAREA="/branches"
    fi
 }
 
@@ -372,18 +402,27 @@ if [ $# -ge 2 -a $# -le 5 ]; then
          --force-checkout-from-releases)
 	    FORCE_CHECKOUT_RELEASES=1
 
-            if [ ! -z $FORCE_CHECKOUT_TESTING ]; then
+            if [ ! -z "$FORCE_CHECKOUT_TESTING" -o ! -z "$FORCE_CHECKOUT_BRANCHES" ]; then
                echo
-               echo -e "\nError: Cannot have --force-checkout-from-releases and --force-checkout-from-testing set at the same time"
+               echo -e "\nError: Can ony have one --force-from-* argument set at a time"
                print_usage
             fi
             ;;
          --force-checkout-from-testing)
 	    FORCE_CHECKOUT_TESTING=1
 
-            if [ ! -z $FORCE_CHECKOUT_RELEASES ]; then
+            if [ ! -z "$FORCE_CHECKOUT_RELEASES" -o ! -z "$FORCE_CHECKOUT_BRANCHES" ]; then
                echo
-               echo -e "\nError: Cannot have --force-checkout-from-releases and --force-checkout-from-testing set at the same time"
+               echo -e "\nError: Can only have one --force-from-* argument set at a time"
+               print_usage
+            fi
+            ;;
+         --force-checkout-from-branches)
+            FORCE_CHECKOUT_BRANCHES=1
+
+            if [ ! -z "$FORCE_CHECKOUT_TESTING" -o ! -z "$FORCE_CHECKOUT_RELEASES" ]; then
+               echo
+               echo -e "\n Error: Can only have one --force-from-* argument set at a time"
                print_usage
             fi
             ;;

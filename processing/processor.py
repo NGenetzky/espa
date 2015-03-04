@@ -26,6 +26,7 @@ import shutil
 import glob
 import json
 import datetime
+import copy
 from time import sleep
 from cStringIO import StringIO
 from collections import defaultdict
@@ -34,11 +35,11 @@ from matplotlib import dates as mpl_dates
 from matplotlib.ticker import MaxNLocator
 import numpy as np
 
-# imports from espa_common through processing.__init__.py
-from processing import EspaLogging
-from processing import sensor
-from processing import settings
-from processing import utilities
+# imports from espa_common
+from logger_factory import EspaLogging
+import sensor
+import settings
+import utilities
 
 # local objects and methods
 import espa_exception as ee
@@ -135,12 +136,16 @@ class ProductProcessor(object):
 
         logger = self._logger
 
-        # Test for presence of top-level parameters
+        # Test for presence of required top-level parameters
         keys = ['orderid', 'scene', 'product_type', 'options']
         for key in keys:
             if not parameters.test_for_parameter(self._parms, key):
                 raise RuntimeError("Missing required input parameter [%s]"
                                    % key)
+
+        # Set the download URL to None if not provided
+        if not parameters.test_for_parameter(self._parms, 'download_url'):
+            self._parms['download_url'] = None
 
         # TODO - Remove this once we have converted
         if not parameters.test_for_parameter(self._parms, 'product_id'):
@@ -155,10 +160,6 @@ class ProductProcessor(object):
         # present and turned on for developers
         if not parameters.test_for_parameter(options, 'keep_directory'):
             options['keep_directory'] = False
-
-        # Verify or set the source information
-        if not parameters.test_for_parameter(options, 'download_url'):
-            options['download_url'] = None
 
         # Verify or set the destination information
         if not parameters.test_for_parameter(options, 'destination_host'):
@@ -182,8 +183,17 @@ class ProductProcessor(object):
 
         logger = self._logger
 
+        # Override the usernames and passwords for logging
+        parms = copy.deepcopy(self._parms)
+        parms['options']['source_username'] = 'XXXXXXX'
+        parms['options']['destination_username'] = 'XXXXXXX'
+        parms['options']['source_pw'] = 'XXXXXXX'
+        parms['options']['destination_pw'] = 'XXXXXXX'
+
         logger.info("MAPPER OPTION LINE %s"
-                    % json.dumps(self._parms, sort_keys=True))
+                    % json.dumps(parms, sort_keys=True))
+
+        del parms
 
     # -------------------------------------------
     def initialize_processing_directory(self):
@@ -563,6 +573,10 @@ class CDRProcessor(CustomizationProcessor):
             specified products.
         '''
 
+        # Nothing to do if the user did not specify anything to build
+        if not self._build_products:
+            return
+
         logger = self._logger
 
         options = self._parms['options']
@@ -787,10 +801,16 @@ class LandsatProcessor(CDRProcessor):
     '''
 
     _metadata_filename = None
+    _dem_filename = None
 
     # -------------------------------------------
     def __init__(self, parms):
         super(LandsatProcessor, self).__init__(parms)
+
+        product_id = self._parms['product_id']
+
+        # Setup the dem filename, even though we may not need it
+        self._dem_filename = "%s_dem.img" % product_id
 
     # -------------------------------------------
     def validate_parameters(self):
@@ -812,6 +832,7 @@ class LandsatProcessor(CDRProcessor):
         # They are the required includes for product generation
         required_includes = ['include_cfmask',
                              'include_customized_source_data',
+                             'include_dem',
                              'include_dswe',
                              'include_solr_index',
                              'include_source_data',
@@ -871,6 +892,7 @@ class LandsatProcessor(CDRProcessor):
                 and not options['include_sr_msavi']
                 and not options['include_sr_evi']
                 and not options['include_dswe']
+                and not options['include_dem']
                 and not options['include_solr_index']):
 
             logger.info("***NO SCIENCE PRODUCTS CHOSEN***")
@@ -886,16 +908,16 @@ class LandsatProcessor(CDRProcessor):
         '''
 
         product_id = self._parms['product_id']
+        download_url = self._parms['download_url']
         options = self._parms['options']
 
-        file_name = '.'.join([product_id,
-                              settings.LANDSAT_INPUT_FILENAME_EXTENSION])
+        file_name = ''.join([product_id,
+                             settings.LANDSAT_INPUT_FILENAME_EXTENSION])
         destination_file = os.path.join(self._stage_dir, file_name)
 
         # Download the source data
         try:
-            transfer.download_file_url(options['download_url'],
-                                       destination_file)
+            transfer.download_file_url(download_url, destination_file)
         except Exception, e:
             raise ee.ESPAException(ee.ErrorCodes.staging_data, str(e)), \
                 None, sys.exc_info()[2]
@@ -951,6 +973,59 @@ class LandsatProcessor(CDRProcessor):
                 logger.info(output)
 
     # -------------------------------------------
+    def dem_command_line(self):
+        '''
+        Description:
+            Returns the command line required to generate the DEM product.
+            Evaluates the options requested by the user to define the command
+            line string to use, or returns None indicating nothing todo.
+
+        Note:
+            Provides the L4, L5, L7, and L8 command line.
+        '''
+
+        options = self._parms['options']
+
+        cmd = None
+        if (options['include_dem']
+                or options['include_dswe']):
+
+            cmd = ['do_create_dem.py',
+                   '--mtl', self._metadata_filename,
+                   '--dem', self._dem_filename]
+
+            # Turn the list into a string
+            cmd = ' '.join(cmd)
+
+        return cmd
+
+    # -------------------------------------------
+    def generate_dem_product(self):
+        '''
+        Description:
+            Generates a DEM product using the metadata from the input data.
+        '''
+
+        logger = self._logger
+
+        cmd = self.dem_command_line()
+
+        # Only if required
+        if cmd is not None:
+
+            logger.info(' '.join(['DEM COMMAND:', cmd]))
+
+            output = ''
+            try:
+                output = utilities.execute_cmd(cmd)
+            except Exception, e:
+                raise ee.ESPAException(ee.ErrorCodes.reformat,
+                                       str(e)), None, sys.exc_info()[2]
+            finally:
+                if len(output) > 0:
+                    logger.info(output)
+
+    # -------------------------------------------
     def sr_command_line(self):
         '''
         Description:
@@ -989,8 +1064,11 @@ class LandsatProcessor(CDRProcessor):
             cmd.extend(['--process_sr', 'False'])
 
         # Check to see if Thermal or TOA is required
+        # include_sr is added here for sanity to match L8 and business logic
         if (options['include_sr_toa']
                 or options['include_sr_thermal']
+                or options['include_sr']
+                or options['include_dswe']
                 or options['include_cfmask']):
 
             execute_do_ledaps = True
@@ -1045,7 +1123,9 @@ class LandsatProcessor(CDRProcessor):
         options = self._parms['options']
 
         cmd = None
-        if options['include_cfmask'] or options['include_sr']:
+        if (options['include_cfmask']
+                or options['include_dswe']
+                or options['include_sr']):
             cmd = ' '.join(['cfmask', '--verbose', '--max_cloud_pixels',
                             settings.CFMASK_MAX_CLOUD_PIXELS,
                             '--xml', self._xml_filename])
@@ -1150,6 +1230,59 @@ class LandsatProcessor(CDRProcessor):
                     logger.info(output)
 
     # -------------------------------------------
+    def dswe_command_line(self):
+        '''
+        Description:
+            Returns the command line required to generate Dynamic Surface
+            Water Extent.  Evaluates the options requested by the user to
+            define the command line string to use, or returns None indicating
+            nothing todo.
+
+        Note:
+            Provides the L4, L5, L7, and L8(LC8) command line.
+        '''
+
+        options = self._parms['options']
+
+        cmd = None
+        if options['include_dswe']:
+
+            cmd = ['do_dynamic_surface_water_extent.py',
+                   '--xml', self._xml_filename,
+                   '--dem', self._dem_filename,
+                   '--verbose']
+
+            cmd = ' '.join(cmd)
+
+        return cmd
+
+    # -------------------------------------------
+    def generate_dswe(self):
+        '''
+        Description:
+            Generates the Dynamic Surface Water Extent product.
+        '''
+
+        logger = self._logger
+
+        cmd = self.dswe_command_line()
+
+        # Only if required
+        if cmd is not None:
+
+            logger.info(' '.join(['DSWE COMMAND:', cmd]))
+
+            output = ''
+            try:
+                output = utilities.execute_cmd(cmd)
+            except Exception, e:
+                raise ee.ESPAException(ee.ErrorCodes.dswe,
+                                       str(e)), None, sys.exc_info()[2]
+            finally:
+                if len(output) > 0:
+                    logger.info(output)
+
+    # -------------------------------------------
     def build_science_products(self):
         '''
         Description:
@@ -1171,6 +1304,8 @@ class LandsatProcessor(CDRProcessor):
         try:
             self.convert_to_raw_binary()
 
+            self.generate_dem_product()
+
             self.generate_sr_products()
 
             self.generate_cfmask()
@@ -1181,9 +1316,7 @@ class LandsatProcessor(CDRProcessor):
 
             self.generate_spectral_indices()
 
-            # TODO - We do not have a finalized version of this yet, but this
-            #        is where it will go
-            # self.generate_dswe()
+            self.generate_dswe()
 
         finally:
             # Change back to the previous directory
@@ -1207,8 +1340,13 @@ class LandsatProcessor(CDRProcessor):
             'lndsr.*.txt',
             'lndcal.*.txt',
             'LogReport*',
-            '*_MTL.txt.old',
-            '*_dem.img'
+            '*_MTL.txt.old'
+        ]
+
+        # Define DEM files that may need to be removed before product tarball
+        # generation
+        dem_files = [
+            '*_dem.*'
         ]
 
         # Define L1 source files that may need to be removed before product
@@ -1236,6 +1374,11 @@ class LandsatProcessor(CDRProcessor):
             non_products = []
             for item in non_product_files:
                 non_products.extend(glob.glob(item))
+
+            # Add DEM files if not requested
+            if not options['include_dem']:
+                for item in dem_files:
+                    non_products.extend(glob.glob(item))
 
             # Add level 1 source files if not requested
             if not options['include_source_data']:
@@ -1383,6 +1526,26 @@ class LandsatOLITIRSProcessor(LandsatProcessor):
         super(LandsatOLITIRSProcessor, self).__init__(parms)
 
     # -------------------------------------------
+    def validate_parameters(self):
+        '''
+        Description:
+            Validates the parameters required for the processor.
+        '''
+
+        logger = self._logger
+
+        # Call the base class parameter validation
+        super(LandsatOLITIRSProcessor, self).validate_parameters()
+
+        logger.info("Validating [LandsatOLITIRSProcessor] parameters")
+
+        options = self._parms['options']
+
+        if options['include_dswe'] is True:
+            raise Exception("include_dswe is an unavailable product option"
+                            " for OLITTIRS")
+
+    # -------------------------------------------
     def sr_command_line(self):
         '''
         Description:
@@ -1417,8 +1580,10 @@ class LandsatOLITIRSProcessor(LandsatProcessor):
             cmd.extend(['--process_sr', 'False'])
 
         # Check to see if Thermal or TOA is required
+        # include_sr is added here for business logic
         if (options['include_sr_toa']
                 or options['include_sr_thermal']
+                or options['include_sr']
                 or options['include_cfmask']):
 
             cmd.append('--write_toa')
@@ -1462,28 +1627,6 @@ class LandsatOLIProcessor(LandsatOLITIRSProcessor):
     # -------------------------------------------
     def __init__(self, parms):
         super(LandsatOLIProcessor, self).__init__(parms)
-
-    # -------------------------------------------
-    def sr_command_line(self):
-        '''
-        Description:
-            Returns the command line required to generate surface reflectance.
-            Evaluates the options requested by the user to define the command
-            line string to use, or returns None indicating nothing todo.
-        '''
-
-        options = self._parms['options']
-
-        cmd = None
-        # Check to see if Thermal or TOA is required
-        if (options['include_sr_toa']
-                or options['include_sr_thermal']
-                or options['include_cfmask']):
-
-            cmd = ['do_l8_sr.py', '--xml', self._xml_filename, '--write_toa']
-            cmd = ' '.join(cmd)
-
-        return cmd
 
     # -------------------------------------------
     def cfmask_command_line(self):
@@ -1569,16 +1712,15 @@ class ModisProcessor(CDRProcessor):
         '''
 
         product_id = self._parms['product_id']
-        options = self._parms['options']
+        download_url = self._parms['download_url']
 
-        file_name = '.'.join([product_id,
-                              settings.MODIS_INPUT_FILENAME_EXTENSION])
+        file_name = ''.join([product_id,
+                             settings.MODIS_INPUT_FILENAME_EXTENSION])
         destination_file = os.path.join(self._stage_dir, file_name)
 
         # Download the source data
         try:
-            transfer.download_file_url(options['download_url'],
-                                       destination_file)
+            transfer.download_file_url(download_url, destination_file)
         except Exception, e:
             raise ee.ESPAException(ee.ErrorCodes.staging_data, str(e)), \
                 None, sys.exc_info()[2]
@@ -2871,17 +3013,27 @@ class PlotProcessor(ProductProcessor):
 
         options = self._parms['options']
 
-        source_stats_files = os.path.join(options['statistics_directory'],
-                                          'stats/*')
+        source_stats_directory = os.path.join(options['statistics_directory'],
+                                              'stats')
 
-        # Transfer the files using scp
-        # (don't provide any usernames and passwords)
+        # Transfer the directory using scp
         try:
-            transfer.transfer_file(options['statistics_host'],
-                                   source_stats_files,
-                                   'localhost', self._work_dir)
+            transfer.scp_transfer_directory(options['statistics_host'],
+                                            source_stats_directory,
+                                            'localhost', self._stage_dir)
         except Exception, e:
             raise ee.ESPAException(ee.ErrorCodes.staging_data, str(e)), \
+                None, sys.exc_info()[2]
+
+        # Move the staged data to the work directory
+        try:
+            source_stats_files = glob.glob(os.path.join(self._stage_dir,
+                                                        'stats/*'))
+
+            transfer.move_files_to_directory(source_stats_files,
+                                             self._work_dir)
+        except Exception, e:
+            raise ee.ESPAException(ee.ErrorCodes.unpacking, str(e)), \
                 None, sys.exc_info()[2]
 
     # -------------------------------------------

@@ -100,7 +100,7 @@ def process_requests(args, logger_name, queue_priority, request_priority):
 
     try:
         logger.info("Checking for requests to process...")
-        requests = server.get_scenes_to_process(args.limit, args.user,
+        requests = server.get_scenes_to_process(int(args.limit), args.user,
                                                 request_priority,
                                                 list(args.product_types))
         if requests:
@@ -121,11 +121,14 @@ def process_requests(args, logger_name, queue_priority, request_priority):
             # Create the order file full of all the scenes requested
             with open(job_filepath, 'w+') as espa_fd:
                 for request in requests:
-                    line = json.loads(request)
+                    (orderid, options) = (request['orderid'],
+                                          request['options'])
 
-                    (orderid, options) = (line['orderid'], line['options'])
+                    request['xmlrpcurl'] = rpcurl
 
-                    line['xmlrpcurl'] = rpcurl
+                    # Log the requested options before passwords are added
+                    line_entry = json.dumps(request)
+                    logger.info(line_entry)
 
                     # Add the usernames and passwords to the options
                     options['source_username'] = user
@@ -133,10 +136,11 @@ def process_requests(args, logger_name, queue_priority, request_priority):
                     options['source_pw'] = pw
                     options['destination_pw'] = pw
 
-                    line['options'] = options
+                    request['options'] = options
 
-                    line_entry = json.dumps(line)
-                    logger.info(line_entry)
+                    # Need to refresh since we added password stuff that
+                    # could not be logged
+                    line_entry = json.dumps(request)
 
                     # Pad the entry so hadoop will properly split the jobs
                     filler_count = (settings.ORDER_BUFFER_LENGTH -
@@ -170,7 +174,6 @@ def process_requests(args, logger_name, queue_priority, request_priority):
                  '-D', 'mapred.job.queue.name=%s' % hadoop_job_queue,
                  '-D', 'mapred.job.name="%s"' % job_name,
                  '-file', '%s/espa-site/processing/%s' % (home_dir, mapper),
-                 '-file', '%s/espa-site/processing/__init__.py' % home_dir,
                  '-file', '%s/espa-site/processing/processor.py' % home_dir,
                  '-file', '%s/espa-site/processing/browse.py' % home_dir,
                  '-file', '%s/espa-site/processing/distribution.py' % home_dir,
@@ -178,12 +181,10 @@ def process_requests(args, logger_name, queue_priority, request_priority):
                            % home_dir),
                  '-file', '%s/espa-site/processing/metadata.py' % home_dir,
                  '-file', '%s/espa-site/processing/parameters.py' % home_dir,
-                 '-file', '%s/espa-site/processing/science.py' % home_dir,
                  '-file', '%s/espa-site/processing/solr.py' % home_dir,
                  '-file', '%s/espa-site/processing/staging.py' % home_dir,
                  '-file', '%s/espa-site/processing/statistics.py' % home_dir,
                  '-file', '%s/espa-site/processing/transfer.py' % home_dir,
-                 '-file', '%s/espa-site/processing/util.py' % home_dir,
                  '-file', '%s/espa-site/processing/warp.py' % home_dir,
                  '-file', ('%s/espa-site/espa_common/logger_factory.py'
                            % home_dir),
@@ -194,7 +195,8 @@ def process_requests(args, logger_name, queue_priority, request_priority):
                  '-cmdenv', 'ESPA_WORK_DIR=$ESPA_WORK_DIR',
                  '-cmdenv', 'HOME=$HOME',
                  '-cmdenv', 'USER=$USER',
-                 '-cmdenv', 'ANC_PATH=$ANC_PATH',
+                 '-cmdenv', 'LEDAPS_AUX_DIR=$LEDAPS_AUX_DIR',
+                 '-cmdenv', 'L8_AUX_DIR=$L8_AUX_DIR',
                  '-cmdenv', 'ESUN=$ESUN',
                  '-input', hdfs_target,
                  '-output', hdfs_target + '-out']
@@ -220,63 +222,64 @@ def process_requests(args, logger_name, queue_priority, request_priority):
                 if len(output) > 0:
                     logger.info(output)
 
-            # ----------------------------------------------------------------
-            # Update the scene list as queued so they don't get pulled down
-            # again now that these jobs have been stored in hdfs
-            product_list = list()
-            for request in requests:
-                line = json.loads(request)
-                orderid = line['orderid']
-                sceneid = line['scene']
-                product_list.append((orderid, sceneid))
+                logger.info("Deleting local request file copy [%s]"
+                            % job_filepath)
+                os.unlink(job_filepath)
 
-                logger.info("Adding scene:%s orderid:%s to queued list"
-                            % (sceneid, orderid))
-
-            server.queue_products(product_list, 'CDR_ECV cron driver',
-                                  job_name)
-
-            logger.info("Deleting local request file copy [%s]"
-                        % job_filepath)
-            os.unlink(job_filepath)
-
-            # ----------------------------------------------------------------
-            logger.info("Running hadoop job...")
-            output = ''
             try:
-                cmd = ' '.join(hadoop_run_command)
-                logger.info("Run cmd:%s" % cmd)
+                # ------------------------------------------------------------
+                # Update the scene list as queued so they don't get pulled
+                # down again now that these jobs have been stored in hdfs
+                product_list = list()
+                for request in requests:
+                    orderid = request['orderid']
+                    sceneid = request['scene']
+                    product_list.append((orderid, sceneid))
 
-                output = utilities.execute_cmd(cmd)
-            except Exception, e:
-                logger.exception("Error running Hadoop job...")
-            finally:
-                if len(output) > 0:
-                    logger.info(output)
+                    logger.info("Adding scene:%s orderid:%s to queued list"
+                                % (sceneid, orderid))
 
-            # ----------------------------------------------------------------
-            logger.info("Deleting hadoop job request file from hdfs....")
-            output = ''
-            try:
-                cmd = ' '.join(hadoop_delete_request_command1)
-                output = utilities.execute_cmd(cmd)
-            except Exception, e:
-                logger.exception("Error deleting hadoop job request file")
-            finally:
-                if len(output) > 0:
-                    logger.info(output)
+                server.queue_products(product_list, 'CDR_ECV cron driver',
+                                      job_name)
 
-            # ----------------------------------------------------------------
-            logger.info("Deleting hadoop job output...")
-            output = ''
-            try:
-                cmd = ' '.join(hadoop_delete_request_command2)
-                output = utilities.execute_cmd(cmd)
-            except Exception, e:
-                logger.exception("Error deleting hadoop job output")
+                # ------------------------------------------------------------
+                logger.info("Running hadoop job...")
+                output = ''
+                try:
+                    cmd = ' '.join(hadoop_run_command)
+                    logger.info("Run cmd:%s" % cmd)
+
+                    output = utilities.execute_cmd(cmd)
+                except Exception, e:
+                    logger.exception("Error running Hadoop job...")
+                finally:
+                    if len(output) > 0:
+                        logger.info(output)
+
             finally:
-                if len(output) > 0:
-                    logger.info(output)
+                # ------------------------------------------------------------
+                logger.info("Deleting hadoop job request file from hdfs....")
+                output = ''
+                try:
+                    cmd = ' '.join(hadoop_delete_request_command1)
+                    output = utilities.execute_cmd(cmd)
+                except Exception, e:
+                    logger.exception("Error deleting hadoop job request file")
+                finally:
+                    if len(output) > 0:
+                        logger.info(output)
+
+                # ------------------------------------------------------------
+                logger.info("Deleting hadoop job output...")
+                output = ''
+                try:
+                    cmd = ' '.join(hadoop_delete_request_command2)
+                    output = utilities.execute_cmd(cmd)
+                except Exception, e:
+                    logger.exception("Error deleting hadoop job output")
+                finally:
+                    if len(output) > 0:
+                        logger.info(output)
 
         else:
             logger.info("No requests to process....")
@@ -315,9 +318,9 @@ if __name__ == '__main__':
 
     parser.add_argument('--product-types',
                         action='store', dest='product_types', required=True,
-                        nargs='*',
-                        help=("only process requests for"
-                              " the specified products"))
+                        nargs='+', metavar='PRODUCT_TYPE',
+                        help=("only process requests for the specified"
+                              " product type(s)"))
 
     parser.add_argument('--limit',
                         action='store', dest='limit', required=False,
@@ -339,7 +342,6 @@ if __name__ == '__main__':
         print("Invalid --product-types: 'plot' cannot be combined with any"
               " other product types")
         sys.exit(EXIT_FAILURE)
-    sys.exit(EXIT_SUCCESS)
 
     # Configure and get the logger for this task
     if 'plot' in args.product_types:
@@ -351,8 +353,8 @@ if __name__ == '__main__':
 
     # Check required variables that this script should fail on if they are not
     # defined
-    required_vars = ['ESPA_XMLRPC', 'ESPA_WORK_DIR', 'ANC_PATH', 'PATH',
-                     'HOME']
+    required_vars = ['ESPA_XMLRPC', 'ESPA_WORK_DIR', 'LEDAPS_AUX_DIR',
+                     'L8_AUX_DIR', 'PATH', 'HOME']
     for env_var in required_vars:
         if (env_var not in os.environ or os.environ.get(env_var) is None
                 or len(os.environ.get(env_var)) < 1):

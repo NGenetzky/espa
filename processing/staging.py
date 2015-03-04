@@ -13,10 +13,10 @@ History:
 import os
 import errno
 
-# imports from espa_common through processing.__init__.py
-from processing import EspaLogging
-from processing import settings
-from processing import utilities
+# imports from espa_common
+from logger_factory import EspaLogging
+import settings
+import utilities
 
 
 # ============================================================================

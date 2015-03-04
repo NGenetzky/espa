@@ -17,20 +17,9 @@ import logging
 import json
 from argparse import ArgumentParser
 
-try:
-    import settings
-except:
-    from espa_common import settings
-
-try:
-    import sensor
-except:
-    from espa_common import sensor
-
-try:
-    import utilities
-except:
-    from espa_common import utilities
+import settings
+import sensor
+import utilities
 
 import parameters
 
@@ -88,9 +77,9 @@ def process_test_order(request_file, products_file, env_vars,
     template_file = 'template.json'
     template_dict = None
 
-    tmp_order = 'tmp-' + request_file
+    tmp_order = 'tmp-test-order'
 
-    order_id = request_file.split('.json')[0]
+    order_id = (request_file.split('.json')[0]).replace("'", '')
 
     if pre:
         order_id = ''.join([order_id, '-PRE'])
@@ -164,9 +153,9 @@ def process_test_order(request_file, products_file, env_vars,
 
                 # for plots
                 if not is_modis and not plot:
-                    product_path = ('%s/%s%s'
+                    product_path = ('%s/%s/%s%s'
                                     % (env_vars['dev_data_dir']['value'],
-                                       product, '.tar.gz'))
+                                       product[:3], product, '.tar.gz'))
 
                     logger.info("Using Product Path [%s]" % product_path)
                     if not os.path.isfile(product_path):
@@ -316,7 +305,7 @@ if __name__ == '__main__':
     # Parse the command line arguments
     args = parser.parse_args()
 
-    request_file = "%s.json" % args.request
+    request_file = "%s.json" % args.request.replace("'", "\'")
     if not os.path.isfile(request_file):
         logger.critical("Request file [%s] does not exist" % request_file)
         sys.exit(1)

@@ -3,6 +3,7 @@ from django.contrib import admin
 from ordering.views import Index
 from ordering.views import LogOut
 from ordering.views import Downloads
+from console import views as console_views
 from django.contrib.auth import views as django_views
 from django.contrib.auth.decorators import login_required
 
@@ -12,7 +13,7 @@ author David V Hill
 URL module for the main espa_web project
 '''
 
-#admin.autodiscover()
+admin.autodiscover()
 
 urlpatterns = patterns('',
                        url(r'^ordering/',
@@ -20,6 +21,9 @@ urlpatterns = patterns('',
 
                        url(r'^console/',
                            include('console.urls')),
+
+                       url(r'^admin/',
+                           include(admin.site.urls)),
 
                        url(r'^login/$',
                            django_views.login,

@@ -9,13 +9,27 @@ class Errors(object):
     def __init__(self):
         #build list of known error conditions to be checked
         self.conditions = list()
-        self.conditions.append(self.night_scene)
-        self.conditions.append(self.missing_ledaps_aux_data)
+
+        self.conditions.append(self.connection_aborted)
+        self.conditions.append(self.connection_timed_out)
+        self.conditions.append(self.dswe_unavailable)
+        self.conditions.append(self.db_lock_errors)
         self.conditions.append(self.ftp_timed_out)
         self.conditions.append(self.ftp_500_oops)
         self.conditions.append(self.ftp_ftplib_error_reply)
+        self.conditions.append(self.gzip_errors)
+        self.conditions.append(self.gzip_errors_eof)
+        self.conditions.append(self.http_not_found)
+        self.conditions.append(self.incomplete_read)
+        self.conditions.append(self.missing_ledaps_aux_data)
+        self.conditions.append(self.missing_l8sr_aux_data)
         self.conditions.append(self.network_is_unreachable)
-        self.conditions.append(self.connection_timed_out)
+        self.conditions.append(self.night_scene)
+        self.conditions.append(self.night_scene2)
+        self.conditions.append(self.oli_no_sr)
+        self.conditions.append(self.proxy_error_502)
+        self.conditions.append(self.ssh_errors)
+        self.conditions.append(self.read_timed_out)
 
         #construct the named tuple for the return value of this module
         self.resolution = collections.namedtuple('ErrorResolution',
@@ -66,14 +80,107 @@ class Errors(object):
         extras['retry_limit'] = self.retry[timeout_key]['retry_limit']
         return extras
 
+    def ssh_errors(self, error_message):
+        ''' errors creating directories or transferring statistics '''
+        key = ('Application failed to execute '
+               '[ssh -q -o StrictHostKeyChecking=no')
+        status = 'retry'
+        reason = 'ssh operations interrupted'
+        extras = self.__add_retry('ssh_errors')
+        return self.__find_error(error_message, key, status, reason, extras)
+
+    def read_timed_out(self, error_message):
+        ''' http read timed out '''
+        key = 'Read timed out.'
+        status = 'retry'
+        reason = 'HTTP read on level 1 product timed out'
+        extras = self.__add_retry('read_timed_out')
+        return self.__find_error(error_message, key, status, reason, extras)
+
+    def connection_aborted(self, error_message):
+        ''' level 1 http download interrupted '''
+        key = 'Connection aborted.'
+        status = 'retry'
+        reason = 'level 1 product download interrupted'
+        extras = self.__add_retry('connection_aborted')
+        return self.__find_error(error_message, key, status, reason, extras)
+
+    def incomplete_read(self, error_message):
+        ''' http read was interrupted '''
+        key = 'Connection broken: IncompleteRead'
+        status = 'retry'
+        reason = 'incomplete read on input data'
+        extras = self.__add_retry('incomplete_read')
+        return self.__find_error(error_message, key, status, reason, extras)
+
+    def proxy_error_502(self, error_message):
+        ''' a service call was interrupted, most likely due to restart '''
+        key = '502 Server Error: Proxy Error'
+        status = 'retry'
+        reason = 'internal service was restarted (502)'
+        extras = self.__add_retry('502_proxy_error')
+        return self.__find_error(error_message, key, status, reason, extras)
+
+    def db_lock_errors(self, error_message):
+        ''' there were problems updating the database '''
+        key = 'Lock wait timeout exceeded'
+        status = 'retry'
+        reason = 'database lock timed out'
+        extras = self.__add_retry('db_lock_timeout')
+        return self.__find_error(error_message, key, status, reason, extras)
+
+    def gzip_errors(self, error_message):
+        ''' there were problems gzipping products '''
+        key = 'not in gzip format'
+        status = 'retry'
+        reason = 'error unpacking gzip'
+        extras = self.__add_retry('gzip_format_error')
+        return self.__find_error(error_message, key, status, reason, extras)
+
+    def gzip_errors_eof(self, error_message):
+        ''' file may be corrupt '''
+        key = 'gzip: stdin: unexpected end of file'
+        status = 'retry'
+        reason = 'gzip unexpected EOF'
+        extras = self.__add_retry('gzip_error_eof')
+        return self.__find_error(error_message, key, status, reason, extras)
+
+    def oli_no_sr(self, error_message):
+        ''' Indicates the user requested sr processing against OLI-only'''
+
+        key = 'oli-only cannot be corrected to surface reflectance'
+        status = 'unavailable'
+        reason = 'OLI only scenes cannot be processed to surface reflectance'
+        return self.__find_error(error_message, key, status, reason)
+
     def night_scene(self, error_message):
-        '''Indicates that LEDAPS could not process a scene because the
+        '''Indicates that LEDAPS/l8sr could not process a scene because the
         sun was beneath the horizon'''
 
         key = 'solar zenith angle out of range'
         status = 'unavailable'
-        reason = 'Night scenes cannot be processed to surface reflectance'
+        reason = ('This scene cannot be processed to surface reflectance '
+                  'due to the high solar zenith angle')
         return self.__find_error(error_message, key, status, reason)
+
+    def night_scene2(self, error_message):
+        '''Indicates that LEDAPS/l8sr could not process a scene because the
+        sun was beneath the horizon'''
+
+        key = 'Solar zenith angle is out of range'
+        status = 'unavailable'
+        reason = ('This scene cannot be processed to surface reflectance '
+                  'due to the high solar zenith angle')
+        return self.__find_error(error_message, key, status, reason)
+
+    def http_not_found(self, error_message):
+        '''Indicates that we had an issue trying to download the product'''
+        
+        key = '404 Client Error: Not Found'
+        status = 'retry'
+        reason = 'HTTP 404 for input product, retrying download'
+        extras = self.__add_retry('http_not_found')
+        return self.__find_error(error_message, key, status, reason, extras)
 
     def missing_ledaps_aux_data(self, error_message):
         '''LEDAPS could not run because there was no aux data available'''
@@ -82,6 +189,15 @@ class Errors(object):
         status = 'retry'
         reason = 'Auxillary data not yet available for this date'
         extras = self.__add_retry('missing_ledaps_aux_data')
+        return self.__find_error(error_message, key, status, reason, extras)
+
+    def missing_l8sr_aux_data(self, error_message):
+        '''L8SR could not run because there was no aux data available'''
+
+        key = 'Could not find auxnm data file:'
+        status = 'retry'
+        reason = 'Auxillary data not yet available for this date'
+        extras = self.__add_retry('missing_l8sr_aux_data')
         return self.__find_error(error_message, key, status, reason, extras)
 
     def ftp_timed_out(self, error_message):
@@ -118,12 +234,21 @@ class Errors(object):
         reason = 'Connection timed out'
         extras = self.__add_retry('connection_timed_out')
         return self.__find_error(error_message, key, status, reason, extras)
-        
+
     def no_such_file_or_directory(self, error_message):
         key = 'No such file or directory'
         status = 'submitted'
         reason = 'Reordered due to online cache purge'
         return self.__find_error(error_message, key, status, reason)
+        
+    def dswe_unavailable(self, error_message):
+        ''' Mark OLI/TIRS DSWE unavailable '''
+        
+        key = 'include_dswe is an unavailable product option for OLITTIRS'
+        status = 'unavailable'
+        reason = ('DSWE is not available for OLI/TIRS products')
+        return self.__find_error(error_message, key, status, reason)
+
 
 
 def resolve(error_message):
@@ -173,7 +298,16 @@ def resolve(error_message):
 
     '''
 
-    for condition in Errors().conditions:
-        result = condition(error_message)
-        if result is not None:
-            return result
+    conditions = None
+    result = None
+    try:
+        conditions = Errors().conditions
+        for condition in conditions:
+            result = condition(error_message)
+            if result is not None:
+                return result
+        else:
+            return None
+    finally:
+        conditions = None
+        result = None

@@ -7,7 +7,7 @@ import django.contrib.auth
 from espa_common import utilities
 
 from ordering import validators
-from ordering.models import Product
+from ordering.models import Scene
 from ordering.models import Order
 from ordering.models import Configuration as Config
 from ordering.models import Download
@@ -27,27 +27,29 @@ from django.template import RequestContext
 from django.utils.feedgenerator import Rss201rev2Feed
 from django.views.generic import View
 
-from mongoengine.django.auth import User
+from django.contrib.auth.models import User
 
 
 class AbstractView(View):
 
-    def _get_option_style(self, request):
-        '''Utility method to determine which options to display in the
-        templates based on the user.
-
-        Keyword args:
-        request -- An HTTP request object
-
-        Return:
-        str('display:none') if the user is not admin or internal
-        str('') otherwise
-        '''
-        if hasattr(request, 'user'):
-            if request.user.username not in ('espa_admin', 'espa_internal'):
-                return "display:none"
-            else:
-                return ""
+    
+    #def _get_option_style(self, request):
+    #    '''Utility method to determine which options to display in the
+    #    templates based on the user.
+    #
+    #    Keyword args:
+    #    request -- An HTTP request object
+    #
+    #    Return:
+    #    str('display:none') if the user is not admin or internal
+    #    str('') otherwise
+    #    '''
+    #    if hasattr(request, 'user'):
+    #        
+    #        if request.user.username not in ('espa_admin', 'espa_internal'):
+    #            return "display:none"
+    #        else:
+    #            return ""
 
     def _display_system_message(self, ctx):
         '''Utility method to populate the context with systems messages if
@@ -172,11 +174,8 @@ class Index(AbstractView):
         Return:
         HttpResponse
         '''
-
         c = self._get_request_context(request)
-
         t = loader.get_template(self.template)
-
         return HttpResponse(t.render(c))
 
 
@@ -268,7 +267,7 @@ class NewOrder(AbstractView):
 
         c = self._get_request_context(request)
         c['user'] = request.user
-        c['optionstyle'] = self._get_option_style(request)
+        #c['optionstyle'] = self._get_option_style(request)
 
         t = loader.get_template(self.template)
 
@@ -344,12 +343,16 @@ class NewOrder(AbstractView):
                 vipl.append("plot")
                 order_type = "lpcs"
 
+            option_string = json.dumps(order_options,
+                                       sort_keys=True,
+                                       indent=4)
+
             desc = self._get_order_description(request.POST)
 
             order = Order.enter_new_order(request.user.username,
                                           'espa',
                                           vipl,
-                                          order_options,
+                                          option_string,
                                           order_type,
                                           note=desc
                                           )
@@ -362,9 +365,8 @@ class NewOrder(AbstractView):
 
 
 class ListOrders(AbstractView):
-    initial_template = "ordering/listorders.html"
-    results_template = "ordering/listorders_results.html"
-
+    template = "ordering/listorders.html"
+    
     def get(self, request, email=None, output_format=None):
         '''Request handler for displaying all user orders
 
@@ -376,29 +378,24 @@ class ListOrders(AbstractView):
         Return:
         HttpResponse
         '''
-
-        #no email provided, ask user for an email address
+       
         if email is None or not utilities.validate_email(email):
             user = User.objects.get(username=request.user.username)
+            email = user.email
 
-            #default the email field to the current user email
-            form = ListOrdersForm(initial={'email': user.email})
+        orders = Order.list_all_orders(email)
 
-            c = self._get_request_context(request, {'form': form})
+        form = ListOrdersForm(initial={'email': email})
+        
+        c = self._get_request_context(request, {'form': form, 
+                                                'email': email,
+                                                'orders': orders
+                                                })
+                                                
+        t = loader.get_template(self.template)
 
-            t = loader.get_template(self.initial_template)
-
-            return HttpResponse(t.render(c))
-        else:
-            #if we got here display the orders
-            orders = Order.list_all_orders(email)
-
-            t = loader.get_template(self.results_template)
-
-            c = self._get_request_context(request, {'email': email,
-                                                    'orders': orders
-                                                    })
-            return HttpResponse(t.render(c))
+        return HttpResponse(t.render(c))
+        
 
 
 class Downloads(AbstractView):
@@ -506,7 +503,7 @@ class StatusFeed(Feed):
         return item.product_dload_url
 
     def item_description(self, item):
-        orderid = item.order.id
+        orderid = item.order.orderid
         orderdate = item.order.order_date
 
         return "scene_status:%s,orderid:%s,orderdate:%s" \
@@ -517,7 +514,7 @@ class StatusFeed(Feed):
         #email = obj[0].email
         email = self._get_email(obj[0])
 
-        SO = Product.objects
+        SO = Scene.objects
 
         r = SO.filter(Q(order__email=email) | Q(order__user__email=email))\
               .filter(status='complete')\

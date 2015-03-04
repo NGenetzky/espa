@@ -10,15 +10,16 @@ History:
   Created Jan/2014 by Ron Dilley, USGS/EROS
 '''
 
+import os
 import ftplib
-import urllib
+import urllib2
 import requests
 from contextlib import closing
 
-# imports from espa_common through processing.__init__.py
-from processing import EspaLogging
-from processing import settings
-from processing import utilities
+# imports from espa_common
+from logger_factory import EspaLogging
+import settings
+import utilities
 
 
 # ============================================================================
@@ -44,7 +45,35 @@ def copy_file_to_file(source_file, destination_file):
             logger.info(output)
 
     logger.info("Transfer complete - CP")
-# END - copy_file_to_directory
+# END - copy_file_to_file
+
+
+# ============================================================================
+def move_files_to_directory(source_files, destination_directory):
+    '''
+    Description:
+      Move files from one place to another on the localhost.
+    '''
+
+    logger = EspaLogging.get_logger(settings.PROCESSING_LOGGER)
+
+    if type(source_files) == str:
+        filename = os.path.basename(source_files)
+
+        new_name = os.path.join(destination_directory, filename)
+
+        os.rename(source_files, new_name)
+
+    elif type(source_files) == list:
+        for source_file in source_files:
+            filename = os.path.basename(source_file)
+
+            new_name = os.path.join(destination_directory, filename)
+
+            os.rename(source_file, new_name)
+
+    logger.info("Transfer complete - MOVE")
+# END - move_files_to_directory
 
 
 # ============================================================================
@@ -72,7 +101,7 @@ def remote_copy_file_to_file(source_host, source_file, destination_file):
             logger.info(output)
 
     logger.info("Transfer complete - SSH-CP")
-# END - remote_copy_file_to_directory
+# END - remote_copy_file_to_file
 
 
 # ============================================================================
@@ -104,7 +133,7 @@ def ftp_from_remote_location(username, pw, host, remotefile, localfile):
     if not remotefile.startswith('/'):
         remotefile = ''.join(['/', remotefile])
 
-    pw = urllib.unquote(pw)
+    pw = urllib2.unquote(pw)
 
     url = 'ftp://%s/%s' % (host, remotefile)
 
@@ -157,7 +186,7 @@ def ftp_to_remote_location(username, pw, localfile, host, remotefile):
     if not remotefile.startswith('/'):
         remotefile = ''.join(['/', remotefile])
 
-    pw = urllib.unquote(pw)
+    pw = urllib2.unquote(pw)
 
     logger.info("Transferring file from %s to %s"
                 % (localfile, 'ftp://%s/%s' % (host, remotefile)))
@@ -165,7 +194,6 @@ def ftp_to_remote_location(username, pw, localfile, host, remotefile):
     ftp = None
 
     try:
-        logger.info("Logging in to %s with %s:%s" % (host, username, pw))
         ftp = ftplib.FTP(host, user=username, passwd=pw, timeout=60)
         with open(localfile, 'rb') as tmp_fd:
             ftp.storbinary(' '.join(['STOR', remotefile]), tmp_fd, 1024)
@@ -232,6 +260,58 @@ def scp_transfer_file(source_host, source_file,
 
 
 # ============================================================================
+def scp_transfer_directory(source_host, source_directory,
+                           destination_host, destination_directory):
+    '''
+    Description:
+      Using SCP transfer a directory from a source location to a destination
+      location.
+
+    Note:
+      - It is assumed ssh has been setup for access between the localhost
+        and destination system
+    '''
+
+    logger = EspaLogging.get_logger(settings.PROCESSING_LOGGER)
+
+    if source_host == destination_host:
+        msg = "source and destination host match unable to scp"
+        logger.error(msg)
+        raise Exception(msg)
+
+    cmd = ['scp', '-r', '-q', '-o', 'StrictHostKeyChecking=no', '-c',
+           'arcfour', '-C']
+
+    # Build the source portion of the command
+    # Single quote the source to allow for wild cards
+    if source_host == 'localhost':
+        cmd.append(source_directory)
+    else:
+        cmd.append("'%s:%s'" % (source_host, source_directory))
+
+    # Build the destination portion of the command
+    if destination_host == 'localhost':
+        cmd.append(destination_directory)
+    else:
+        cmd.append('%s:%s' % (destination_host, destination_directory))
+
+    cmd = ' '.join(cmd)
+
+    # Transfer the data and raise any errors
+    output = ''
+    try:
+        output = utilities.execute_cmd(cmd)
+    except Exception, e:
+        if len(output) > 0:
+            logger.info(output)
+        logger.error("Failed to transfer data")
+        raise e
+
+    logger.info("Transfer complete - SCP")
+# END - scp_transfer_directory
+
+
+# ============================================================================
 def http_transfer_file(download_url, destination_file):
     '''
     Description:
@@ -243,25 +323,81 @@ def http_transfer_file(download_url, destination_file):
 
     logger.info(download_url)
 
-    file_size = 0
-    retrieved_bytes = 0
-    with closing(requests.get(download_url, stream=True)) as req:
-        if not req.ok:
-            raise Exception("Transfer Failed - HTTP - Reason(%s)"
-                            % req.reason)
+# First way
+#    file_size = 0
+#    retrieved_bytes = 0
+#    with closing(requests.get(download_url, stream=True)) as req:
+#        if not req.ok:
+#            raise Exception("Transfer Failed - HTTP - Reason(%s)"
+#                            % req.reason)
+#
+#        file_size = int(req.headers['content-length'])
+#
+#        with open(destination_file, 'wb') as local_fd:
+#            for data_chunk in req.iter_content(settings.TRANSFER_BLOCK_SIZE):
+#                local_fd.write(data_chunk)
+#                retrieved_bytes += len(data_chunk)
+#
+#    if retrieved_bytes != file_size:
+#        raise Exception("Transfer Failed - HTTP - Retrieved %d"
+#                        " out of %d bytes" % (retrieved_bytes, file_size))
+#    else:
+#        logger.info("Transfer Complete - HTTP")
 
-        file_size = int(req.headers['content-length'])
+# Second way
+#    req = None
+#    try:
+#        req = requests.get(download_url)
+#
+#        if not req.ok:
+#            logger.error("Transfer Failed - HTTP")
+#            req.raise_for_status()
+#
+#        with open(destination_file, 'wb') as local_fd:
+#            local_fd.write(req.content)
+#    except:
+#        logger.error("Transfer Failed - HTTP")
+#        raise
+#    finally:
+#        if req is not None:
+#            req.close()
 
-        with open(destination_file, 'wb') as local_fd:
-            for data_chunk in req.iter_content(settings.TRANSFER_BLOCK_SIZE):
-                local_fd.write(data_chunk)
-                retrieved_bytes += len(data_chunk)
+# Third way
+    session = requests.Session()
 
-    if retrieved_bytes != file_size:
-        raise Exception("Transfer Failed - HTTP - Retrieved %d out of %d bytes"
-                        % (retrieved_bytes, file_size))
-    else:
-        logger.info("Transfer complete - HTTP")
+    session.mount('http://', requests.adapters.HTTPAdapter(max_retries=3))
+    session.mount('https://', requests.adapters.HTTPAdapter(max_retries=3))
+
+    retry_attempt = 0
+    done = False
+    while not done:
+        req = None
+        try:
+            req = session.get(url=download_url, timeout=300.0)
+
+            if not req.ok:
+                logger.error("Transfer Failed - HTTP")
+                req.raise_for_status()
+
+            with open(destination_file, 'wb') as local_fd:
+                local_fd.write(req.content)
+
+            done = True
+
+        except:
+            logger.exception("Transfer Issue - HTTP")
+            if retry_attempt > 3:
+                raise Exception("Transfer Failed - HTTP"
+                                " - exceeded retry limit")
+            retry_attempt += 1
+            sleep(int(1.5 * retry_attempt))
+
+        finally:
+            if req is not None:
+                req.close()
+
+    logger.info("Transfer Complete - HTTP")
+
 # END - http_transfer_file
 
 
@@ -272,7 +408,9 @@ def download_file_url(download_url, destination_file):
         Using a URL download the specified file to the destination.
     '''
 
-    if download_url.startswith('http://'):
+    download_url = urllib2.unquote(download_url)
+
+    if download_url.startswith('http'):
         http_transfer_file(download_url, destination_file)
     elif download_url.startswith('file://'):
         source_file = download_url.replace('file://', '')
