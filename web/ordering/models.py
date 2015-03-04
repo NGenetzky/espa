@@ -5,6 +5,7 @@ from mongoengine.django.auth import User
 import mongoengine as me
 
 from espa_common import sensor
+  
 
 class UserProfile (me.Document):
     '''Extends the information attached to ESPA users with a one-to-one
