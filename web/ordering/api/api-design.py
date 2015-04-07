@@ -1,7 +1,7 @@
 class User(object):
     '''The User API'''
 
-    def new_order(self, verification_token, product_list, options):
+    def new_order(self, product_list, options):
         pass
 
     def view_order(self, order_id):

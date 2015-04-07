@@ -11,6 +11,9 @@ from django.contrib.auth.decorators import login_required
 from ordering.views import TestAjax
 from ordering.views import AjaxForm
 
+from ordering.api import Versions
+from ordering.api import v1
+
 '''
 author David V. Hill
 
@@ -58,4 +61,33 @@ urlpatterns = patterns('',
     url(r'^test/$',
         AjaxForm.as_view(),
         name='ajax_form'),
+
+    url(r'^api/$',
+        Versions.as_view(),
+        name='api_versions'),
+
+    url(r'^api/v1/$',
+        v1.Description.as_view(),
+        name='v1_description'),
+
+    url(r'^api/v1/limits/$',
+        v1.Limits.as_view(),
+        name='api_v1_limits'),
+
+    url(r'^api/v1/orders/$',
+        v1.Orders.as_view(),
+        name='api_v1_list_orders'),
+        
+    url(r'^api/v1/orders/(?P<email>[A-Za-z0-9._%+-\\\']+@[A-Za-z0-9.-]+\.[A-Za-z]{2,4})/$',
+        v1.Orders.as_view(),
+        name='api_v1_list_user_orders'),
+        
+    url(r'^api/v1/order/(?P<orderid>[A-Za-z0-9._%+-\\\']+@[A-Za-z0-9.-]+\.[A-Za-z]{2,4}.*)/$',
+        v1.Order.as_view(),
+        name='api_v1_order_details'),
+        
+    url(r'^api/v1/order/$',
+        v1.Order.as_view(),
+        name='api_v1_place_order'),
+    
 )
