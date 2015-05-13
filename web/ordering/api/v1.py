@@ -6,106 +6,69 @@ import django.contrib.auth
 
 from espa_common import utilities
 
-from ordering import validators
-from ordering.models import Scene
-from ordering.models import Order
-from ordering.models import Configuration as Config
+from ordering import api
 
-from django import forms
+from ordering import validators
+from ordering import models
+
 from django.conf import settings
-from django.contrib.syndication.views import Feed
+
 from django.core.urlresolvers import reverse
 from django.core.cache import cache
 from django.db.models import Q
-from django.http import HttpResponse
-from django.http import HttpResponseRedirect
-from django.http import Http404
-from django.template import loader
-from django.template import RequestContext
-from django.utils.feedgenerator import Rss201rev2Feed
-from django.views.generic import View
 
+from django.http import Http404
+
+from django.views.generic import View
 from django.contrib.auth.models import User
 
+#
+#class AjaxForm(View):
+#    def get(self, request):
+#        template = 'ordering/test.html'
+#        c = self._get_request_context(request)
+#        t = loader.get_template(template)
+#        return HttpResponse(t.render(c))
 
-class AbstractView(View):
 
+#class TestAjax(View):
+#
+#    def get(self, request):
+#
+#        name = request.GET.get('name', '')
+#
+#        data = {'user': request.user.get_username(),
+#                'name': name,
+#                'status': 'GET request ok'}
+#
+#        return api.json_response(data)
+
+#    def post(self, request):
+#
+#        name = "No name provided"
+#        if 'name' in request.POST:
+#            name = request.POST['name']
+#
+#        age = "No age provided"
+#        if 'age' in request.POST:
+#            age = request.POST['age']
+
+#        data = {'user': request.user.get_username(),
+#                'name': name,
+#                'age': age,
+#                'status': 'POST request ok'}
+#
+#        return api.json_response(data)
+
+
+class Description(View):
+    pass
+
+class Limits(View):
+    pass
+
+class Order(View):
     
-    def _get_request_context(self,
-                             request,
-                             params=dict(),
-                             include_system_message=True):
-
-        context = RequestContext(request, params)
-
-        if include_system_message:
-            self._display_system_message(context)
-
-        return context
-
-
-class AjaxForm(AbstractView):
-    def get(self, request):
-        template = 'ordering/test.html'
-        c = self._get_request_context(request)
-        t = loader.get_template(template)
-        return HttpResponse(t.render(c))
-
-
-class TestAjax(AbstractView):
-
-    def render_to_json_response(self, context, **response_kwargs):
-        data = json.dumps(context)
-        response_kwargs['content_type'] = 'application/json'
-        return HttpResponse(data, **response_kwargs)
-
-    def get(self, request):
-
-        name = request.GET.get('name', '')
-
-        data = {'user': request.user.get_username(),
-                'name': name,
-                'status': 'GET request ok'}
-
-        return self.render_to_json_response(data)
-
-    def post(self, request):
-
-        name = "No name provided"
-        if 'name' in request.POST:
-            name = request.POST['name']
-
-        age = "No age provided"
-        if 'age' in request.POST:
-            age = request.POST['age']
-
-        data = {'user': request.user.get_username(),
-                'name': name,
-                'age': age,
-                'status': 'POST request ok'}
-
-        return self.render_to_json_response(data)
-
-
-class Index(AbstractView):
-    template = 'ordering/index.html'
-
-    def get(self, request):
-        '''Request handler for / and /index
-
-        Keyword args:
-        request -- HTTP request object
-
-        Return:
-        HttpResponse
-        '''
-        c = self._get_request_context(request)
-        t = loader.get_template(self.template)
-        return HttpResponse(t.render(c))
-
-
-class NewOrder(AbstractView):
-    template = 'ordering/new_order.html'
     input_product_list = None
 
     def _get_order_description(self, parameters):
@@ -116,7 +79,7 @@ class NewOrder(AbstractView):
 
     def _get_order_options(self, request):
 
-        defaults = Order.get_default_options()
+        defaults = models.Order.get_default_options()
 
         # This will make sure no additional options past the ones we are
         # expecting will make it into the database
@@ -180,23 +143,24 @@ class NewOrder(AbstractView):
         else:
             return None
 
-    def get(self, request):
-        '''Request handler for new order initial form
+    def get(self, request, orderid):
+        '''Request handler to get the full listing of all the scenes
+        & statuses for an order
 
         Keyword args:
         request -- HTTP request object
+        orderid -- the order id for the order
 
         Return:
         HttpResponse
         '''
 
-        c = self._get_request_context(request)
-        c['user'] = request.user
-        #c['optionstyle'] = self._get_option_style(request)
-
-        t = loader.get_template(self.template)
-
-        return HttpResponse(t.render(c))
+        try:
+            c = dict()
+            c['order'], c['scenes'] = models.Order.get_order_details(orderid)
+            return api.json_response(c)
+        except models.Order.DoesNotExist:
+            raise Http404
 
     def post(self, request):
         '''Request handler for new order submission
@@ -254,10 +218,8 @@ class NewOrder(AbstractView):
             c['errors'] = sorted(error_list)
             c['user'] = request.user
             
-            t = loader.get_template(self.template)
-
-            return HttpResponse(t.render(c))
-
+            return api.json_response(c)
+            
         else:
 
             vipl = self._get_verified_input_product_list(request)
@@ -276,169 +238,44 @@ class NewOrder(AbstractView):
 
             desc = self._get_order_description(request.POST)
 
-            order = Order.enter_new_order(request.user.username,
-                                          'espa',
-                                          vipl,
-                                          option_string,
-                                          order_type,
-                                          note=desc
-                                          )
+            order = models.Order.enter_new_order(request.user.username,
+                                                 'espa',
+                                                 vipl,
+                                                 option_string,
+                                                 order_type,
+                                                 note=desc
+                                                )
+                                                
+            response = {'status':order.status,
+                        'orderid':order.orderid,
+                        'status_url':reverse('api_v1_order_details',
+                                             kwargs={'orderid': order.orderid})
+                       }
 
-            email = order.user.email
-
-            url = reverse('list_orders', kwargs={'email': email})
-
-            return HttpResponseRedirect(url)
+            return api.json_response(response)
 
 
-class ListOrders(AbstractView):
-    template = "ordering/listorders.html"
-    
-    def get(self, request, email=None, output_format=None):
+class Orders(View):
+        
+    def get(self, request, email=None):
         '''Request handler for displaying all user orders
 
         Keyword args:
         request -- HTTP request object
         email -- the user's email
-        output_format -- deprecated
-
+        
         Return:
         HttpResponse
         '''
        
-        if email is None or not utilities.validate_email(email):
-            user = User.objects.get(username=request.user.username)
-            email = user.email
-
-        orders = Order.list_all_orders(email)
-
-        form = ListOrdersForm(initial={'email': email})
-        
-        c = self._get_request_context(request, {'form': form, 
-                                                'email': email,
-                                                'orders': orders
-                                                })
-                                                
-        t = loader.get_template(self.template)
-
-        return HttpResponse(t.render(c))
-        
-
-
-class Downloads(AbstractView):
-    template = 'ordering/downloads.html'
-
-    def get(self, request):
-        '''Request handler to display the downloads template
-
-        Keyword args:
-        request -- HTTP request object
-
-        Return:
-        HttpResponse
-        '''
-        ob = 'display_order', 'title'
-
-        d = DownloadSection.objects.filter(visible=True).order_by(ob)
-
-        t = loader.get_template(self.template)
-
-        c = self._get_request_context(request, {'sections': d})
-
-        return HttpResponse(t.render(c))
-
-
-class OrderDetails(AbstractView):
-    template = 'ordering/orderdetails.html'
-
-    def get(self, request, orderid, output_format=None):
-        '''Request handler to get the full listing of all the scenes
-        & statuses for an order
-
-        Keyword args:
-        request -- HTTP request object
-        orderid -- the order id for the order
-        output_format -- deprecated
-
-        Return:
-        HttpResponse
-        '''
-
-        t = loader.get_template(self.template)
-
-        c = self._get_request_context(request)
         try:
-            c['order'], c['scenes'] = Order.get_order_details(orderid)
-            return HttpResponse(t.render(c))
-        except Order.DoesNotExist:
+            if email is None or not utilities.validate_email(email):
+                user = User.objects.get(username=request.user.username)
+                email = user.email
+
+            orders = models.Order.list_all_orders(email)
+            
+        except models.Order.DoesNotExist:
             raise Http404
-
-
-class LogOut(AbstractView):
-    template = "ordering/loggedout.html"
-
-    def get(self, request):
-        '''Simple view to log a user out and land them on an exit page'''
-
-        django.contrib.auth.logout(request)
-
-        t = loader.get_template(self.template)
-
-        c = self._get_request_context(request, include_system_message=False)
-
-        return HttpResponse(t.render(c))
-
-
-class StatusFeed(Feed):
-    '''Feed subclass to publish user orders via RSS'''
-
-    feed_type = Rss201rev2Feed
-
-    title = "ESPA Status Feed"
-
-    link = ""
-
-    def _get_email(self, obj):
-        if obj.email:
-            return obj.email
-        else:
-            return obj.user.email
-
-    def get_object(self, request, email):
-        orders = Order.objects.filter(Q(email=email) | Q(user__email=email))
-        if not orders:
-            raise Http404
-        else:
-            return orders
-
-    def link(self, obj):
-        return reverse('status_feed',
-                       kwargs={'email': self._get_email(obj[0])})
-
-    def description(self, obj):
-        return "ESPA scene status for:%s" % self._get_email(obj[0])
-
-    def item_title(self, item):
-        return item.name
-
-    def item_link(self, item):
-        return item.product_dload_url
-
-    def item_description(self, item):
-        orderid = item.order.orderid
-        orderdate = item.order.order_date
-
-        return "scene_status:%s,orderid:%s,orderdate:%s" \
-               % (item.status, orderid, orderdate)
-
-    def items(self, obj):
-
-        #email = obj[0].email
-        email = self._get_email(obj[0])
-
-        SO = Scene.objects
-
-        r = SO.filter(Q(order__email=email) | Q(order__user__email=email))\
-              .filter(status='complete')\
-              .order_by('-order__order_date')
-        return r
+    
+        return api.json_response({'email': email, 'orders': orders})

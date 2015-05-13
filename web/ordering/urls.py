@@ -68,7 +68,7 @@ urlpatterns = patterns('',
 
     url(r'^api/v1/$',
         v1.Description.as_view(),
-        name='v1_description'),
+        name='api_v1_description'),
 
     url(r'^api/v1/limits/$',
         v1.Limits.as_view(),
