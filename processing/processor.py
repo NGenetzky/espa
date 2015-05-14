@@ -157,10 +157,13 @@ class ProductProcessor(object):
         # Validate the options
         options = self._parms['options']
 
-        # Default this so the directory is not kept, it should only be
-        # present and turned on for developers
+        # Default these so they are not kept, they should only be present and
+        # turned on for developers
         if not parameters.test_for_parameter(options, 'keep_directory'):
             options['keep_directory'] = False
+        if not parameters.test_for_parameter(options,
+                                             'keep_intermediate_data'):
+            options['keep_intermediate_data'] = False
 
         # Verify or set the destination information
         if not parameters.test_for_parameter(options, 'destination_host'):
@@ -588,7 +591,8 @@ class CDRProcessor(CustomizationProcessor):
             'include_sr': 'sr_refl',
             'include_sr_toa': 'toa_refl',
             'include_sr_thermal': 'toa_bt',
-            'include_cfmask': 'cfmask'
+            'include_cfmask': 'cfmask',
+            'keep_intermediate_data': 'intermediate_data'
         }
 
         # If nothing to do just return
@@ -614,6 +618,9 @@ class CDRProcessor(CustomizationProcessor):
         if not options['include_cfmask'] and not options['include_sr']:
             products_to_remove.append(
                 order2xml_mapping['include_cfmask'])
+        if not options['keep_intermediate_data']:
+            products_to_remove.append(
+                order2xml_mapping['keep_intermediate_data'])
 
         if products_to_remove is not None:
             espa_xml = metadata_api.parse(self._xml_filename, silence=True)
@@ -655,10 +662,10 @@ class CDRProcessor(CustomizationProcessor):
                     # Export the file with validation
                     with open(self._xml_filename, 'w') as xml_fd:
                         # Export to the file and specify the namespace/schema
-                        xmlns = "http://espa.cr.usgs.gov/v1.1"
+                        xmlns = "http://espa.cr.usgs.gov/v1.2"
                         xmlns_xsi = "http://www.w3.org/2001/XMLSchema-instance"
                         schema_uri = ("http://espa.cr.usgs.gov/static/schema/"
-                                      "espa_internal_metadata_v1_1.xsd")
+                                      "espa_internal_metadata_v1_2.xsd")
                         metadata_api.export(xml_fd, espa_xml,
                                             xmlns=xmlns,
                                             xmlns_xsi=xmlns_xsi,
@@ -833,7 +840,6 @@ class LandsatProcessor(CDRProcessor):
         # They are the required includes for product generation
         required_includes = ['include_cfmask',
                              'include_customized_source_data',
-                             'include_dem',
                              'include_dswe',
                              'include_solr_index',
                              'include_source_data',
@@ -893,7 +899,6 @@ class LandsatProcessor(CDRProcessor):
                 and not options['include_sr_msavi']
                 and not options['include_sr_evi']
                 and not options['include_dswe']
-                and not options['include_dem']
                 and not options['include_solr_index']):
 
             logger.info("***NO SCIENCE PRODUCTS CHOSEN***")
@@ -988,8 +993,7 @@ class LandsatProcessor(CDRProcessor):
         options = self._parms['options']
 
         cmd = None
-        if (options['include_dem']
-                or options['include_dswe']):
+        if (options['include_dswe']):
 
             cmd = ['do_create_dem.py',
                    '--mtl', self._metadata_filename,
@@ -1021,6 +1025,43 @@ class LandsatProcessor(CDRProcessor):
                 output = utilities.execute_cmd(cmd)
             except Exception, e:
                 raise ee.ESPAException(ee.ErrorCodes.reformat,
+                                       str(e)), None, sys.exc_info()[2]
+            finally:
+                if len(output) > 0:
+                    logger.info(output)
+
+    # -------------------------------------------
+    def land_water_mask_command_line(self):
+        '''
+        Description:
+            Returns the command line required to generate a land/water mask.
+
+        Note:
+            Only for L8 OLITIRS processing
+        '''
+        return None
+
+    # -------------------------------------------
+    def generate_land_water_mask(self):
+        '''
+        Description:
+            Generates a land water mask.
+        '''
+
+        logger = self._logger
+
+        cmd = self.land_water_mask_command_line()
+
+        # Only if required
+        if cmd is not None:
+
+            logger.info(' '.join(['LAND/WATER MASK COMMAND:', cmd]))
+
+            output = ''
+            try:
+                output = utilities.execute_cmd(cmd)
+            except Exception, e:
+                raise ee.ESPAException(ee.ErrorCodes.surface_reflectance,
                                        str(e)), None, sys.exc_info()[2]
             finally:
                 if len(output) > 0:
@@ -1086,7 +1127,7 @@ class LandsatProcessor(CDRProcessor):
     def generate_sr_products(self):
         '''
         Description:
-            Generates surrface reflectance products.
+            Generates surface reflectance products.
         '''
 
         logger = self._logger
@@ -1307,6 +1348,8 @@ class LandsatProcessor(CDRProcessor):
 
             self.generate_dem_product()
 
+            self.generate_land_water_mask()
+
             self.generate_sr_products()
 
             self.generate_cfmask()
@@ -1333,21 +1376,18 @@ class LandsatProcessor(CDRProcessor):
 
         logger = self._logger
 
+        product_id = self._parms['product_id']
         options = self._parms['options']
 
-        # Define all of the non-product files that need to be removed before
-        # product tarball generation
-        non_product_files = [
+        # Define intermediate files that need to be removed before product
+        # tarball generation
+        intermediate_files = [
             'lndsr.*.txt',
             'lndcal.*.txt',
             'LogReport*',
-            '*_MTL.txt.old'
-        ]
-
-        # Define DEM files that may need to be removed before product tarball
-        # generation
-        dem_files = [
-            '*_dem.*'
+            '*_MTL.txt.old',
+            '*_dem.*',
+            '%s_land_water_mask.*' % product_id
         ]
 
         # Define L1 source files that may need to be removed before product
@@ -1371,14 +1411,10 @@ class LandsatProcessor(CDRProcessor):
         os.chdir(self._work_dir)
 
         try:
-            # Remove the intermediate non-product files
             non_products = []
-            for item in non_product_files:
-                non_products.extend(glob.glob(item))
-
-            # Add DEM files if not requested
-            if not options['include_dem']:
-                for item in dem_files:
+            # Remove the intermediate non-product files
+            if not options['keep_intermediate_data']:
+                for item in intermediate_files:
                     non_products.extend(glob.glob(item))
 
             # Add level 1 source files if not requested
@@ -1544,7 +1580,35 @@ class LandsatOLITIRSProcessor(LandsatProcessor):
 
         if options['include_dswe'] is True:
             raise Exception("include_dswe is an unavailable product option"
-                            " for OLITTIRS")
+                            " for OLITIRS")
+
+    # -------------------------------------------
+    def land_water_mask_command_line(self):
+        '''
+        Description:
+            Returns the command line required to generate a land/water mask.
+
+        Note:
+            Only for L8 OLITIRS processing
+        '''
+
+        options = self._parms['options']
+
+        cmd = None
+        if (options['include_sr']
+                or options['include_sr_browse']
+                or options['include_sr_nbr']
+                or options['include_sr_nbr2']
+                or options['include_sr_ndvi']
+                or options['include_sr_ndmi']
+                or options['include_sr_savi']
+                or options['include_sr_msavi']
+                or options['include_sr_evi']
+                or options['include_dswe']):
+            cmd = ' '.join(['create_land_water_mask',
+                            '--xml', self._xml_filename])
+
+        return cmd
 
     # -------------------------------------------
     def sr_command_line(self):
@@ -1628,6 +1692,41 @@ class LandsatOLIProcessor(LandsatOLITIRSProcessor):
     # -------------------------------------------
     def __init__(self, parms):
         super(LandsatOLIProcessor, self).__init__(parms)
+
+    # -------------------------------------------
+    def validate_parameters(self):
+        '''
+        Description:
+            Validates the parameters required for the processor.
+        '''
+
+        logger = self._logger
+
+        # Call the base class parameter validation
+        super(LandsatOLIProcessor, self).validate_parameters()
+
+        logger.info("Validating [LandsatOLIProcessor] parameters")
+
+        options = self._parms['options']
+
+        if options['include_sr'] is True:
+            raise Exception("include_sr is an unavailable product option"
+                            " for OLI-Only data")
+
+        if options['include_sr_thermal'] is True:
+            raise Exception("include_sr_thermal is an unavailable product"
+                            " option for OLI-Only data")
+
+    # -------------------------------------------
+    def land_water_mask_command_line(self):
+        '''
+        Description:
+            Returns the command line required to generate a land/water mask.
+
+        Note:
+            Only for L8 OLITIRS processing
+        '''
+        return None
 
     # -------------------------------------------
     def cfmask_command_line(self):
