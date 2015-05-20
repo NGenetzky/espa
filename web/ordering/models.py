@@ -290,22 +290,22 @@ class Order(models.Model):
         '''
         return '%s-%s' % (email, eeorder)
 
-    @staticmethod
-    def get_order_details(orderid):
-        '''Returns the full order and all attached scenes.  This can also
-        be handled by just returning the order object, but this is going to
-        be used primarily in a template so its simpler to return both sets
-        of objects on their own.
+    #@staticmethod
+    #def get_order_details(orderid):
+    #    '''Returns the full order and all attached scenes.  This can also
+    #    be handled by just returning the order object, but this is going to
+    #    be used primarily in a template so its simpler to return both sets
+    #    of objects on their own.
 
-        Keyword args:
-        orderid -- the orderid as held in the Order table
+    #    Keyword args:
+    #    orderid -- the orderid as held in the Order table
 
-        Return:
-        A tuple of orders, scenes
-        '''
-        order = Order.objects.get(orderid=orderid)
-        scenes = Scene.objects.filter(order__orderid=orderid)
-        return order, scenes
+    #    Return:
+    #    A tuple of orders, scenes
+    #    '''
+    #    order = Order.objects.get(orderid=orderid)
+    #    scenes = Scene.objects.filter(order__orderid=orderid)
+    #    return order, scenes
 
     @staticmethod
     def list_all_orders(email):

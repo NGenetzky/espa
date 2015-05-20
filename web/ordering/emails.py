@@ -184,3 +184,23 @@ class Emails(object):
         subject = 'Processing for %s complete.' % order.orderid
 
         return self.__send(recipient=email, subject=subject, body=body)
+        
+#Below here is what should be considered the interface for this module.
+#All the Object code above should be considered implementation
+def validate_email(email_addr):
+    return Emails().validate_email(email_addr)
+    
+def send_gzip_error_email(product_id):
+    return Emails().send_gzip_error_email(product_id)
+    
+def send_all_initial():
+    return Emails().send_all_initial()
+    
+def send_initial(order):
+    return Emails().send_initial(order)
+    
+def send_completion(order):
+    return Emails().send_completion(order)
+
+
+

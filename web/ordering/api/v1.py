@@ -1,24 +1,19 @@
 import json
 import collections
+
 from espa_common import sensor
-
-import django.contrib.auth
-
 from espa_common import utilities
-
+from ordering import emails
 from ordering import api
-
 from ordering import validators
 from ordering import models
 
+import django.contrib.auth
 from django.conf import settings
-
 from django.core.urlresolvers import reverse
 from django.core.cache import cache
 from django.db.models import Q
-
 from django.http import Http404
-
 from django.views.generic import View
 from django.contrib.auth.models import User
 
@@ -62,13 +57,16 @@ from django.contrib.auth.models import User
 
 
 class Description(View):
-    pass
+    def get(self, request):
+        return api.json_response('This is the API description, documentation')
+
 
 class Limits(View):
     pass
 
+
 class Order(View):
-    
+
     input_product_list = None
 
     def _get_order_description(self, parameters):
@@ -156,11 +154,23 @@ class Order(View):
         '''
 
         try:
-            c = dict()
-            c['order'], c['scenes'] = models.Order.get_order_details(orderid)
-            return api.json_response(c)
+            payload = dict()
+            order = models.Order.objects.get(orderid=orderid)
+            payload['orderid'] = order.orderid
+            payload['status'] = order.status
+            payload['order_date'] = order.order_date.isoformat()
+            payload['output_products'] = json.loads(order.product_options)
+
+            if order.note is not None and len(order.note) > 0:
+                payload['note'] = order.note
+
+            if order.completion_date is not None:
+                payload['completion_date'] = order.completion_date.isoformat()
+
+            return api.json_response(payload)
+
         except models.Order.DoesNotExist:
-            raise Http404
+            return api.json_response("%s not found" % orderid, status=404)
 
     def post(self, request):
         '''Request handler for new order submission
@@ -217,9 +227,9 @@ class Order(View):
 
             c['errors'] = sorted(error_list)
             c['user'] = request.user
-            
+
             return api.json_response(c)
-            
+
         else:
 
             vipl = self._get_verified_input_product_list(request)
@@ -244,38 +254,55 @@ class Order(View):
                                                  option_string,
                                                  order_type,
                                                  note=desc
-                                                )
-                                                
-            response = {'status':order.status,
-                        'orderid':order.orderid,
-                        'status_url':reverse('api_v1_order_details',
-                                             kwargs={'orderid': order.orderid})
-                       }
+                                                 )
+            status_url = reverse('api_v1_order_details',
+                                 kwargs={'orderid': order.orderid})
+
+            response = {'status': order.status,
+                        'orderid': order.orderid,
+                        'status_url': status_url
+                        }
 
             return api.json_response(response)
 
 
 class Orders(View):
-        
+
     def get(self, request, email=None):
         '''Request handler for displaying all user orders
 
         Keyword args:
         request -- HTTP request object
         email -- the user's email
-        
+
         Return:
         HttpResponse
         '''
-       
+
+        response = {}
+
         try:
-            if email is None or not utilities.validate_email(email):
+            if email is None or not emails.validate_email(email):
                 user = User.objects.get(username=request.user.username)
                 email = user.email
 
             orders = models.Order.list_all_orders(email)
-            
+
+            if len(orders) == 0:
+                raise models.Order.DoesNotExist
+
+            for o in orders:
+
+                url = reverse('api_v1_order_details',
+                              kwargs={'orderid': o.orderid})
+                url = "%s://%s%s" % (api.protocol(request),
+                                     request.get_host(),
+                                     url)
+
+                response[o.orderid] = {'status': o.status, 'link': url}
+
         except models.Order.DoesNotExist:
-            raise Http404
-    
-        return api.json_response({'email': email, 'orders': orders})
+            return api.json_response("No orders found for %s" % email,
+                                     status=404)
+
+        return api.json_response(response)

@@ -10,6 +10,13 @@ def json_response(context, **response_kwargs):
         data = as_json(context)
         response_kwargs['content_type'] = 'application/json'
         return HttpResponse(data, **response_kwargs)
+        
+def protocol(request):
+    if request.is_secure():
+        p = 'https'
+    else:
+        p = 'http'
+    return p
 
 class APIView(View):
     as_http = True
@@ -23,7 +30,4 @@ class Versions(APIView):
         if self.as_http is False:
             return as_json(d)
         else:
-            return json_response(d, {})
-
-
-#SHIT.  How are you going to write testable code not dependant on an HTTP server?
+            return json_response(d)
