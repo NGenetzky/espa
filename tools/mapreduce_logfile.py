@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 '''****************************************************************************
-FILE:
+FILE: mapreduce_logfile.py
 
-PURPOSE:
+PURPOSE: Uses the map / reduce architecture to parse information from a logfile
+    and then produce data and reports.
 
 PROJECT: Land Satellites Data System Science Research and Development (LSRD)
     at the USGS EROS
@@ -11,26 +12,52 @@ LICENSE TYPE: NASA Open Source Agreement Version 1.3
 
 AUTHOR: ngenetzky@usgs.gov
 
-
 ****************************************************************************'''
-import sys
 import datetime
+import collections
+import inspect
 '''
-        Helper Functions
+        Debug Functions
 '''
+log_badparse_in_reports = False
 lines_that_failed_to_parse = []
 
 
 def write_parse_failed_logs(outfile):
+    '''Will write lines that have failed to parse to a logfile
+
+    Precondition:
+        Functions have been called that attempted to parse lines in logfile.
+    Postcondition:
+        Logfile will contain entries that are separated by '\n'.
+        Each entry will describe what couldn't be parsed and the line that was
+             unable to be parsed.
+    '''
+    global lines_that_failed_to_parse
     with open(outfile, 'w+') as fp:
         for line in lines_that_failed_to_parse:
             fp.write(str(line))
+            print(str(line))
 
 
 def fail_to_parse(value, line):
+    '''Will add entry into list of lines that couldn't be parsed.
+
+    Precondition:
+        value contains a descriptive name of what value was attempting to be
+             extracted.
+        line contains the line that was attempted to be parsed.
+    Postcondition
+        returns 'BAD_PARSE'
+    '''
+    global lines_that_failed_to_parse
     lines_that_failed_to_parse.append('Failed to parse for {0} in <{1}>'
                                       .format(value, line))
     return 'BAD_PARSE'
+
+'''
+        Helper Functions
+'''
 
 
 def substring_between(s, start, finish):
@@ -38,18 +65,6 @@ def substring_between(s, start, finish):
     end_of_start = s.index(start) + len(start)
     start_of_finish = s.index(finish, end_of_start)
     return s[end_of_start:start_of_finish]
-
-
-def sort_ascending_by_value(unsorted_truples, reverse=False):
-    return sorted(unsorted_truples,
-                  key=lambda (k, v): v,  # sort by value
-                  reverse=reverse)
-
-
-def sort_dict_by_value(unsorted_dict, reverse=False):
-    return sorted(unsorted_dict.iteritems(),
-                  key=lambda (k, v): v,
-                  reverse=reverse)
 
 '''
         Extract Data from line in logfile
@@ -105,13 +120,22 @@ def get_user_email(line):
 
 
 def get_scene_id(line):
+    response_after_orderid = substring_between(line, 'orders/', '" ')
     try:
-        return substring_between(line, '/', '.tar.gz')
+        return substring_between(response_after_orderid, '/', '.tar.gz')
     except ValueError:
         try:
-            return substring_between(line, '/', '.cksum')
+            return substring_between(response_after_orderid, '/', '.cksum')
         except ValueError:
-            return fail_to_parse('sceneid', line)
+            return fail_to_parse('sceneid', response_after_orderid)
+
+
+def get_order_id(line):
+    request = substring_between(line, '] "', '" ')
+    try:
+        return substring_between(request, 'orders/', '/')
+    except ValueError:
+        return fail_to_parse('orderid', request)
 
 '''
         Filter helper functions
@@ -148,26 +172,17 @@ def is_burned_area_order(line):
 '''
 
 
-def map_line_to_custom_truple(line):
-    ''' Obtain (return_code, bytes_downloaded) from a line of text
+def map_line_to_custom_tuple(line):
+    '''Extracts values from a line of text into tuple
 
     Precondition: line is a ' ' separated list of data.
-                Return code is the first int in the items from 6 to 11.
-                Bytes downloaded is the second int in the items from 6 to 12.
-    Postcondition: return list where len(list)==2
-                    list[0] is return_code
-                    list[1] is bytes_downloaded
-                    fail_to_parse('date', line)
+    Postcondition: return tuple where len(tuple)==2
     '''
     remote_addr = line.split(' - ', 1)[0]
     dt = get_datetime(line).isoformat()
-    request = substring_between(line, '] "', '" ')
     user_email = get_user_email(line)
     bytes_sent = get_bytes(line)
-    try:
-        orderid = substring_between(request, 'orders/', '/')
-    except ValueError:
-        orderid = fail_to_parse('orderid', line)
+    orderid = get_order_id(line)
     sceneid = get_scene_id(line)
     return (dt, remote_addr, user_email, orderid, sceneid, bytes_sent)
 
@@ -178,7 +193,7 @@ def map_line_to_rtcode_bytes(line):
     Precondition: line is a ' ' separated list of data.
                 Return code is the first int in the items from 6 to 11.
                 Bytes downloaded is the second int in the items from 6 to 12.
-    Postcondition: return list where len(list)==2
+    Postcondition: return tuple where len(tuple)==2
                     list[0] is return_code
                     list[1] is bytes_downloaded
     '''
@@ -194,7 +209,7 @@ def map_line_to_email_date(line):
             to "07/Jun/2015"
         data[6] contains the user's request
         The user email is contained between "orders/" and the next "-"
-    Postcondition: truple is returned in the form (user_email, datetime)
+    Postcondition: tuple is returned in the form (user_email, datetime)
         datetime will be in isoformat, similar to "2015-07-27"
     '''
     return (get_user_email(line), get_date(line).isoformat())
@@ -205,113 +220,141 @@ def map_line_to_email_date(line):
 '''
 
 
-def reduce_flatten_to_csv(accum, next_truple):
+def reduce_count_total_and_perday(ordered_accum, next_tuple):
+    try:
+        ordered_accum[next_tuple[0]]['Total'] += 1
+    except KeyError:
+        ordered_accum[next_tuple[0]] = collections.OrderedDict()
+        ordered_accum[next_tuple[0]]['Total'] = 1
+
+    try:
+        ordered_accum[next_tuple[0]][next_tuple[1]] += 1
+    except KeyError:
+        ordered_accum[next_tuple[0]][next_tuple[1]] = 1
+    return ordered_accum
+
+
+def reduce_flatten_to_csv(accum, next_tuple):
     if accum is None:
         accum = []
-    accum.append(','.join(next_truple))
+    accum.append(','.join(next_tuple))
     return accum
 
 
-def reduce_append_value_to_key_list(accum_list, next_truple):
+def reduce_append_value_to_key_list(accum_list, next_tuple):
     '''Appends value to existing value of accum_list[key]
 
     Used by reduce to create list of values within dict with identical keys
     Precondition:
-        next_truple  has attribute '__getitem__'
-        next_truple[0] is key, next_truple[1] is value
+        next_tuple  has attribute '__getitem__'
+        next_tuple[0] is key, next_tuple[1] is value
         accum_list is dictionary
     Postcondition:
         returns a version of accum_list which either contains
             a new key/value or with a single key having a modified value.
     '''
-    if next_truple is None:
+    if next_tuple is None:
         return accum_list
     try:
-        accum_list[next_truple[0]].append(next_truple[1])
+        accum_list[next_tuple[0]].append(next_tuple[1])
     except KeyError:
-        accum_list[next_truple[0]] = []
-        accum_list[next_truple[0]].append(next_truple[1])
+        accum_list[next_tuple[0]] = []
+        accum_list[next_tuple[0]].append(next_tuple[1])
     return accum_list
 
 
-def reduce_accum_value_per_key(accum, next_truple):
+def reduce_accum_value_per_key(accum, next_tuple):
     '''Adds value to existing value of accum[key]
 
     Used by reduce to accumulate values within dict with identical keys
     Precondition:
-        next_truple  has attribute '__getitem__'
-        next_truple[0] is key, next_truple[1] is value
+        next_tuple  has attribute '__getitem__'
+        next_tuple[0] is key, next_tuple[1] is value
         accum_bytes_per_code is dictionary
     Postcondition:
         returns a version of accum which either contains
             a new key/value or with a single key having a modified value.
     '''
-    if next_truple is None:
+    if next_tuple is None:
         return accum
     try:
-        accum[next_truple[0]] += next_truple[1]
+        accum[next_tuple[0]] += next_tuple[1]
     except KeyError:
-        accum[next_truple[0]] = next_truple[1]
+        accum[next_tuple[0]] = next_tuple[1]
     return accum
 
 
-def reduce_count_occurances_per_key(count, next_truple):
+def reduce_count_occurrences_per_key(count, next_tuple):
     '''Adds 1 to existing value of count[key]
 
-    Used by reduce to count occurances of key
+    Used by reduce to count occurrences of key
     Precondition:
-        next_truple  has attribute '__getitem__'
-        next_truple[0] is key, next_truple[1] is value
+        next_tuple  has attribute '__getitem__'
+        next_tuple[0] is key, next_tuple[1] is value
         count is dictionary
     Postcondition:
         returns a version of count which either contains
             a new key/value or with a single key having a modified value.
     '''
-    if next_truple is None:
+    if next_tuple is None:
         return count
     try:
-        count[next_truple[0]] += 1
+        count[next_tuple[0]] += 1
     except KeyError:
-        count[next_truple[0]] = 1
+        count[next_tuple[0]] = 1
     return count
 
 
-def reduce_count_per_keyvalue_occurances(count, next_truple):
+def reduce_count_per_keyvalue_occurrences(count, next_tuple):
     '''Adds 1 to existing value of count[(key,value)]
 
-    Used by reduce to count occurances of key
+    Used by reduce to count occurrences of key
     Precondition:
-        next_truple  has attribute '__getitem__'
-        next_truple[0] is key, next_truple[1] is value
+        next_tuple  has attribute '__getitem__'
+        next_tuple[0] is key, next_tuple[1] is value
         count is dictionary
     Postcondition:
         returns a version of count which either contains
             a new key/value or with a single key having a modified value.
     '''
-    if next_truple is None:
+    if next_tuple is None:
         return count
     try:
-        count[(next_truple[0], next_truple[1])] += 1
+        count[(next_tuple[0], next_tuple[1])] += 1
     except KeyError:
-        count[(next_truple[0], next_truple[1])] = 1
+        count[(next_tuple[0], next_tuple[1])] = 1
     return count
 
 '''
-        Mapreduce
+        Map Reduce
 '''
 
 
 def mapreduce_csv(iterable):
-    truples = map(map_line_to_custom_truple, iterable)
-    return reduce(reduce_flatten_to_csv, truples, [])
+    '''Extract data and returns list of strings with values sep. by commas
+
+    Precondition:
+    Postcondition:
+        returns a list
+        Each entry in list is a string of values with comma as delimiter
+    '''
+    tuples = map(map_line_to_custom_tuple, iterable)
+    return reduce(reduce_flatten_to_csv, tuples, [])
 
 
 def mapreduce_total_bytes(iterable):
+    '''Extracts and accumulates bytes_downlaoded and then returns total
+
+    Precondition:
+    Postcondition:
+        returns a list
+        Each entry in list is a string of values with comma as delimiter
+    '''
     list_of_bytes = map(get_bytes, iterable)
     return reduce(lambda total, x: int(total)+int(x), list_of_bytes)
 
 
-def mapreduce_total_occurances(iterable):
+def mapreduce_total_occurrences(iterable):
     '''Basically len(iterable)'''
     list_of_bytes = map(lambda x: 1, iterable)
     return reduce(lambda total, x: int(total)+1, list_of_bytes)
@@ -335,29 +378,28 @@ def mapreduce_bytes_per_code(iterable):
     return reduce(reduce_accum_value_per_key, code_bytes, bytes_per_code)
 
 
-def mapreduce_occurances_per_code(iterable):
+def mapreduce_occurrences_per_code(iterable):
     '''Extracts return_code and downloaded_bytes then accumulates bytes per code
 
     Description:
         generate iterable of lists containing [return_code, downloaded_bytes]
         then the occurrences of return_code are counted and returned
-    Precondition:
-        iterable contains strings
+    Precondition: iterable contains lines from an Apache formated log file
     Postcondition:
-        return occurances_per_code, a dictionary
-        occurances_per_code contains return_code (key) and occurances (value)
+        return occurrences_per_code, a dictionary
+        occurrences_per_code contains return_code (key) and occurrences (value)
     '''
-    occurances_per_code = {}
+    occurrences_per_code = {}
     code_bytes = map(map_line_to_rtcode_bytes, iterable)
-    return reduce(reduce_count_occurances_per_key,
-                  code_bytes, occurances_per_code)
+    return reduce(reduce_count_occurrences_per_key,
+                  code_bytes, occurrences_per_code)
 
 
-def mapreduce_occurances_per_email(iterable):
-    occurances_per_email = {}
+def mapreduce_occurrences_per_email(iterable):
+    occurrences_per_email = {}
     email_date = map(map_line_to_email_date, iterable)
-    return reduce(reduce_count_occurances_per_key,
-                  email_date, occurances_per_email)
+    return reduce(reduce_count_occurrences_per_key,
+                  email_date, occurrences_per_email)
 
 
 def mapreduce_list_dates_per_email(iterable):
@@ -367,145 +409,221 @@ def mapreduce_list_dates_per_email(iterable):
                   email_date, list_per_email)
 
 
-def mapreduce_occurances_per_email_date(iterable):
-    occurances_per_email_date = {}
+def mapreduce_occurrences_per_email_date(iterable):
+    '''Extracts email and date into combined key, then counts occurrences in value
+
+    Precondition: iterable contains lines from an Apache formated log file
+    Postcondition: Returns a dictionary
+        dictionary will contain keys that contain email and date.
+        dictionary values are the of the number of occurrences for that key
+    '''
+    occurrences_perday_and_peremail = {}
     email_date = map(map_line_to_email_date, iterable)
-    return reduce(reduce_count_per_keyvalue_occurances,
-                  email_date, occurances_per_email_date)
+    return reduce(reduce_count_total_and_perday,
+                  email_date, occurrences_perday_and_peremail)
+
 '''
         Reports - Combine filters with mapreduce
 '''
 
 
 def report_succuessful_production_bytes(iterable):
+    '''Reports the number of bytes downloaded for production products
+
+    Precondition: iterable contains lines from an Apache formated log file
+    Postcondition: Report will contain a single integer.
+    Note: If a value was unable to be parsed then the value will be reported
+            as 'BAD_PARSE'.
+    '''
     only_production = filter(is_production_order, iterable)
     only_successful_production = filter(is_successful_request,
                                         only_production)
+    if(log_badparse_in_reports):
+        write_parse_failed_logs('bad_parse_log/{0}.txt'
+                                .format(inspect.stack()[0][3]))
+
     return str(mapreduce_total_bytes(only_successful_production))
 
 
 def report_succuessful_dswe_bytes(iterable):
+    '''Reports the number of bytes downloaded for dswe products
+
+    Precondition: iterable contains lines from an Apache formated log file
+    Postcondition: Report will contain a single integer.
+    Note: If a value was unable to be parsed then the value will be reported
+            as 'BAD_PARSE'.
+    '''
     only_dswe = filter(is_dswe_order, iterable)
     only_successful_dswe = filter(is_successful_request,
                                   only_dswe)
+    if(log_badparse_in_reports):
+        write_parse_failed_logs('bad_parse_log/{0}.txt'
+                                .format(inspect.stack()[0][3]))
+
     return str(mapreduce_total_bytes(only_successful_dswe))
 
 
 def report_succuessful_burned_area_bytes(iterable):
+    '''Reports the number of bytes downloaded for burned_area products
+
+    Precondition: iterable contains lines from an Apache formated log file
+    Postcondition: Report will contain a single integer.
+    Note: If a value was unable to be parsed then the value will be reported
+            as 'BAD_PARSE'.
+    '''
     only_burned_area = filter(is_burned_area_order, iterable)
     only_successful_burned_area = filter(is_successful_request,
                                          only_burned_area)
+    if(log_badparse_in_reports):
+        write_parse_failed_logs('bad_parse_log/{0}.txt'
+                                .format(inspect.stack()[0][3]))
+
     return str(mapreduce_total_bytes(only_successful_burned_area))
 
 
 def report_succuessful_production_requests(iterable):
+    '''Reports the number of requests for burned_area products
+
+    Precondition: iterable contains lines from an Apache formated log file
+    Postcondition: Report will contain a single integer.
+    Note: If a value was unable to be parsed then the value will be reported
+            as 'BAD_PARSE'.
+    '''
     only_production = filter(is_production_order, iterable)
     only_successful_production = filter(is_successful_request,
                                         only_production)
-    return str(mapreduce_total_occurances(only_successful_production))
+    if(log_badparse_in_reports):
+        write_parse_failed_logs('bad_parse_log/{0}.txt'
+                                .format(inspect.stack()[0][3]))
+
+    return str(mapreduce_total_occurrences(only_successful_production))
 
 
 def report_succuessful_dswe_requests(iterable):
+    '''Reports the number of requests for burned_area products
+
+    Precondition: iterable contains lines from an Apache formated log file
+    Postcondition: Report will contain a single integer.
+    Note: If a value was unable to be parsed then the value will be reported
+            as 'BAD_PARSE'.
+    '''
     only_dswe = filter(is_dswe_order, iterable)
     only_successful_dswe = filter(is_successful_request,
                                   only_dswe)
-    return str(mapreduce_total_occurances(only_successful_dswe))
+    if(log_badparse_in_reports):
+        write_parse_failed_logs('bad_parse_log/{0}.txt'
+                                .format(inspect.stack()[0][3]))
+
+    return str(mapreduce_total_occurrences(only_successful_dswe))
 
 
 def report_succuessful_burned_area_requests(iterable):
+    '''Reports the number of requests for burned_area products
+
+    Precondition: iterable contains lines from an Apache formated log file
+    Postcondition: Report will contain a single integer.
+    Note: If a value was unable to be parsed then the value will be reported
+            as 'BAD_PARSE'.
+    '''
     only_burned_area = filter(is_burned_area_order, iterable)
     only_successful_burned_area = filter(is_successful_request,
                                          only_burned_area)
-    return str(mapreduce_total_occurances(only_successful_burned_area))
+    if(log_badparse_in_reports):
+        write_parse_failed_logs('bad_parse_log/{0}.txt'
+                                .format(inspect.stack()[0][3]))
+
+    return str(mapreduce_total_occurrences(only_successful_burned_area))
 
 
 def report_404_per_user_email_on_production_orders(iterable):
     ''' Will compile a report that provides total offenses per user
 
-    Precondition: offenses_per_email is a dict
-        Key is user_emails and Value is list of dates that offenses occurred
-    Postcondition: returns string of each each user_report separated by '\n'
+    Precondition: iterable contains lines from an Apache formated log file
+    Postcondition: returns string of each user_report separated by '\n'
         Each user_report contains total_offenses and user_email
         Report is sorted from most offenses to least offenses
+    Note: If a value was unable to be parsed then the value will be reported
+            as 'BAD_PARSE'.
     '''
     only_production = filter(is_production_order, iterable)
     production_404requests = filter(is_404_request, only_production)
-    offenses_per_email = mapreduce_occurances_per_email(production_404requests)
+    offenses_per_email = mapreduce_occurrences_per_email(production_404requests)
 
-    sorted_num_of_offenses = sort_dict_by_value(offenses_per_email,
-                                                reverse=True)
-
+    sorted_num_of_offenses = sorted(offenses_per_email.iteritems(),
+                                    key=lambda (k, v): v,
+                                    reverse=True)
     final_report = []
     for item in sorted_num_of_offenses:
         # item[0] = email, item[1] = number of offenses
         final_report.append('{1} {0}'.format(item[0], item[1]))
 
+    if(log_badparse_in_reports):
+        write_parse_failed_logs('bad_parse_log/{0}.txt'
+                                .format(inspect.stack()[0][3]))
+
     return '\n'.join(final_report)
 
 
-def report_404_per_email_date_on_production_orders(iterable):
-    ''' Will compile a report that provides total offenses per user
-
-    Precondition: offenses_per_email is a dict
-        Key is user_emails and Value is list of dates that offenses occurred
-    Postcondition: returns string of each each user_report separated by '\n'
-        Each user_report contains total_offenses and user_email
-        Report is sorted from most offenses to least offenses
+def report_404_perdate_peremail_on_production_orders(iterable):
+    '''Will compile a report that provides total offenses per user
+    Precondition: iterable contains lines from an Apache formated log file
+    Postcondition: Returns user reports separated by '\n'
+        User reports are sorted from most offenses to least offenses.
+        Each user report contain total_bytes_downlaoded and email on first line
+        Each user report will also contain a '\n' separated list daily reports.
+        Each daily report includes date and number of occurrences on that date.
+    Note: If a value was unable to be parsed then the value will be reported
+            as 'BAD_PARSE'.
     '''
     only_production = filter(is_production_order, iterable)
-    production_404req = filter(is_404_request, only_production)
+    filtered = filter(is_404_request, only_production)
 
-    offenses_per_email = mapreduce_occurances_per_email_date(production_404req)
+    offenses_perday_peremail = mapreduce_occurrences_per_email_date(filtered)
 
-    sorted_num_of_offenses = sort_dict_by_value(offenses_per_email,
-                                                reverse=True)
+    sorted_num_of_offenses = sorted(offenses_perday_peremail.iteritems(),
+                                    key=lambda t: t[1]['Total'], reverse=True)
 
     final_report = []
     for item in sorted_num_of_offenses:
-        # item[0] = email, item[1] = number of offenses
-        final_report.append('{1} {0}'.format(item[0], str(item[1])))
+        # item[0] = email, item[1] = number of offense
+        user_report = []
+        total = item[1].popitem(last=False)[1]
+        user_report.append(' '.join([str(total), item[0]]))
+        for date, count in item[1].iteritems():
+            user_report.append("\t {0} {1}"
+                               .format(date, count))
 
-    return '\n'.join(final_report)
-
-
-def report_email_offense_list(iterable):
-    ''' Will compile a report that provides total & perday offenses per user
-
-    Precondition: offenses_per_email is a dict
-        Key is user_emails and Value is list of dates that offenses occurred
-    Postcondition: returns string of each each user_report separated by '\n'
-        Each user_report contains total_offenses and user_email on first line
-            the following lines contain a date and the offenses on that date
-    '''
-    only_404req = filter(is_404_request, iterable)
-    offenses_per_email_date = mapreduce_occurances_per_email_date(only_404req)
-
-    sorted_num_of_offenses = sort_dict_by_value(offenses_per_email_date,
-                                                reverse=True)
-    final_report = []
-    for item in sorted_num_of_offenses:
-        # item[0] = email, item[1] = number of offenses
-        final_report.append('{1} {0}'.format(str(item[0]), item[1]))
+        final_report.append('\n'.join(user_report))
+    if(log_badparse_in_reports):
+        write_parse_failed_logs('bad_parse_log/{0}.txt'
+                                .format(inspect.stack()[0][3]))
 
     return '\n'.join(final_report)
 
 
 def report_csv_of_successful_orders(iterable):
+    '''Report Entries: datetime,remote_addr,user_email,orderid,sceneid,bytes
+
+    Precondition: iterable contains lines from an Apache formated log file
+    Postcondition: Returns line reports separated by '\n'
+        Each line report contains:
+            datetime,remote_addr,user_email,orderid,sceneid,bytes
+    Note: If a value was unable to be parsed then the value will be reported
+            as 'BAD_PARSE'.
+    '''
     only_production = filter(is_production_order, iterable)
     only_successful_production = filter(is_successful_request,
                                         only_production)
+    if(log_badparse_in_reports):
+        write_parse_failed_logs('bad_parse_log/{0}.txt'
+                                .format(inspect.stack()[0][3]))
     return '\n'.join(mapreduce_csv(only_successful_production))
 '''
         Access a report by running script
 '''
 
 
-def main(iterable):
-    report_csv_of_successful_orders(iterable)
-    write_parse_failed_logs('lines_not_parsed.txt')
-
-
 if __name__ == '__main__':
-    print(main(iterable=sys.stdin.readlines()))
+    print('This file should only be used as an import')
 
 

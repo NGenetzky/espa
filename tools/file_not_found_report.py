@@ -32,7 +32,7 @@ def parse_arguments():
 
 def main(iterable, show_per_day=False):
     if(show_per_day):
-        return mapred.report_404_per_email_date_on_production_orders(iterable)
+        return mapred.report_404_perdate_peremail_on_production_orders(iterable)
     else:
         return mapred.report_404_per_user_email_on_production_orders(iterable)
 
