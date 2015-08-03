@@ -16,10 +16,11 @@ AUTHOR: ngenetzky@usgs.gov
 import datetime
 import collections
 import inspect
+import urllib
 '''
         Debug Functions
 '''
-log_badparse_in_reports = False
+log_badparse_in_reports = True
 lines_that_failed_to_parse = []
 
 
@@ -37,7 +38,7 @@ def write_parse_failed_logs(outfile):
     with open(outfile, 'w+') as fp:
         for line in lines_that_failed_to_parse:
             fp.write(str(line))
-            print(str(line))
+            # print(str(line))
 
 
 def fail_to_parse(value, line):
@@ -51,7 +52,7 @@ def fail_to_parse(value, line):
         returns 'BAD_PARSE'
     '''
     global lines_that_failed_to_parse
-    lines_that_failed_to_parse.append('Failed to parse for {0} in <{1}>'
+    lines_that_failed_to_parse.append('Failed to parse for {0} in <\n{1}>'
                                       .format(value, line))
     return 'BAD_PARSE'
 
@@ -101,8 +102,11 @@ def get_bytes(line):
 
 def get_datetime(line):
     time_local = substring_between(line, '[', '] "')
-    return datetime.datetime.strptime(time_local,
-                                      '%d/%b/%Y:%H:%M:%S -0500')
+    try:
+        return datetime.datetime.strptime(time_local,
+                                          '%d/%b/%Y:%H:%M:%S -0500')
+    except ValueError:
+        return fail_to_parse('datetime', line)
 
 
 def get_date(line):
@@ -113,10 +117,12 @@ def get_date(line):
 
 
 def get_user_email(line):
+    request = substring_between(line, '] "', '" ')
+    request = urllib.unquote(request)
     try:
-        return substring_between(line, 'orders/', '-')
+        return substring_between(request, 'orders/', '-')
     except ValueError:
-        return fail_to_parse('datetime', line)
+        return fail_to_parse('user_email', line)
 
 
 def get_scene_id(line):
@@ -135,7 +141,7 @@ def get_order_id(line):
     try:
         return substring_between(request, 'orders/', '/')
     except ValueError:
-        return fail_to_parse('orderid', request)
+        return fail_to_parse('orderid', line)
 
 '''
         Filter helper functions
@@ -167,6 +173,29 @@ def is_burned_area_order(line):
     return (('"GET /provisional/burned_area/' in line) or
             ('"GET /downloads/provisional/burned_area/' in line))
 
+
+def is_ordered_by_usgs_gov_email(line):
+    return ('@usgs.gov' in get_user_email(line))
+
+
+def is_ordered_through_ee_interface(line):
+    '''Use orderid to dtermine if ee interface was used to order
+
+    Precondition: Assumes earth explorer's orderid contains two dashes
+    Postcondition: Returns true if the ee explorer was used for the order.
+    '''
+    return (2 == get_order_id(line).count('-'))
+
+
+def is_within_daterange(line, start_date, end_date):
+    line_date = get_datetime(line)
+    return ((start_date < line_date) and (line_date < end_date))
+
+
+def is_in_this_month(line, month=datetime.datetime.now().month):
+    return (get_datetime(line).month == month)
+
+
 '''
         Mappers
 '''
@@ -176,7 +205,9 @@ def map_line_to_custom_tuple(line):
     '''Extracts values from a line of text into tuple
 
     Precondition: line is a ' ' separated list of data.
-    Postcondition: return tuple where len(tuple)==2
+        Preconditions for the following functions must also
+            be satisfied: get_user_email, get_bytes, get_order_id, get_scene_id
+    Postcondition: return tuple where len(tuple)==6
     '''
     remote_addr = line.split(' - ', 1)[0]
     dt = get_datetime(line).isoformat()
@@ -221,6 +252,17 @@ def map_line_to_email_date(line):
 
 
 def reduce_count_total_and_perday(ordered_accum, next_tuple):
+    '''Accumulate count per day and overall total.
+
+    Precondition:
+        next_tuple  has attribute '__getitem__'
+        next_tuple[0] is A, next_tuple[1] is B
+        ordered_accum is dictionary
+    Postcondition:
+        ordered_accum[A] is an OrderedDict.
+        ordered_accum[A]['Total'] is incremented
+        ordered_accum[A][B] is also incremented
+    '''
     try:
         ordered_accum[next_tuple[0]]['Total'] += 1
     except KeyError:
@@ -235,6 +277,7 @@ def reduce_count_total_and_perday(ordered_accum, next_tuple):
 
 
 def reduce_flatten_to_csv(accum, next_tuple):
+    '''Combines tuple into string of values separated by commas'''
     if accum is None:
         accum = []
     accum.append(','.join(next_tuple))
