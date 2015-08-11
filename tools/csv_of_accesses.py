@@ -20,6 +20,8 @@ import mapreduce_logfile as mapred
 
 def main(iterable):
     '''Will read, extract data, and output line by line.'''
+    return mapred.report_csv(iterable=iterable,
+                             filters=[mapred.is_successful_request])
     return mapred.report_csv_of_successful_orders(iterable)
 
 

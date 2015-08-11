@@ -23,11 +23,11 @@ def parse_arguments():
     '''Parse argument, filter, default to filter='orders' '''
     desc = ('Outputs the bytes downloaded by successful requests')
     parser = argparse.ArgumentParser(description=desc)
-    parser.add_argument('--filter', action='store',
-                        dest='filter',
+    parser.add_argument('--ordertype', action='store',
+                        dest='ordertype',
                         choices=['orders', 'dswe', 'burned_area'],
                         required=False, default='orders',
-                        help='Which filter criteria do you wish to use?')
+                        help='Which order type should be analyzed?')
     args = parser.parse_args()
     return args
 
@@ -38,16 +38,22 @@ def main(iterable, ordertype='orders'):
                 .format(ordertype, ['orders', 'dswe', 'burned_area']))
 
     if(ordertype == 'orders'):
-            return mapred.report_succuessful_production_requests(iterable)
+        return mapred.report_requests(iterable,
+                                      filters=[mapred.is_successful_request,
+                                               mapred.is_production_order])
     elif(ordertype == 'burned_area'):
-            return mapred.report_succuessful_burned_area_requests(iterable)
+        return mapred.report_requests(iterable,
+                                      filters=[mapred.is_successful_request,
+                                               mapred.is_burned_area_order])
     elif(ordertype == 'dswe'):
-            return mapred.report_succuessful_dswe_requests(iterable)
+        return mapred.report_requests(iterable,
+                                      filters=[mapred.is_successful_request,
+                                               mapred.is_dswe_order])
 
 if __name__ == '__main__':
     args = parse_arguments()
     print(main(iterable=sys.stdin.readlines(),
-               ordertype=args.filter))
+               ordertype=args.ordertype))
 
 
 

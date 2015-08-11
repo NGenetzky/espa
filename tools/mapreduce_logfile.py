@@ -12,6 +12,14 @@ LICENSE TYPE: NASA Open Source Agreement Version 1.3
 
 AUTHOR: ngenetzky@usgs.gov
 
+Notes:
+    Expected Apache log format (single line replace (\n with space):
+    '$remote_addr - $remote_user [$time_local] "$request" $status $bytes_sent
+    "$http_referer" "$http_user_agent"
+
+    The script assumes the url portion of $request does not have spaces, and
+    will report BAD_PARSE if one is found. There are numerous other causes
+    for a field to be labeled BAD_PARSE.
 ****************************************************************************'''
 import datetime
 import collections
@@ -20,11 +28,11 @@ import urllib
 '''
         Debug Functions
 '''
-log_badparse_in_reports = True
+log_badparse_in_reports = False
 lines_that_failed_to_parse = []
 
 
-def write_parse_failed_logs(outfile):
+def log_parses_that_failed(outfile):
     '''Will write lines that have failed to parse to a logfile
 
     Precondition:
@@ -34,11 +42,14 @@ def write_parse_failed_logs(outfile):
         Each entry will describe what couldn't be parsed and the line that was
              unable to be parsed.
     '''
-    global lines_that_failed_to_parse
-    with open(outfile, 'w+') as fp:
-        for line in lines_that_failed_to_parse:
-            fp.write(str(line))
-            # print(str(line))
+    if(log_badparse_in_reports):
+        global lines_that_failed_to_parse
+        with open(outfile, 'w+') as fp:
+            failed_parses = set(lines_that_failed_to_parse)
+            fp.write('# lines that failed to parse: {0}'
+                     .format(len(failed_parses)))
+            for line in failed_parses:
+                fp.write(str(line))
 
 
 def fail_to_parse(value, line):
@@ -55,6 +66,11 @@ def fail_to_parse(value, line):
     lines_that_failed_to_parse.append('Failed to parse for {0} in <\n{1}>'
                                       .format(value, line))
     return 'BAD_PARSE'
+
+
+def get_log_name():
+    return 'bad_parse_log/{0}.txt'.format(inspect.stack()[1][3])
+
 
 '''
         Helper Functions
@@ -126,14 +142,15 @@ def get_user_email(line):
 
 
 def get_scene_id(line):
-    response_after_orderid = substring_between(line, 'orders/', '" ')
     try:
+        response_after_orderid = substring_between(line, 'orders/', '" ')
         return substring_between(response_after_orderid, '/', '.tar.gz')
     except ValueError:
         try:
+            response_after_orderid = substring_between(line, 'orders/', '" ')
             return substring_between(response_after_orderid, '/', '.cksum')
         except ValueError:
-            return fail_to_parse('sceneid', response_after_orderid)
+            return fail_to_parse('sceneid', line)
 
 
 def get_order_id(line):
@@ -146,6 +163,10 @@ def get_order_id(line):
 '''
         Filter helper functions
 '''
+
+
+def n_filters(filters, iterable):
+        return (t for t in iterable if all(f(t) for f in filters))
 
 
 def is_successful_request(line):
@@ -394,13 +415,13 @@ def mapreduce_total_bytes(iterable):
         Each entry in list is a string of values with comma as delimiter
     '''
     list_of_bytes = map(get_bytes, iterable)
-    return reduce(lambda total, x: int(total)+int(x), list_of_bytes)
+    return reduce(lambda total, x: int(total)+int(x), list_of_bytes, 0)
 
 
 def mapreduce_total_occurrences(iterable):
     '''Basically len(iterable)'''
     list_of_bytes = map(lambda x: 1, iterable)
-    return reduce(lambda total, x: int(total)+1, list_of_bytes)
+    return reduce(lambda total, x: int(total)+1, list_of_bytes, 0)
 
 
 def mapreduce_bytes_per_code(iterable):
@@ -470,6 +491,113 @@ def mapreduce_occurrences_per_email_date(iterable):
 '''
 
 
+def report_bytes(iterable, filters):
+    '''Reports the number of bytes downloaded
+
+    Precondition: iterable contains lines from an Apache formated log file
+    Postcondition: Report string will contain a single integer.
+    Note: If a value was unable to be parsed then the value will be reported
+            as 'BAD_PARSE'.
+    '''
+    filtered = n_filters(filters, iterable)
+    log_parses_that_failed(get_log_name())
+    return str(mapreduce_total_bytes(filtered))
+
+
+def report_requests(iterable, filters):
+    '''Reports the number of requests
+
+    Precondition: iterable contains lines from an Apache formated log file
+    Postcondition: Report string will contain a single integer.
+    Note: If a value was unable to be parsed then the value will be reported
+            as 'BAD_PARSE'.
+    '''
+    filtered = n_filters(filters, iterable)
+    log_parses_that_failed(get_log_name())
+    return str(mapreduce_total_occurrences(filtered))
+
+
+def report_csv(iterable, filters):
+    '''Report Entries: datetime,remote_addr,user_email,orderid,sceneid,bytes
+
+    Precondition: iterable contains lines from an Apache formated log file
+    Postcondition: Returns line reports separated by '\n'
+        Each line report contains:
+            datetime,remote_addr,user_email,orderid,sceneid,bytes
+    Note: If a value was unable to be parsed then the value will be reported
+            as 'BAD_PARSE'.
+    '''
+    filtered = n_filters(filters, iterable)
+    log_parses_that_failed(get_log_name())
+    return '\n'.join(mapreduce_csv(filtered))
+
+
+def report_404_per_user_email(iterable, filters):
+    ''' Will compile a report that provides total offenses per user
+
+    Precondition: iterable contains lines from an Apache formated log file
+    Postcondition: returns string of each user_report separated by '\n'
+        Each user_report contains total_offenses and user_email
+        Report is sorted from most offenses to least offenses
+    Note: If a value was unable to be parsed then the value will be reported
+            as 'BAD_PARSE'.
+    '''
+    filtered = n_filters(filters, iterable)
+    offenses_per_email = mapreduce_occurrences_per_email(filtered)
+
+    sorted_num_of_offenses = sorted(offenses_per_email.iteritems(),
+                                    key=lambda (k, v): v,
+                                    reverse=True)
+    final_report = []
+    for item in sorted_num_of_offenses:
+        # item[0] = email, item[1] = number of offenses
+        final_report.append('{1} {0}'.format(item[0], item[1]))
+
+    log_parses_that_failed(get_log_name())
+
+    return '\n'.join(final_report)
+
+
+def report_404_perdate_peremail(iterable, filters):
+    '''Will compile a report that provides total offenses per user
+    Precondition: iterable contains lines from an Apache formated log file
+    Postcondition: Returns user reports separated by '\n'
+        User reports are sorted from most offenses to least offenses.
+        Each user report contain total_bytes_downlaoded and email on first line
+        Each user report will also contain a '\n' separated list daily reports.
+        Each daily report includes date and number of occurrences on that date.
+    Note: If a value was unable to be parsed then the value will be reported
+            as 'BAD_PARSE'.
+    '''
+    filtered = n_filters(filters, iterable)
+
+    offenses_perday_peremail = mapreduce_occurrences_per_email_date(filtered)
+
+    sorted_num_of_offenses = sorted(offenses_perday_peremail.iteritems(),
+                                    key=lambda t: t[1]['Total'], reverse=True)
+
+    final_report = []
+    for item in sorted_num_of_offenses:
+        # item[0] = email, item[1] = number of offense
+        user_report = []
+        total = item[1].popitem(last=False)[1]
+        user_report.append(' '.join([str(total), item[0]]))
+        for date, count in item[1].iteritems():
+            user_report.append("\t {0} {1}"
+                               .format(date, count))
+
+        final_report.append('\n'.join(user_report))
+
+    log_parses_that_failed(get_log_name())
+
+    return '\n'.join(final_report)
+
+
+'''
+        Explicit Reports - Combine specific filters with mapreduce
+'''
+
+
 def report_succuessful_production_bytes(iterable):
     '''Reports the number of bytes downloaded for production products
 
@@ -481,9 +609,7 @@ def report_succuessful_production_bytes(iterable):
     only_production = filter(is_production_order, iterable)
     only_successful_production = filter(is_successful_request,
                                         only_production)
-    if(log_badparse_in_reports):
-        write_parse_failed_logs('bad_parse_log/{0}.txt'
-                                .format(inspect.stack()[0][3]))
+    log_parses_that_failed(get_log_name())
 
     return str(mapreduce_total_bytes(only_successful_production))
 
@@ -499,9 +625,7 @@ def report_succuessful_dswe_bytes(iterable):
     only_dswe = filter(is_dswe_order, iterable)
     only_successful_dswe = filter(is_successful_request,
                                   only_dswe)
-    if(log_badparse_in_reports):
-        write_parse_failed_logs('bad_parse_log/{0}.txt'
-                                .format(inspect.stack()[0][3]))
+    log_parses_that_failed(get_log_name())
 
     return str(mapreduce_total_bytes(only_successful_dswe))
 
@@ -517,9 +641,7 @@ def report_succuessful_burned_area_bytes(iterable):
     only_burned_area = filter(is_burned_area_order, iterable)
     only_successful_burned_area = filter(is_successful_request,
                                          only_burned_area)
-    if(log_badparse_in_reports):
-        write_parse_failed_logs('bad_parse_log/{0}.txt'
-                                .format(inspect.stack()[0][3]))
+    log_parses_that_failed(get_log_name())
 
     return str(mapreduce_total_bytes(only_successful_burned_area))
 
@@ -535,9 +657,7 @@ def report_succuessful_production_requests(iterable):
     only_production = filter(is_production_order, iterable)
     only_successful_production = filter(is_successful_request,
                                         only_production)
-    if(log_badparse_in_reports):
-        write_parse_failed_logs('bad_parse_log/{0}.txt'
-                                .format(inspect.stack()[0][3]))
+    log_parses_that_failed(get_log_name())
 
     return str(mapreduce_total_occurrences(only_successful_production))
 
@@ -553,9 +673,7 @@ def report_succuessful_dswe_requests(iterable):
     only_dswe = filter(is_dswe_order, iterable)
     only_successful_dswe = filter(is_successful_request,
                                   only_dswe)
-    if(log_badparse_in_reports):
-        write_parse_failed_logs('bad_parse_log/{0}.txt'
-                                .format(inspect.stack()[0][3]))
+    log_parses_that_failed(get_log_name())
 
     return str(mapreduce_total_occurrences(only_successful_dswe))
 
@@ -571,9 +689,7 @@ def report_succuessful_burned_area_requests(iterable):
     only_burned_area = filter(is_burned_area_order, iterable)
     only_successful_burned_area = filter(is_successful_request,
                                          only_burned_area)
-    if(log_badparse_in_reports):
-        write_parse_failed_logs('bad_parse_log/{0}.txt'
-                                .format(inspect.stack()[0][3]))
+    log_parses_that_failed(get_log_name())
 
     return str(mapreduce_total_occurrences(only_successful_burned_area))
 
@@ -600,9 +716,7 @@ def report_404_per_user_email_on_production_orders(iterable):
         # item[0] = email, item[1] = number of offenses
         final_report.append('{1} {0}'.format(item[0], item[1]))
 
-    if(log_badparse_in_reports):
-        write_parse_failed_logs('bad_parse_log/{0}.txt'
-                                .format(inspect.stack()[0][3]))
+    log_parses_that_failed(get_log_name())
 
     return '\n'.join(final_report)
 
@@ -637,9 +751,7 @@ def report_404_perdate_peremail_on_production_orders(iterable):
                                .format(date, count))
 
         final_report.append('\n'.join(user_report))
-    if(log_badparse_in_reports):
-        write_parse_failed_logs('bad_parse_log/{0}.txt'
-                                .format(inspect.stack()[0][3]))
+    log_parses_that_failed(get_log_name())
 
     return '\n'.join(final_report)
 
@@ -657,9 +769,7 @@ def report_csv_of_successful_orders(iterable):
     only_production = filter(is_production_order, iterable)
     only_successful_production = filter(is_successful_request,
                                         only_production)
-    if(log_badparse_in_reports):
-        write_parse_failed_logs('bad_parse_log/{0}.txt'
-                                .format(inspect.stack()[0][3]))
+    log_parses_that_failed(get_log_name())
     return '\n'.join(mapreduce_csv(only_successful_production))
 '''
         Access a report by running script
